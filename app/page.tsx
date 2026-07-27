@@ -41,6 +41,13 @@ type Tactic = {
   details: DetailedTacticInstructions;
 };
 
+type ConfirmedTacticSnapshot = {
+  lineup: Player[];
+  bench: Player[];
+  slots: Slot[];
+  details: DetailedTacticInstructions;
+};
+
 const relationshipLabels: Record<PlayerRelationshipType, string> = {
   COMBINATION: "짧은 연계",
   OVERLAP: "오버랩",
@@ -77,6 +84,24 @@ function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTactic
       passTargets: instruction.passTargets.map((pass) => ({ ...pass })),
     })),
   };
+}
+
+function cloneTacticSnapshot(snapshot: ConfirmedTacticSnapshot): ConfirmedTacticSnapshot {
+  return {
+    lineup: snapshot.lineup.map((player) => ({ ...player })),
+    bench: snapshot.bench.map((player) => ({ ...player })),
+    slots: snapshot.slots.map((slot) => ({ ...slot })),
+    details: cloneTacticDetails(snapshot.details),
+  };
+}
+
+function tacticSnapshotSignature(snapshot: ConfirmedTacticSnapshot) {
+  return JSON.stringify({
+    lineup: snapshot.lineup.map((player) => player.id),
+    bench: snapshot.bench.map((player) => player.id),
+    slots: snapshot.slots,
+    details: snapshot.details,
+  });
 }
 
 function connectionStyle(from: FormationSlot, to: FormationSlot): CSSProperties {
@@ -237,6 +262,15 @@ function cloneFormationLayouts(layouts: Record<TacticId, FormationSlot[]>): Reco
   return Object.fromEntries(Object.entries(layouts).map(([id, layout]) => [id, layout.map((slot) => ({ ...slot }))]));
 }
 
+function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapshot> {
+  return Object.fromEntries(initialTactics.map((tactic) => [tactic.id, {
+    lineup: players.slice(0, 11).map((player) => ({ ...player })),
+    bench: players.slice(11).map((player) => ({ ...player })),
+    slots: createFormationSlots(tactic.id),
+    details: cloneTacticDetails(tactic.details),
+  }]));
+}
+
 const navItems: Array<{ id: View; label: string; number: string }> = [
   { id: "match", label: "매치룸", number: "01" },
   { id: "review", label: "경기 리뷰", number: "02" },
@@ -254,6 +288,8 @@ export default function Home() {
   const [lineup, setLineup] = useState(players.slice(0, 11));
   const [bench, setBench] = useState(players.slice(11));
   const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
+  const [confirmedTactics, setConfirmedTactics] = useState<Record<TacticId, ConfirmedTacticSnapshot>>(() => createInitialConfirmedTactics());
+  const [boardResetSignal, setBoardResetSignal] = useState(0);
   const [hoveredZone, setHoveredZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
   const [dragAnchor, setDragAnchor] = useState<DragAnchor | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
@@ -267,6 +303,9 @@ export default function Home() {
 
   const activeTactic = savedTactics.find((tactic) => tactic.id === activeTacticId) ?? savedTactics[0];
   const previousTactic = savedTactics.find((tactic) => tactic.id === previousTacticId) ?? savedTactics[0];
+  const currentTacticSnapshot: ConfirmedTacticSnapshot = { lineup, bench, slots, details: activeTactic.details };
+  const confirmedTacticSnapshot = confirmedTactics[activeTacticId];
+  const hasUnconfirmedChanges = !confirmedTacticSnapshot || tacticSnapshotSignature(currentTacticSnapshot) !== tacticSnapshotSignature(confirmedTacticSnapshot);
 
   const metricDelta = useMemo(() => ({
     attack: activeTactic.metrics.attack - previousTactic.metrics.attack,
@@ -320,13 +359,20 @@ export default function Home() {
         })),
       },
     };
+    const createdSlots = createFormationSlots(id, { ...tacticLayouts, [id]: layout });
 
     setSavedTactics((current) => [...current, nextTactic]);
     setTacticLayouts((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
     setTacticDefaults((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
     setPreviousTacticId(activeTacticId);
     setActiveTacticId(id);
-    setSlots(createFormationSlots(id, { ...tacticLayouts, [id]: layout }));
+    setSlots(createdSlots);
+    setConfirmedTactics((current) => ({ ...current, [id]: cloneTacticSnapshot({
+      lineup,
+      bench,
+      slots: createdSlots,
+      details: nextTactic.details,
+    }) }));
     setHoveredZone(null);
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
@@ -338,6 +384,27 @@ export default function Home() {
       ? { ...tactic, details: cloneTacticDetails(details) }
       : tactic));
     if (announce) setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
+  }
+
+  function confirmCurrentTactic() {
+    setConfirmedTactics((current) => ({ ...current, [activeTacticId]: cloneTacticSnapshot(currentTacticSnapshot) }));
+    setTacticLayouts((current) => ({ ...current, [activeTacticId]: slots.map(({ x, y }) => ({ x, y })) }));
+    setNotice(`${activeTactic.name} 전술의 현재 배치와 팀·개인 지침을 확정했습니다.`);
+  }
+
+  function revertCurrentTactic() {
+    const snapshot = confirmedTactics[activeTacticId];
+    if (!snapshot) return;
+    const restored = cloneTacticSnapshot(snapshot);
+    setLineup(restored.lineup);
+    setBench(restored.bench);
+    setSlots(restored.slots);
+    setSavedTactics((current) => current.map((tactic) => tactic.id === activeTacticId ? { ...tactic, details: restored.details } : tactic));
+    setTacticLayouts((current) => ({ ...current, [activeTacticId]: restored.slots.map(({ x, y }) => ({ x, y })) }));
+    setHoveredZone(null);
+    setSelectedPlayer(null);
+    setBoardResetSignal((signal) => signal + 1);
+    setNotice(`${activeTactic.name} 전술을 마지막 확정 상태로 되돌렸습니다.`);
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
@@ -523,11 +590,15 @@ export default function Home() {
           minute={minute}
           notice={notice}
           simulated={simulated}
+          hasUnconfirmedChanges={hasUnconfirmedChanges}
+          boardResetSignal={boardResetSignal}
           teamKit={defaultTeamKit}
           onTactic={applyTactic}
           onReset={resetBoard}
           onCreateTactic={createTactic}
           onUpdateTacticDetails={updateTacticDetails}
+          onConfirmTactic={confirmCurrentTactic}
+          onRevertTactic={revertCurrentTactic}
           onStartDrag={startDrag}
           onDragOverPitch={previewPitchZone}
           onDragLeavePitch={leavePitchZone}
@@ -579,11 +650,15 @@ type MatchRoomProps = {
   minute: number;
   notice: string;
   simulated: boolean;
+  hasUnconfirmedChanges: boolean;
+  boardResetSignal: number;
   teamKit: TeamKit;
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
   onCreateTactic: (name: string, baseTacticId: TacticId) => void;
   onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
+  onConfirmTactic: () => void;
+  onRevertTactic: () => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -625,7 +700,7 @@ function MatchRoom(props: MatchRoomProps) {
     setPassPointer(null);
     setActivePassId(null);
     setPlayerMenuOpen(false);
-  }, [props.activeTactic.id]);
+  }, [props.activeTactic.id, props.boardResetSignal]);
 
   useEffect(() => {
     setPassLinking(false);
@@ -906,7 +981,12 @@ function MatchRoom(props: MatchRoomProps) {
         <section className="board-panel panel">
           <div className="board-toolbar">
             <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하고, 선수를 클릭해 개인 지침을 설정하세요." />
-            <button className="text-button" onClick={props.onReset}>배치 초기화</button>
+            <div className="board-toolbar-actions">
+              <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
+              <button className="text-button" onClick={props.onReset}>배치 초기화</button>
+              <button className="revert-tactic-button" onClick={props.onRevertTactic} disabled={!props.hasUnconfirmedChanges}>확정 전으로</button>
+              <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
+            </div>
           </div>
           <section className="team-instruction-panel" aria-labelledby="team-instruction-title">
             <div className="instruction-panel-head">
