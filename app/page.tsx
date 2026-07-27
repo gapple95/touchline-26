@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, useMemo, useState } from "react";
+import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
 
 type View = "match" | "review" | "manager" | "duel";
 type TacticId = "control" | "press" | "chase" | "lock";
@@ -16,6 +17,7 @@ type Player = {
 };
 
 type Slot = { x: number; y: number; role: string };
+type FormationSlot = Pick<Slot, "x" | "y">;
 type DragPayload = { origin: "pitch" | "bench"; index: number };
 
 type Tactic = {
@@ -95,32 +97,36 @@ const tactics: Tactic[] = [
   },
 ];
 
-const formationSlots: Record<TacticId, Slot[]> = {
+const formationSlots: Record<TacticId, FormationSlot[]> = {
   control: [
-    { x: 11, y: 50, role: "GK" }, { x: 28, y: 13, role: "RB" }, { x: 24, y: 38, role: "CB" },
-    { x: 24, y: 62, role: "CB" }, { x: 28, y: 87, role: "LB" }, { x: 45, y: 38, role: "DM" },
-    { x: 45, y: 62, role: "CM" }, { x: 67, y: 16, role: "LW" }, { x: 61, y: 50, role: "AM" },
-    { x: 67, y: 84, role: "RW" }, { x: 86, y: 50, role: "ST" },
+    { x: 11, y: 50 }, { x: 28, y: 87 }, { x: 24, y: 38 },
+    { x: 24, y: 62 }, { x: 28, y: 13 }, { x: 45, y: 38 },
+    { x: 45, y: 62 }, { x: 67, y: 50 }, { x: 67, y: 16 },
+    { x: 67, y: 84 }, { x: 86, y: 50 },
   ],
   press: [
-    { x: 11, y: 50, role: "GK" }, { x: 28, y: 13, role: "RB" }, { x: 24, y: 38, role: "CB" },
-    { x: 24, y: 62, role: "CB" }, { x: 28, y: 87, role: "LB" }, { x: 43, y: 50, role: "DM" },
-    { x: 53, y: 29, role: "CM" }, { x: 53, y: 71, role: "CM" }, { x: 76, y: 15, role: "LW" },
-    { x: 76, y: 85, role: "RW" }, { x: 87, y: 50, role: "ST" },
+    { x: 11, y: 50 }, { x: 28, y: 87 }, { x: 24, y: 38 },
+    { x: 24, y: 62 }, { x: 28, y: 13 }, { x: 43, y: 50 },
+    { x: 55, y: 35 }, { x: 55, y: 65 }, { x: 76, y: 15 },
+    { x: 76, y: 85 }, { x: 87, y: 50 },
   ],
   chase: [
-    { x: 11, y: 50, role: "GK" }, { x: 26, y: 22, role: "CB" }, { x: 23, y: 50, role: "CB" },
-    { x: 26, y: 78, role: "CB" }, { x: 51, y: 11, role: "LWB" }, { x: 46, y: 38, role: "CM" },
-    { x: 46, y: 62, role: "CM" }, { x: 51, y: 89, role: "RWB" }, { x: 77, y: 17, role: "LW" },
-    { x: 77, y: 83, role: "RW" }, { x: 87, y: 50, role: "ST" },
+    { x: 11, y: 50 }, { x: 26, y: 78 }, { x: 23, y: 50 },
+    { x: 26, y: 22 }, { x: 48, y: 11 }, { x: 55, y: 40 },
+    { x: 55, y: 60 }, { x: 48, y: 89 }, { x: 77, y: 17 },
+    { x: 77, y: 83 }, { x: 87, y: 50 },
   ],
   lock: [
-    { x: 11, y: 50, role: "GK" }, { x: 31, y: 8, role: "RWB" }, { x: 24, y: 29, role: "CB" },
-    { x: 21, y: 50, role: "CB" }, { x: 24, y: 71, role: "CB" }, { x: 31, y: 92, role: "LWB" },
-    { x: 52, y: 22, role: "RM" }, { x: 46, y: 43, role: "CM" }, { x: 46, y: 65, role: "CM" },
-    { x: 52, y: 82, role: "LM" }, { x: 80, y: 50, role: "ST" },
+    { x: 11, y: 50 }, { x: 31, y: 92 }, { x: 24, y: 29 },
+    { x: 21, y: 50 }, { x: 31, y: 8 }, { x: 24, y: 71 },
+    { x: 55, y: 40 }, { x: 55, y: 60 }, { x: 55, y: 15 },
+    { x: 55, y: 85 }, { x: 86, y: 50 },
   ],
 };
+
+function createFormationSlots(id: TacticId): Slot[] {
+  return formationSlots[id].map(({ x, y }) => ({ x, y, role: resolvePitchPosition(x, y).code }));
+}
 
 const navItems: Array<{ id: View; label: string; number: string }> = [
   { id: "match", label: "매치룸", number: "01" },
@@ -135,7 +141,7 @@ export default function Home() {
   const [previousTacticId, setPreviousTacticId] = useState<TacticId>("control");
   const [lineup, setLineup] = useState(players.slice(0, 11));
   const [bench, setBench] = useState(players.slice(11));
-  const [slots, setSlots] = useState<Slot[]>(formationSlots.control.map((slot) => ({ ...slot })));
+  const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
   const [minute, setMinute] = useState(70);
   const [switchCount, setSwitchCount] = useState(0);
@@ -158,7 +164,7 @@ export default function Home() {
     const next = tactics.find((tactic) => tactic.id === id) ?? tactics[0];
     setPreviousTacticId(activeTacticId);
     setActiveTacticId(id);
-    setSlots(formationSlots[id].map((slot) => ({ ...slot })));
+    setSlots(createFormationSlots(id));
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
     setSimulated(false);
@@ -168,7 +174,7 @@ export default function Home() {
   function resetBoard() {
     setLineup(players.slice(0, 11));
     setBench(players.slice(11));
-    setSlots(formationSlots[activeTacticId].map((slot) => ({ ...slot })));
+    setSlots(createFormationSlots(activeTacticId));
     setSelectedPlayer(null);
     setNotice("선수 배치를 현재 전술의 기본 위치로 되돌렸습니다.");
   }
@@ -195,8 +201,9 @@ export default function Home() {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = Math.max(6, Math.min(94, ((event.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(7, Math.min(93, ((event.clientY - rect.top) / rect.height) * 100));
-    setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y } : slot));
-    setNotice(`${lineup[payload.index].name} 선수의 위치를 직접 조정했습니다.`);
+    const position = resolvePitchPosition(x, y);
+    setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
+    setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
   }
 
   function dropOnPlayer(event: DragEvent<HTMLButtonElement>, targetIndex: number) {
@@ -421,6 +428,11 @@ function MatchRoom(props: MatchRoomProps) {
           <div className="pitch-shell">
             <div className="pitch" onDragOver={(event) => event.preventDefault()} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
               <div className="pitch-markings" aria-hidden="true"><i className="halfway" /><i className="centre-circle" /><i className="penalty own" /><i className="penalty opponent" /><i className="goal own" /><i className="goal opponent" /></div>
+              <div className="position-zones" aria-hidden="true">
+                {PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}
+                {PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}
+                {PITCH_PHASES.map((phase) => <span key={phase.id} style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
+              </div>
               <div className="goal-label own">우리 골대</div>
               <div className="goal-label opponent">상대 골대</div>
               {props.slots.map((slot, index) => {
@@ -437,6 +449,7 @@ function MatchRoom(props: MatchRoomProps) {
                     onClick={() => props.onPlayerClick(index)}
                     aria-label={`${player.name}, ${slot.role}, ${player.role}`}
                     aria-pressed={props.selectedPlayer === index}
+                    data-position-zone={slot.role}
                   >
                     <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
                   </button>

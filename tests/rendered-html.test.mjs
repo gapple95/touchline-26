@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { resolvePitchPosition } from "../lib/domain/pitch-zones.js";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -47,4 +48,13 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page + layout, /�/);
+});
+
+test("reassigns the displayed position from pitch coordinates", () => {
+  assert.equal(resolvePitchPosition(24, 50).code, "CB");
+  assert.equal(resolvePitchPosition(24, 90).code, "RB");
+  assert.equal(resolvePitchPosition(24, 10).code, "LB");
+  assert.equal(resolvePitchPosition(44, 50).code, "DM");
+  assert.equal(resolvePitchPosition(72, 50).code, "AM");
+  assert.equal(resolvePitchPosition(88, 50).code, "ST");
 });
