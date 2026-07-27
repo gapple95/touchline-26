@@ -695,7 +695,9 @@ function MatchRoom(props: MatchRoomProps) {
   const [passPopoverPosition, setPassPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [activePassId, setActivePassId] = useState<string | null>(null);
   const [playerMenuOpen, setPlayerMenuOpen] = useState(false);
+  const [playerMenuPosition, setPlayerMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const playerMenuRef = useRef<HTMLDivElement>(null);
+  const playerMenuDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
   const pitchFieldRef = useRef<HTMLDivElement>(null);
   const passPopoverRef = useRef<HTMLDivElement>(null);
   const passPopoverDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
@@ -742,6 +744,33 @@ function MatchRoom(props: MatchRoomProps) {
       document.removeEventListener("keydown", closePlayerMenuWithEscape);
     };
   }, [playerMenuOpen, selectedPlayerData]);
+
+  useEffect(() => {
+    if (!playerMenuOpen || !selectedPlayerSlot) {
+      setPlayerMenuPosition(null);
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const pitch = pitchFieldRef.current;
+      const menu = playerMenuRef.current;
+      if (!pitch || !menu) return;
+      const preferredX = pitch.clientWidth * selectedPlayerSlot.x / 100 + 24;
+      const alternateX = pitch.clientWidth * selectedPlayerSlot.x / 100 - menu.offsetWidth - 24;
+      const x = preferredX + menu.offsetWidth <= pitch.clientWidth - 8 ? preferredX : alternateX;
+      const y = pitch.clientHeight * selectedPlayerSlot.y / 100 - 18;
+      setPlayerMenuPosition(clampPlayerMenuPosition(x, y));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [playerMenuOpen, props.selectedPlayer, selectedPlayerSlot?.x, selectedPlayerSlot?.y]);
+
+  useEffect(() => {
+    if (!playerMenuOpen) return;
+    function keepPlayerMenuInsidePitch() {
+      setPlayerMenuPosition((current) => current ? clampPlayerMenuPosition(current.x, current.y) : current);
+    }
+    window.addEventListener("resize", keepPlayerMenuInsidePitch);
+    return () => window.removeEventListener("resize", keepPlayerMenuInsidePitch);
+  }, [playerMenuOpen]);
 
   useEffect(() => {
     if (!passLinking && !pendingPass) return;
@@ -895,6 +924,49 @@ function MatchRoom(props: MatchRoomProps) {
     passPopoverDragRef.current = null;
   }
 
+  function clampPlayerMenuPosition(x: number, y: number) {
+    const pitch = pitchFieldRef.current;
+    const menu = playerMenuRef.current;
+    if (!pitch || !menu) return { x, y };
+    const margin = 8;
+    const maxX = Math.max(margin, pitch.clientWidth - menu.offsetWidth - margin);
+    const maxY = Math.max(margin, pitch.clientHeight - menu.offsetHeight - margin);
+    return {
+      x: Math.min(Math.max(margin, x), maxX),
+      y: Math.min(Math.max(margin, y), maxY),
+    };
+  }
+
+  function startPlayerMenuDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !playerMenuRef.current || (event.target as Element).closest("button")) return;
+    const menuRect = playerMenuRef.current.getBoundingClientRect();
+    playerMenuDragRef.current = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - menuRect.left,
+      offsetY: event.clientY - menuRect.top,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function dragPlayerMenu(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = playerMenuDragRef.current;
+    const pitch = pitchFieldRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !pitch) return;
+    const pitchRect = pitch.getBoundingClientRect();
+    setPlayerMenuPosition(clampPlayerMenuPosition(
+      event.clientX - pitchRect.left - drag.offsetX,
+      event.clientY - pitchRect.top - drag.offsetY,
+    ));
+  }
+
+  function finishPlayerMenuDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (playerMenuDragRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    playerMenuDragRef.current = null;
+  }
+
   function focusPlayerInstructions() {
     setPlayerMenuOpen(false);
     requestAnimationFrame(() => {
@@ -924,6 +996,7 @@ function MatchRoom(props: MatchRoomProps) {
 
   function handlePitchGroundClick() {
     if (passLinking || pendingPass) cancelPassAssignment();
+    if (playerMenuOpen) setPlayerMenuOpen(false);
   }
 
   function handlePitchPlayerClick(targetIndex: number) {
@@ -1236,16 +1309,17 @@ function MatchRoom(props: MatchRoomProps) {
                 {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && !pendingPass && (
                   <div
                     ref={playerMenuRef}
-                    className={`player-action-menu ${selectedPlayerSlot.x > 68 ? "align-left" : ""} ${selectedPlayerSlot.y > 58 ? "align-up" : ""}`}
-                    style={{ left: `${selectedPlayerSlot.x}%`, top: `${selectedPlayerSlot.y}%` }}
+                    className="player-action-menu"
+                    style={playerMenuPosition ? { left: playerMenuPosition.x, top: playerMenuPosition.y } : { left: `${selectedPlayerSlot.x}%`, top: `${selectedPlayerSlot.y}%`, visibility: "hidden" }}
                     role="group"
                     aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴`}
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    <div><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요</small><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
+                    <div className="player-action-header" onPointerDown={startPlayerMenuDrag} onPointerMove={dragPlayerMenu} onPointerUp={finishPlayerMenuDrag} onPointerCancel={finishPlayerMenuDrag} title="드래그하여 창 이동"><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요 · DRAG</small><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
                     <button type="button" onClick={startPassAssignment}><i>→</i>패스 지정</button>
                     <button type="button" onClick={focusPlayerInstructions}><i>≡</i>개인 지침</button>
-                    <button type="button" className={selectedInstruction.runDirection === "FORWARD" ? "active" : ""} onClick={() => chooseRunDirection("FORWARD")} aria-pressed={selectedInstruction.runDirection === "FORWARD"}><i>↗</i>앞으로 달리기</button>
-                    <button type="button" className={selectedInstruction.runDirection === "BACKWARD" ? "active" : ""} onClick={() => chooseRunDirection("BACKWARD")} aria-pressed={selectedInstruction.runDirection === "BACKWARD"}><i>↙</i>뒤로 달리기</button>
+                    <button type="button" className={selectedInstruction.runDirection === "FORWARD" ? "active" : ""} onClick={() => chooseRunDirection("FORWARD")} aria-pressed={selectedInstruction.runDirection === "FORWARD"}><i>↗</i>공격 가담</button>
+                    <button type="button" className={selectedInstruction.runDirection === "BACKWARD" ? "active" : ""} onClick={() => chooseRunDirection("BACKWARD")} aria-pressed={selectedInstruction.runDirection === "BACKWARD"}><i>↙</i>수비 가담</button>
                   </div>
                 )}
               </div>
@@ -1254,7 +1328,7 @@ function MatchRoom(props: MatchRoomProps) {
           {selectedPlayerData && selectedInstruction ? (
             <section id="player-instruction-panel" className="player-instruction-panel" aria-labelledby="player-instruction-title" tabIndex={-1}>
               <div className="instruction-panel-head player">
-                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "앞으로" : selectedInstruction.runDirection === "BACKWARD" ? "뒤로" : "유지"}</p></div>
+                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "공격 가담" : selectedInstruction.runDirection === "BACKWARD" ? "수비 가담" : "위치 유지"}</p></div>
                 <button type="button" onClick={() => props.onPlayerClick(props.selectedPlayer ?? 0)} aria-label={`${selectedPlayerData.name} 개인 지침 닫기`}>×</button>
               </div>
               <div className="player-instruction-sliders">

@@ -80,6 +80,11 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /clampPassPopoverPosition/);
   assert.match(page, /startPassPopoverDrag/);
   assert.match(page, /dragPassPopover/);
+  assert.match(page, /playerMenuPosition/);
+  assert.match(page, /clampPlayerMenuPosition/);
+  assert.match(page, /startPlayerMenuDrag/);
+  assert.match(page, /dragPlayerMenu/);
+  assert.match(page + css, /player-action-header/);
   assert.match(page, /passLinking \|\| pendingPass/);
   assert.match(page, /onClick=\{\(event\) => event\.stopPropagation\(\)\}/);
   assert.match(page, /PendingPassDraft/);
@@ -91,8 +96,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /confirmPendingPass}>연결/);
   assert.match(page, /cancelPassAssignment}>취소/);
   assert.match(page, /패스 적극도/);
-  assert.match(page, /앞으로 달리기/);
-  assert.match(page, /뒤로 달리기/);
+  assert.match(page, /공격 가담/);
+  assert.match(page, /수비 가담/);
   assert.match(page, /playerInstructions/);
   assert.match(page, /Math\.hypot\(dx, projectedDy\)/);
   assert.match(page, /closest<HTMLDivElement>\("\.pitch-field"\)/);
