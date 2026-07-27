@@ -1153,7 +1153,7 @@ function MatchRoom(props: MatchRoomProps) {
                     <div className={`pass-confirm-popover ${targetSlot.x > 68 ? "align-left" : ""} ${targetSlot.y > 58 ? "align-up" : ""}`} style={{ left: `${targetSlot.x}%`, top: `${targetSlot.y}%` }} role="dialog" aria-label={`${fromPlayer.name}에서 ${targetPlayer.name} 패스 설정`}>
                       <div><span>PASS INSTRUCTION</span><b>{fromPlayer.name} → {targetPlayer.name}</b></div>
                       <label><span>패스 적극도 <output>{pendingPass.intensity}</output></span><input autoFocus aria-label={`${targetPlayer.name} 패스 적극도 설정`} type="range" min="0" max="100" value={pendingPass.intensity} onChange={(event) => setPendingPass((current) => current ? { ...current, intensity: Number(event.target.value) } : current)} /><small><i>상황 우선</i><i>최우선 연결</i></small></label>
-                      <div className="pass-confirm-actions"><button type="button" onClick={cancelPassAssignment}>지정 취소</button><button type="button" onClick={confirmPendingPass}>패스 확정</button></div>
+                      <div className="pass-confirm-actions"><button type="button" onClick={confirmPendingPass}>연결</button><button type="button" onClick={cancelPassAssignment}>취소</button></div>
                     </div>
                   );
                 })()}

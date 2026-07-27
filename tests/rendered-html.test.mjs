@@ -81,7 +81,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /event\.stopPropagation\(\); handlePitchPlayerClick/);
   assert.match(page, /cancelPassAssignment/);
   assert.match(page, /cancelPassWithEscape/);
-  assert.match(page, /패스 확정/);
+  assert.match(page, /confirmPendingPass}>연결/);
+  assert.match(page, /cancelPassAssignment}>취소/);
   assert.match(page, /패스 적극도/);
   assert.match(page, /앞으로 달리기/);
   assert.match(page, /뒤로 달리기/);
