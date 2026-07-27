@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { resolvePitchPosition } from "../lib/domain/pitch-zones.js";
+import { PITCH_DIMENSIONS_METRES, resolvePitchPosition } from "../lib/domain/pitch-zones.js";
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -41,7 +41,11 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /dropOnPitch/);
   assert.match(page, /position-zone-preview/);
   assert.match(page, /pitch-coordinate-layer/);
-  assert.match(page, /PITCH_INSET_PX/);
+  assert.match(page, /pitch-field/);
+  assert.match(page + css, /105\s*\/\s*68/);
+  assert.match(css, /15\.7142857143%/);
+  assert.match(css, /5\.2380952381%/);
+  assert.match(css, /17\.4285714286%/);
   assert.match(page, /goalkeeper/);
   assert.match(page, /onDragLeavePitch/);
   assert.match(page, /왼쪽은 우리 골대, 오른쪽은 상대 골대/);
@@ -57,11 +61,22 @@ test("keeps the core interaction contract in source", async () => {
 });
 
 test("reassigns the displayed position from pitch coordinates", () => {
+  assert.deepEqual(PITCH_DIMENSIONS_METRES, {
+    length: 105,
+    width: 68,
+    goalWidth: 7.32,
+    goalAreaDepth: 5.5,
+    penaltyAreaDepth: 16.5,
+    penaltyMarkDistance: 11,
+    circleRadius: 9.15,
+    cornerRadius: 1,
+  });
   assert.equal(resolvePitchPosition(24, 50).code, "CB");
   const rightBackZone = resolvePitchPosition(24, 90);
   assert.equal(rightBackZone.code, "RB");
   assert.equal(rightBackZone.label, "오른쪽 풀백");
-  assert.deepEqual(rightBackZone.bounds, { left: 18, top: 76, width: 20, height: 24 });
+  assert.ok(Math.abs(rightBackZone.bounds.left - (16.5 / 105 * 100)) < 0.0001);
+  assert.ok(Math.abs(rightBackZone.bounds.top - ((68 - 13.84) / 68 * 100)) < 0.0001);
   assert.equal(resolvePitchPosition(24, 10).code, "LB");
   assert.equal(resolvePitchPosition(44, 50).code, "DM");
   assert.equal(resolvePitchPosition(72, 50).code, "AM");

@@ -37,8 +37,6 @@ type Tactic = {
   risk: string;
 };
 
-const PITCH_INSET_PX = 14;
-
 const players: Player[] = [
   { id: "kim-seunggyu", name: "김승규", number: 1, position: "GK", role: "스위퍼 키퍼", stamina: 88 },
   { id: "kim-munhwan", name: "김문환", number: 15, position: "RB", role: "오버래핑 풀백", stamina: 91 },
@@ -201,11 +199,9 @@ export default function Home() {
 
   function pitchCoordinates(element: HTMLDivElement, clientX: number, clientY: number) {
     const rect = element.getBoundingClientRect();
-    const innerWidth = Math.max(1, rect.width - PITCH_INSET_PX * 2);
-    const innerHeight = Math.max(1, rect.height - PITCH_INSET_PX * 2);
     return {
-      x: Math.max(2, Math.min(98, ((clientX - rect.left - PITCH_INSET_PX) / innerWidth) * 100)),
-      y: Math.max(2, Math.min(98, ((clientY - rect.top - PITCH_INSET_PX) / innerHeight) * 100)),
+      x: Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(2, Math.min(98, ((clientY - rect.top) / rect.height) * 100)),
     };
   }
 
@@ -467,49 +463,59 @@ function MatchRoom(props: MatchRoomProps) {
             <button className="text-button" onClick={props.onReset}>배치 초기화</button>
           </div>
           <div className="pitch-shell">
-            <div className="pitch" onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
-              <div className="pitch-markings" aria-hidden="true"><i className="halfway" /><i className="centre-circle" /><i className="penalty own" /><i className="penalty opponent" /><i className="goal own" /><i className="goal opponent" /></div>
-              <div className="position-zones" aria-hidden="true">
-                {PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}
-                {PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}
-                {props.hoveredZone && (
-                  <div
-                    className="position-zone-preview"
-                    style={{
-                      left: `${props.hoveredZone.bounds.left}%`,
-                      top: `${props.hoveredZone.bounds.top}%`,
-                      width: `${props.hoveredZone.bounds.width}%`,
-                      height: `${props.hoveredZone.bounds.height}%`,
-                    }}
-                  >
-                    <b>{props.hoveredZone.code}</b>
-                    <span>{props.hoveredZone.label}</span>
-                  </div>
-                )}
-                {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
-              </div>
-              <div className="pitch-coordinate-layer">
-                {props.slots.map((slot, index) => {
-                  const player = props.lineup[index];
-                  return (
-                    <button
-                      key={player.id}
-                      className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""}`}
-                      style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
-                      draggable
-                      onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
-                      onDragEnd={props.onDragEnd}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => props.onDropPlayer(event, index)}
-                      onClick={() => props.onPlayerClick(index)}
-                      aria-label={`${player.name}, ${slot.role}, ${player.role}`}
-                      aria-pressed={props.selectedPlayer === index}
-                      data-position-zone={slot.role}
+            <div className="pitch">
+              <div className="pitch-field" onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+                <div className="pitch-markings" aria-hidden="true">
+                  <i className="halfway" /><i className="centre-circle" /><i className="centre-mark" />
+                  <i className="penalty-area own" /><i className="penalty-area opponent" />
+                  <i className="goal-area own" /><i className="goal-area opponent" />
+                  <i className="penalty-mark own" /><i className="penalty-mark opponent" />
+                  <i className="penalty-arc own" /><i className="penalty-arc opponent" />
+                  <i className="corner-arc top-left" /><i className="corner-arc top-right" /><i className="corner-arc bottom-left" /><i className="corner-arc bottom-right" />
+                  <i className="goal own" /><i className="goal opponent" />
+                </div>
+                <div className="position-zones" aria-hidden="true">
+                  {PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}
+                  {PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}
+                  {props.hoveredZone && (
+                    <div
+                      className="position-zone-preview"
+                      style={{
+                        left: `${props.hoveredZone.bounds.left}%`,
+                        top: `${props.hoveredZone.bounds.top}%`,
+                        width: `${props.hoveredZone.bounds.width}%`,
+                        height: `${props.hoveredZone.bounds.height}%`,
+                      }}
                     >
-                      <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
-                    </button>
-                  );
-                })}
+                      <b>{props.hoveredZone.code}</b>
+                      <span>{props.hoveredZone.label}</span>
+                    </div>
+                  )}
+                  {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
+                </div>
+                <div className="pitch-coordinate-layer">
+                  {props.slots.map((slot, index) => {
+                    const player = props.lineup[index];
+                    return (
+                      <button
+                        key={player.id}
+                        className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""}`}
+                        style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+                        draggable
+                        onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
+                        onDragEnd={props.onDragEnd}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => props.onDropPlayer(event, index)}
+                        onClick={() => props.onPlayerClick(index)}
+                        aria-label={`${player.name}, ${slot.role}, ${player.role}`}
+                        aria-pressed={props.selectedPlayer === index}
+                        data-position-zone={slot.role}
+                      >
+                        <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
