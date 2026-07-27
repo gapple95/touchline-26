@@ -97,28 +97,28 @@ const tactics: Tactic[] = [
 
 const formationSlots: Record<TacticId, Slot[]> = {
   control: [
-    { x: 50, y: 89, role: "GK" }, { x: 13, y: 72, role: "RB" }, { x: 38, y: 76, role: "CB" },
-    { x: 62, y: 76, role: "CB" }, { x: 87, y: 72, role: "LB" }, { x: 38, y: 55, role: "DM" },
-    { x: 62, y: 55, role: "CM" }, { x: 16, y: 33, role: "LW" }, { x: 50, y: 39, role: "AM" },
-    { x: 84, y: 33, role: "RW" }, { x: 50, y: 14, role: "ST" },
+    { x: 11, y: 50, role: "GK" }, { x: 28, y: 13, role: "RB" }, { x: 24, y: 38, role: "CB" },
+    { x: 24, y: 62, role: "CB" }, { x: 28, y: 87, role: "LB" }, { x: 45, y: 38, role: "DM" },
+    { x: 45, y: 62, role: "CM" }, { x: 67, y: 16, role: "LW" }, { x: 61, y: 50, role: "AM" },
+    { x: 67, y: 84, role: "RW" }, { x: 86, y: 50, role: "ST" },
   ],
   press: [
-    { x: 50, y: 89, role: "GK" }, { x: 13, y: 72, role: "RB" }, { x: 38, y: 76, role: "CB" },
-    { x: 62, y: 76, role: "CB" }, { x: 87, y: 72, role: "LB" }, { x: 50, y: 57, role: "DM" },
-    { x: 29, y: 47, role: "CM" }, { x: 71, y: 47, role: "CM" }, { x: 15, y: 24, role: "LW" },
-    { x: 85, y: 24, role: "RW" }, { x: 50, y: 13, role: "ST" },
+    { x: 11, y: 50, role: "GK" }, { x: 28, y: 13, role: "RB" }, { x: 24, y: 38, role: "CB" },
+    { x: 24, y: 62, role: "CB" }, { x: 28, y: 87, role: "LB" }, { x: 43, y: 50, role: "DM" },
+    { x: 53, y: 29, role: "CM" }, { x: 53, y: 71, role: "CM" }, { x: 76, y: 15, role: "LW" },
+    { x: 76, y: 85, role: "RW" }, { x: 87, y: 50, role: "ST" },
   ],
   chase: [
-    { x: 50, y: 89, role: "GK" }, { x: 22, y: 74, role: "CB" }, { x: 50, y: 77, role: "CB" },
-    { x: 78, y: 74, role: "CB" }, { x: 11, y: 49, role: "LWB" }, { x: 38, y: 54, role: "CM" },
-    { x: 62, y: 54, role: "CM" }, { x: 89, y: 49, role: "RWB" }, { x: 17, y: 23, role: "LW" },
-    { x: 83, y: 23, role: "RW" }, { x: 50, y: 13, role: "ST" },
+    { x: 11, y: 50, role: "GK" }, { x: 26, y: 22, role: "CB" }, { x: 23, y: 50, role: "CB" },
+    { x: 26, y: 78, role: "CB" }, { x: 51, y: 11, role: "LWB" }, { x: 46, y: 38, role: "CM" },
+    { x: 46, y: 62, role: "CM" }, { x: 51, y: 89, role: "RWB" }, { x: 77, y: 17, role: "LW" },
+    { x: 77, y: 83, role: "RW" }, { x: 87, y: 50, role: "ST" },
   ],
   lock: [
-    { x: 50, y: 89, role: "GK" }, { x: 8, y: 69, role: "RWB" }, { x: 29, y: 76, role: "CB" },
-    { x: 50, y: 79, role: "CB" }, { x: 71, y: 76, role: "CB" }, { x: 92, y: 69, role: "LWB" },
-    { x: 22, y: 48, role: "RM" }, { x: 43, y: 54, role: "CM" }, { x: 65, y: 54, role: "CM" },
-    { x: 82, y: 48, role: "LM" }, { x: 50, y: 20, role: "ST" },
+    { x: 11, y: 50, role: "GK" }, { x: 31, y: 8, role: "RWB" }, { x: 24, y: 29, role: "CB" },
+    { x: 21, y: 50, role: "CB" }, { x: 24, y: 71, role: "CB" }, { x: 31, y: 92, role: "LWB" },
+    { x: 52, y: 22, role: "RM" }, { x: 46, y: 43, role: "CM" }, { x: 46, y: 65, role: "CM" },
+    { x: 52, y: 82, role: "LM" }, { x: 80, y: 50, role: "ST" },
   ],
 };
 
@@ -419,9 +419,10 @@ function MatchRoom(props: MatchRoomProps) {
             <button className="text-button" onClick={props.onReset}>배치 초기화</button>
           </div>
           <div className="pitch-shell">
-            <div className="pitch" onDragOver={(event) => event.preventDefault()} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드">
-              <div className="pitch-markings" aria-hidden="true"><i className="halfway" /><i className="centre-circle" /><i className="penalty top" /><i className="penalty bottom" /></div>
-              <div className="attack-arrow">ATTACK <b>↑</b></div>
+            <div className="pitch" onDragOver={(event) => event.preventDefault()} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+              <div className="pitch-markings" aria-hidden="true"><i className="halfway" /><i className="centre-circle" /><i className="penalty own" /><i className="penalty opponent" /><i className="goal own" /><i className="goal opponent" /></div>
+              <div className="goal-label own">우리 골대</div>
+              <div className="goal-label opponent">상대 골대</div>
               {props.slots.map((slot, index) => {
                 const player = props.lineup[index];
                 return (

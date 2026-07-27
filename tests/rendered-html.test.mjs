@@ -38,6 +38,8 @@ test("keeps the core interaction contract in source", async () => {
 
   assert.match(page, /draggable/);
   assert.match(page, /dropOnPitch/);
+  assert.match(page, /왼쪽은 우리 골대, 오른쪽은 상대 골대/);
+  assert.doesNotMatch(page, /ATTACK/);
   assert.match(page, /generateRecommendation/);
   assert.match(page, /requires|최종 적용은 감독이 확정/);
   assert.match(page, /Tactical|TACTICAL DUEL/);
