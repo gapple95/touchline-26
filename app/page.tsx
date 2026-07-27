@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
+import { deriveLiveTacticalMetrics } from "@/lib/domain/live-tactical-metrics.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
 type View = "match" | "review" | "manager" | "duel";
@@ -54,6 +55,8 @@ type PendingPassDraft = {
   toPlayerId: string;
   intensity: number;
 };
+
+type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
 
 const relationshipLabels: Record<PlayerRelationshipType, string> = {
   COMBINATION: "짧은 연계",
@@ -291,7 +294,6 @@ export default function Home() {
   const [tacticLayouts, setTacticLayouts] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
   const [tacticDefaults, setTacticDefaults] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
   const [activeTacticId, setActiveTacticId] = useState<TacticId>("control");
-  const [previousTacticId, setPreviousTacticId] = useState<TacticId>("control");
   const [lineup, setLineup] = useState(players.slice(0, 11));
   const [bench, setBench] = useState(players.slice(11));
   const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
@@ -308,20 +310,25 @@ export default function Home() {
   const [duelResolved, setDuelResolved] = useState(false);
 
   const activeTactic = savedTactics.find((tactic) => tactic.id === activeTacticId) ?? savedTactics[0];
-  const previousTactic = savedTactics.find((tactic) => tactic.id === previousTacticId) ?? savedTactics[0];
   const currentTacticSnapshot: ConfirmedTacticSnapshot = { lineup, bench, slots, details: activeTactic.details };
   const confirmedTacticSnapshot = confirmedTactics[activeTacticId];
   const hasUnconfirmedChanges = !confirmedTacticSnapshot || tacticSnapshotSignature(currentTacticSnapshot) !== tacticSnapshotSignature(confirmedTacticSnapshot);
-
+  const liveMetrics = useMemo(() => deriveLiveTacticalMetrics({ players: lineup, slots, details: activeTactic.details }), [lineup, slots, activeTactic.details]);
+  const confirmedLiveMetrics = useMemo(() => deriveLiveTacticalMetrics({
+    players: confirmedTacticSnapshot?.lineup ?? lineup,
+    slots: confirmedTacticSnapshot?.slots ?? slots,
+    details: confirmedTacticSnapshot?.details ?? activeTactic.details,
+  }), [confirmedTacticSnapshot, lineup, slots, activeTactic.details]);
   const metricDelta = useMemo(() => ({
-    attack: activeTactic.metrics.attack - previousTactic.metrics.attack,
-    defence: activeTactic.metrics.defence - previousTactic.metrics.defence,
-    centre: activeTactic.metrics.centre - previousTactic.metrics.centre,
-  }), [activeTactic, previousTactic]);
+    attack: liveMetrics.attack - confirmedLiveMetrics.attack,
+    defence: liveMetrics.defence - confirmedLiveMetrics.defence,
+    centre: liveMetrics.centre - confirmedLiveMetrics.centre,
+    transition: liveMetrics.transition - confirmedLiveMetrics.transition,
+    fatigue: liveMetrics.fatigue - confirmedLiveMetrics.fatigue,
+  }), [liveMetrics, confirmedLiveMetrics]);
 
   function applyTactic(id: TacticId, source: "direct" | "coach" = "direct") {
     const next = savedTactics.find((tactic) => tactic.id === id) ?? savedTactics[0];
-    setPreviousTacticId(activeTacticId);
     setActiveTacticId(id);
     setSlots(createFormationSlots(id, tacticLayouts));
     setHoveredZone(null);
@@ -370,7 +377,6 @@ export default function Home() {
     setSavedTactics((current) => [...current, nextTactic]);
     setTacticLayouts((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
     setTacticDefaults((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
-    setPreviousTacticId(activeTacticId);
     setActiveTacticId(id);
     setSlots(createdSlots);
     setConfirmedTactics((current) => ({ ...current, [id]: cloneTacticSnapshot({
@@ -569,7 +575,7 @@ export default function Home() {
         <MatchRoom
           savedTactics={savedTactics}
           activeTactic={activeTactic}
-          previousTactic={previousTactic}
+          liveMetrics={liveMetrics}
           metricDelta={metricDelta}
           lineup={lineup}
           bench={bench}
@@ -627,8 +633,8 @@ export default function Home() {
 type MatchRoomProps = {
   savedTactics: Tactic[];
   activeTactic: Tactic;
-  previousTactic: Tactic;
-  metricDelta: { attack: number; defence: number; centre: number };
+  liveMetrics: LiveTacticalMetrics;
+  metricDelta: { attack: number; defence: number; centre: number; transition: number; fatigue: number };
   lineup: Player[];
   bench: Player[];
   slots: Slot[];
@@ -1142,17 +1148,28 @@ function MatchRoom(props: MatchRoomProps) {
             </form>
           )}
           <div className="metric-card">
-            <div className="metric-heading"><span>전술 지표</span><small>TOUCHLINE DERIVED</small></div>
-            <Metric label="공격 위협" value={props.activeTactic.metrics.attack} tone="orange" />
-            <Metric label="수비 안정" value={props.activeTactic.metrics.defence} tone="mint" />
-            <Metric label="중앙 보호" value={props.activeTactic.metrics.centre} tone="yellow" />
-            <Metric label="전환 속도" value={props.activeTactic.metrics.transition} tone="lime" />
+            <div className="metric-heading"><span>라이브 전술 지표</span><small><i /> LIVE PLAN INDEX</small></div>
+            <Metric label="공격 위협" value={props.liveMetrics.attack} tone="orange" />
+            <Metric label="수비 안정" value={props.liveMetrics.defence} tone="mint" />
+            <Metric label="중앙 보호" value={props.liveMetrics.centre} tone="yellow" />
+            <Metric label="전환 속도" value={props.liveMetrics.transition} tone="lime" />
+            <Metric label="체력 부담" value={props.liveMetrics.fatigue} tone="orange" />
+            <div className="live-index-grid">
+              <LiveMetricFact label="수비 라인" value={`${props.liveMetrics.defensiveLineMetres}m`} />
+              <LiveMetricFact label="팀 길이" value={`${props.liveMetrics.teamLengthMetres}m`} />
+              <LiveMetricFact label="팀 폭" value={`${props.liveMetrics.teamWidthMetres}m`} />
+              <LiveMetricFact label="컴팩트" value={props.liveMetrics.compactness} />
+              <LiveMetricFact label="압박 의도" value={props.liveMetrics.pressing} />
+              <LiveMetricFact label="뒷공간 위험" value={props.liveMetrics.spaceBehindRisk} warning />
+            </div>
+            <div className="live-phase"><span>예상 플레이 국면</span><b>{props.liveMetrics.phaseLabel}</b></div>
+            <p className="metric-disclaimer">선수 배치·팀/개인 지침·패스 연결 기반 계획값이며 공식 경기 통계가 아닙니다.</p>
           </div>
           <div className="delta-card">
-            <span>{props.previousTactic.name} 대비</span>
-            <div><b className={deltaClass(props.metricDelta.attack)}>공격 {formatDelta(props.metricDelta.attack)}</b><b className={deltaClass(props.metricDelta.defence)}>수비 {formatDelta(props.metricDelta.defence)}</b><b className={deltaClass(props.metricDelta.centre)}>중앙 {formatDelta(props.metricDelta.centre)}</b></div>
+            <span>마지막 확정 대비 · 실시간</span>
+            <div><b className={deltaClass(props.metricDelta.attack)}>공격 {formatDelta(props.metricDelta.attack)}</b><b className={deltaClass(props.metricDelta.defence)}>수비 {formatDelta(props.metricDelta.defence)}</b><b className={deltaClass(props.metricDelta.centre)}>중앙 {formatDelta(props.metricDelta.centre)}</b><b className={deltaClass(props.metricDelta.transition)}>전환 {formatDelta(props.metricDelta.transition)}</b><b className={deltaClass(-props.metricDelta.fatigue)}>부담 {formatDelta(props.metricDelta.fatigue)}</b></div>
           </div>
-          <div className="risk-note"><span>RISK</span><p>{props.activeTactic.risk}</p></div>
+          <div className="risk-note"><span>LIVE RISK</span><p>뒷공간 {props.liveMetrics.spaceBehindRisk} · 체력 부담 {props.liveMetrics.fatigue}<br />{props.activeTactic.risk}</p></div>
         </aside>
 
         <section className="board-panel panel">
@@ -1467,6 +1484,10 @@ function ScreenHeader({ eyebrow, title, description, dark = false }: { eyebrow: 
 
 function Metric({ label, value, tone }: { label: string; value: number; tone: Tone }) {
   return <div className={`metric ${tone}`}><div><span>{label}</span><b>{value}</b></div><div className="metric-track"><i style={{ width: `${value}%` }} /></div></div>;
+}
+
+function LiveMetricFact({ label, value, warning = false }: { label: string; value: string | number; warning?: boolean }) {
+  return <div className={warning ? "warning" : ""}><span>{label}</span><b>{value}</b></div>;
 }
 
 function DecisionCard({ number, tone, title, body, tag }: { number: string; tone: Tone; title: string; body: string; tag: string }) {

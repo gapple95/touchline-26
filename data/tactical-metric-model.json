@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "1.0.0",
+  "methodologyVersion": "touchline-live-plan-v1.0.0",
+  "classification": "TOUCHLINE_DERIVED",
+  "scoreRange": [0, 100],
+  "direction": "Korea attacks from left to right",
+  "pitch": {
+    "lengthMetres": 105,
+    "widthMetres": 68,
+    "finalThirdStartsAtPercent": 66.6667,
+    "edgeMarginPercent": 25
+  },
+  "defaults": {
+    "forwardRuns": 50,
+    "defensiveWorkRate": 50,
+    "stamina": 75,
+    "passVerticalityWhenUnset": 45
+  },
+  "benchmarks": {
+    "fifaWorldCup2022MidBlock": {
+      "averageTeamLengthMetres": 27.2,
+      "averageTeamWidthMetres": 40.1,
+      "note": "Observed tracking-data benchmark; context only, not a target score."
+    },
+    "fifaWorldCup2022WideAttack": {
+      "averagePlayersInBoxAfterWideProgression": 3.3,
+      "averageWidePenaltyAreaEntriesPer90": 26.5,
+      "note": "Observed match benchmark; not directly estimated without ball-event data."
+    }
+  },
+  "metricDefinitions": [
+    { "id": "possessionControl", "labelKo": "점유 통제", "mode": "OBSERVED_ONLY", "reason": "연속 볼 소유 이벤트가 필요합니다." },
+    { "id": "ballRecoveryTime", "labelKo": "볼 회수 시간", "mode": "OBSERVED_ONLY", "reason": "소유 상실·회복 시점 데이터가 필요합니다." },
+    { "id": "lineBreaks", "labelKo": "라인 브레이크", "mode": "PLANNED_PROXY", "reason": "지정 패스의 전진 방향과 적극도로 잠재력을 추정합니다." },
+    { "id": "defensiveLineHeight", "labelKo": "수비 라인 높이", "mode": "PLANNED_DIRECT", "reason": "보드상 가장 낮은 수비 유닛의 위치를 미터로 환산합니다." },
+    { "id": "teamLength", "labelKo": "팀 길이", "mode": "PLANNED_DIRECT", "reason": "골키퍼와 최전방 한 명을 제외한 블록의 세로 길이를 계산합니다." },
+    { "id": "finalThirdEntries", "labelKo": "파이널 서드 진입", "mode": "PLANNED_PROXY", "reason": "파이널 서드 점유 인원과 전진 패스 의도로 잠재력을 추정합니다." },
+    { "id": "forcedTurnovers", "labelKo": "강제 턴오버", "mode": "OBSERVED_ONLY", "reason": "압박 직후 상대의 볼 상실 이벤트가 필요합니다." },
+    { "id": "pressureOnBall", "labelKo": "볼 압박", "mode": "PLANNED_PROXY", "reason": "적극성·수비 가담·라인 높이로 압박 의도를 추정합니다." },
+    { "id": "expectedGoals", "labelKo": "기대득점", "mode": "OBSERVED_ONLY", "reason": "슈팅 위치·신체 부위·직전 행동 등 슈팅 데이터가 필요합니다." },
+    { "id": "teamShape", "labelKo": "팀 형태", "mode": "PLANNED_DIRECT", "reason": "선수 좌표로 폭·길이·중앙 밀도·라인 간격을 계산합니다." },
+    { "id": "receptionsBehindLines", "labelKo": "라인 뒤 수신", "mode": "PLANNED_PROXY", "reason": "지정 패스의 도착 위치와 공격 가담으로 잠재력을 추정합니다." },
+    { "id": "phasesOfPlay", "labelKo": "플레이 단계", "mode": "PLANNED_PROXY", "reason": "배치와 지침을 바탕으로 의도한 빌드업·전진·압박·블록 성향을 분류합니다." }
+  ],
+  "supplementaryMetrics": [
+    { "id": "ppda", "labelKo": "PPDA", "mode": "OBSERVED_ONLY", "reason": "상대 패스 수와 특정 구역의 태클·인터셉션·도전·파울 이벤트가 필요합니다." },
+    { "id": "actionValue", "labelKo": "행동 가치(VAEP/OBV 계열)", "mode": "OBSERVED_ONLY", "reason": "연속 경기 이벤트와 득점·실점 확률 모델이 필요합니다." },
+    { "id": "expectedThreat", "labelKo": "기대 위협(xT/EPV 계열)", "mode": "OBSERVED_ONLY", "reason": "볼 이동 이벤트와 학습된 공간별 위협 확률이 필요합니다." },
+    { "id": "pitchControl", "labelKo": "공간 지배·피치 컨트롤", "mode": "OBSERVED_ONLY", "reason": "양 팀 선수의 시계열 위치·속도와 도달 시간 모델이 필요합니다." },
+    { "id": "fieldTilt", "labelKo": "필드 틸트", "mode": "OBSERVED_ONLY", "reason": "양 팀의 공격 지역 터치 또는 패스 이벤트가 필요합니다." }
+  ],
+  "weights": {
+    "attack": {
+      "finalThirdPresence": 0.18,
+      "progressionIntent": 0.20,
+      "takeOn": 0.10,
+      "forwardRuns": 0.15,
+      "widthThreat": 0.12,
+      "passConnectivity": 0.15,
+      "stamina": 0.10
+    },
+    "defence": {
+      "compactness": 0.20,
+      "defensiveWork": 0.22,
+      "centralDensity": 0.18,
+      "coverSupport": 0.10,
+      "inverseSpaceBehind": 0.20,
+      "stamina": 0.10
+    },
+    "centre": {
+      "centralDensity": 0.30,
+      "compactness": 0.20,
+      "defensiveWork": 0.15,
+      "centralPassIntent": 0.15,
+      "lineSupport": 0.10,
+      "coverSupport": 0.10
+    },
+    "transition": {
+      "aggression": 0.20,
+      "forwardRuns": 0.20,
+      "passVerticality": 0.20,
+      "takeOn": 0.10,
+      "pressingIntent": 0.15,
+      "stamina": 0.15
+    },
+    "fatigue": {
+      "aggression": 0.22,
+      "forwardRuns": 0.20,
+      "defensiveWork": 0.20,
+      "takeOn": 0.12,
+      "shapeSpanLoad": 0.10,
+      "staminaDeficit": 0.16
+    },
+    "pressing": {
+      "aggression": 0.35,
+      "defensiveWork": 0.25,
+      "lineHeight": 0.20,
+      "finalThirdPresence": 0.10,
+      "coverSupport": 0.10
+    },
+    "progression": {
+      "passingFrequency": 0.25,
+      "passVerticality": 0.30,
+      "forwardRuns": 0.20,
+      "takeOn": 0.15,
+      "attackingRelationships": 0.10
+    },
+    "spaceBehindRisk": {
+      "lineHeight": 0.35,
+      "forwardRuns": 0.25,
+      "inverseDefensiveWork": 0.20,
+      "teamLengthLoad": 0.10,
+      "inverseCoverSupport": 0.10
+    }
+  },
+  "sources": [
+    {
+      "id": "fifa-efi-2022",
+      "title": "FIFA Enhanced Football Intelligence explanation document",
+      "url": "https://www.fifatrainingcentre.com/media/native/world-cup-2022/Enhanced%20Football%20Intelligence%20EN.pdf",
+      "usedFor": ["phasesOfPlay", "lineBreaks", "defensiveLineHeight", "teamLength", "teamShape", "finalThirdEntries", "pressureOnBall", "expectedGoals"]
+    },
+    {
+      "id": "fifa-mid-block-compactness-2022",
+      "title": "Controlling the game without the ball: The mid-block and compactness",
+      "url": "https://www.fifatrainingcentre.com/en/fwc2022/technical-and-tactical-analysis/controlling-the-game-without-the-ball--the-mid-block-and-compactness.php",
+      "usedFor": ["compactness", "centralProtection", "phaseIntent"]
+    },
+    {
+      "id": "fifa-wide-areas-2022",
+      "title": "Use of wide areas to create goal-scoring opportunities",
+      "url": "https://www.fifatrainingcentre.com/en/fwc2022/technical-and-tactical-analysis/use-of-wide-areas.php",
+      "usedFor": ["widthThreat", "wideFinalAction"]
+    },
+    {
+      "id": "fifa-high-press-2025",
+      "title": "Investigating the increased use of the high press",
+      "url": "https://www.fifatrainingcentre.com/en/game/tournaments/fcwc/2025/team-analyses/increased-use-of-high-press-and-pressing-strategies.php",
+      "usedFor": ["pressingIntent", "lineHeight", "compactness", "finalThirdPresence"]
+    },
+    {
+      "id": "ifab-law-1",
+      "title": "IFAB Law 1 - The Field of Play",
+      "url": "https://www.theifab.com/laws/latest/the-field-of-play/",
+      "usedFor": ["pitchGeometry"]
+    },
+    {
+      "id": "ppda-origin",
+      "title": "Defensive Metrics: Measuring the Intensity of a High Press",
+      "url": "https://statsbomb.com/articles/soccer/defensive-metrics-measuring-the-intensity-of-a-high-press/",
+      "usedFor": ["ppdaObservedOnly"]
+    },
+    {
+      "id": "vaep-2019",
+      "title": "Actions Speak Louder Than Goals: Valuing Player Actions in Soccer",
+      "url": "https://arxiv.org/abs/1802.07127",
+      "usedFor": ["actionValueObservedOnly"]
+    },
+    {
+      "id": "space-control-2020",
+      "title": "Space evaluation in football games via field weighting based on tracking data",
+      "url": "https://arxiv.org/abs/2001.11629",
+      "usedFor": ["pitchControlObservedOnly"]
+    }
+  ],
+  "disclaimer": "All live scores are pre-match or in-match tactical plan estimates. They are not FIFA official match statistics and must not be labelled as observed xG, PPDA, ball recovery time or forced turnovers."
+}

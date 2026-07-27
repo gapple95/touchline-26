@@ -66,6 +66,10 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /전술 확정/);
   assert.doesNotMatch(page + css, /확정 전으로|revert-tactic-button|revertCurrentTactic/);
   assert.match(page + css, /save-tactic-button/);
+  assert.match(page, /deriveLiveTacticalMetrics/);
+  assert.match(page + css, /LIVE PLAN INDEX/);
+  assert.match(page + css, /live-index-grid/);
+  assert.match(page, /마지막 확정 대비 · 실시간/);
   assert.ok(page.indexOf('<section className="team-instruction-panel"') < page.indexOf('<div className="bench-row">'));
   assert.ok(page.indexOf('<div className="bench-row">') < page.indexOf('<div className="pitch-shell">'));
   assert.match(css, /\.bench-row \{[^}]*grid-template-columns: repeat\(3/);
