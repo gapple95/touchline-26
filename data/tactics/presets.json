@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "metricMethodologyVersion": "tactical-index-v1.0.0",
   "presets": [
     {
@@ -10,6 +10,19 @@
       "instructions": { "pressing": 52, "defensiveLine": 50, "attackingWidth": 58, "tempo": 55, "risk": 43, "aggression": 52, "takeOn": 38, "passingFrequency": 84, "wideFinalAction": "CUTBACK" },
       "relationships": [
         { "id": "control-supply", "fromPlayerId": "lee-kangin", "toPlayerId": "cho-guesung", "type": "SUPPLY" }
+      ],
+      "playerInstructions": [
+        {
+          "playerId": "lee-kangin",
+          "aggression": 58,
+          "takeOn": 76,
+          "passingFrequency": 88,
+          "forwardRuns": 64,
+          "defensiveWorkRate": 42,
+          "passTargets": [
+            { "id": "control-pass-lee-to-cho", "toPlayerId": "cho-guesung", "intensity": 82 }
+          ]
+        }
       ],
       "phaseInstructions": {
         "IN_POSSESSION": ["double-pivot-support", "right-halfspace-creator", "left-wing-depth"],
@@ -38,6 +51,7 @@
       "relationships": [
         { "id": "press-cover", "fromPlayerId": "jung-wooyoung", "toPlayerId": "kim-jinsu", "type": "COVER" }
       ],
+      "playerInstructions": [],
       "phaseInstructions": {
         "OUT_OF_POSSESSION": ["press-centre-backs", "force-right-touchline"],
         "ATTACK_TRANSITION": ["first-pass-forward", "both-wingers-run-behind"],
@@ -66,6 +80,7 @@
       "relationships": [
         { "id": "chase-overlap", "fromPlayerId": "kim-jinsu", "toPlayerId": "son-heungmin", "type": "OVERLAP" }
       ],
+      "playerInstructions": [],
       "phaseInstructions": {
         "IN_POSSESSION": ["front-five", "wide-overload", "far-side-run"],
         "ATTACK_TRANSITION": ["find-creator-first", "channel-runner-immediate"],
@@ -93,6 +108,7 @@
       "relationships": [
         { "id": "lock-cover", "fromPlayerId": "kim-younggwon", "toPlayerId": "kim-jinsu", "type": "COVER" }
       ],
+      "playerInstructions": [],
       "phaseInstructions": {
         "OUT_OF_POSSESSION": ["compact-5-4-1", "deny-halfspace"],
         "ATTACK_TRANSITION": ["single-outlet", "win-set-piece"],

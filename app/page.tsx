@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties, DragEvent, FormEvent } from "react";
+import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
-import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, TeamKit, WideFinalAction } from "@/lib/domain/football";
+import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
 type View = "match" | "review" | "manager" | "duel";
 type TacticId = string;
@@ -62,8 +62,29 @@ const instructionSliders: Array<{ key: "aggression" | "takeOn" | "passingFrequen
   { key: "passingFrequency", label: "패스 활용", low: "직접 전진", high: "많이 연결" },
 ];
 
+const playerInstructionSliders: Array<{ key: "aggression" | "takeOn" | "passingFrequency" | "forwardRuns" | "defensiveWorkRate"; label: string; low: string; high: string }> = [
+  ...instructionSliders,
+  { key: "forwardRuns", label: "전진 움직임", low: "위치 유지", high: "침투 우선" },
+  { key: "defensiveWorkRate", label: "수비 가담", low: "공격 대기", high: "깊게 가담" },
+];
+
 function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTacticInstructions {
-  return { ...details, relationships: details.relationships.map((relationship) => ({ ...relationship })) };
+  return {
+    ...details,
+    relationships: details.relationships.map((relationship) => ({ ...relationship })),
+    playerInstructions: details.playerInstructions.map((instruction) => ({
+      ...instruction,
+      passTargets: instruction.passTargets.map((pass) => ({ ...pass })),
+    })),
+  };
+}
+
+function connectionStyle(from: FormationSlot, to: FormationSlot): CSSProperties {
+  const dx = to.x - from.x;
+  const projectedDy = (to.y - from.y) / (105 / 68);
+  const length = Math.hypot(dx, projectedDy);
+  const angle = Math.atan2(projectedDy, dx) * 180 / Math.PI;
+  return { left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `rotate(${angle}deg)` };
 }
 
 type KitCssVariables = CSSProperties & {
@@ -119,6 +140,7 @@ const initialTactics: Tactic[] = [
     details: {
       aggression: 52, takeOn: 38, passingFrequency: 84, wideFinalAction: "CUTBACK",
       relationships: [{ id: "control-supply", fromPlayerId: "lee-kangin", toPlayerId: "cho-guesung", type: "SUPPLY" }],
+      playerInstructions: [],
     },
   },
   {
@@ -133,6 +155,7 @@ const initialTactics: Tactic[] = [
     details: {
       aggression: 86, takeOn: 61, passingFrequency: 58, wideFinalAction: "EARLY_CROSS",
       relationships: [{ id: "press-cover", fromPlayerId: "jung-wooyoung", toPlayerId: "kim-jinsu", type: "COVER" }],
+      playerInstructions: [],
     },
   },
   {
@@ -147,6 +170,7 @@ const initialTactics: Tactic[] = [
     details: {
       aggression: 92, takeOn: 82, passingFrequency: 49, wideFinalAction: "BYLINE_DRIBBLE",
       relationships: [{ id: "chase-overlap", fromPlayerId: "kim-jinsu", toPlayerId: "son-heungmin", type: "OVERLAP" }],
+      playerInstructions: [],
     },
   },
   {
@@ -161,6 +185,7 @@ const initialTactics: Tactic[] = [
     details: {
       aggression: 34, takeOn: 28, passingFrequency: 76, wideFinalAction: "RECYCLE",
       relationships: [{ id: "lock-cover", fromPlayerId: "kim-younggwon", toPlayerId: "kim-jinsu", type: "COVER" }],
+      playerInstructions: [],
     },
   },
 ];
@@ -274,7 +299,14 @@ export default function Home() {
       tone: tones[(customNumber - 1) % tones.length],
       metrics: { ...base.metrics },
       summary: `${base.name} 전술을 기준으로 만든 사용자 전술`,
-      details: { ...base.details, relationships: base.details.relationships.map((relationship) => ({ ...relationship, id: `${id}-${relationship.id}` })) },
+      details: {
+        ...cloneTacticDetails(base.details),
+        relationships: base.details.relationships.map((relationship) => ({ ...relationship, id: `${id}-${relationship.id}` })),
+        playerInstructions: base.details.playerInstructions.map((instruction) => ({
+          ...instruction,
+          passTargets: instruction.passTargets.map((pass) => ({ ...pass, id: `${id}-${pass.id}` })),
+        })),
+      },
     };
 
     setSavedTactics((current) => [...current, nextTactic]);
@@ -291,7 +323,7 @@ export default function Home() {
 
   function updateTacticDetails(id: TacticId, details: DetailedTacticInstructions, announce = true) {
     setSavedTactics((current) => current.map((tactic) => tactic.id === id
-      ? { ...tactic, details: { ...details, relationships: details.relationships.map((relationship) => ({ ...relationship })) } }
+      ? { ...tactic, details: cloneTacticDetails(details) }
       : tactic));
     if (announce) setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
   }
@@ -404,23 +436,13 @@ export default function Home() {
   }
 
   function clickPitchPlayer(index: number) {
-    if (selectedPlayer === null) {
-      setSelectedPlayer(index);
-      setNotice(`${lineup[index].name} 선수를 선택했습니다. 다른 선수를 눌러 위치를 바꾸세요.`);
-      return;
-    }
     if (selectedPlayer === index) {
       setSelectedPlayer(null);
-      setNotice("선수 선택을 취소했습니다.");
+      setNotice("개인 지침 편집을 닫았습니다.");
       return;
     }
-    setLineup((current) => {
-      const next = [...current];
-      [next[selectedPlayer], next[index]] = [next[index], next[selectedPlayer]];
-      return next;
-    });
-    setSelectedPlayer(null);
-    setNotice("두 선수의 위치를 교체했습니다.");
+    setSelectedPlayer(index);
+    setNotice(`${lineup[index].name} 선수의 개인 지침을 편집합니다.`);
   }
 
   function clickBenchPlayer(index: number) {
@@ -573,13 +595,28 @@ function MatchRoom(props: MatchRoomProps) {
   const [relationFrom, setRelationFrom] = useState(props.lineup[8]?.id ?? props.lineup[0]?.id ?? "");
   const [relationTo, setRelationTo] = useState(props.lineup[10]?.id ?? props.lineup[1]?.id ?? "");
   const [relationType, setRelationType] = useState<PlayerRelationshipType>("COMBINATION");
+  const [passLinking, setPassLinking] = useState(false);
+  const [passPointer, setPassPointer] = useState<FormationSlot | null>(null);
+  const [activePassId, setActivePassId] = useState<string | null>(null);
   const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
+  const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
+  const selectedPlayerSlot = props.selectedPlayer === null ? null : props.slots[props.selectedPlayer];
+  const selectedInstruction = selectedPlayerData ? playerInstructionFor(selectedPlayerData.id) : null;
 
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
     setDetailEditorOpen(false);
+    setPassLinking(false);
+    setPassPointer(null);
+    setActivePassId(null);
   }, [props.activeTactic.id]);
+
+  useEffect(() => {
+    setPassLinking(false);
+    setPassPointer(null);
+    setActivePassId(null);
+  }, [props.selectedPlayer]);
 
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
@@ -598,6 +635,87 @@ function MatchRoom(props: MatchRoomProps) {
     const next = { ...props.activeTactic.details, [key]: value };
     setDetailDraft((current) => ({ ...current, [key]: value }));
     props.onUpdateTacticDetails(props.activeTactic.id, next, false);
+  }
+
+  function playerInstructionFor(playerId: string): PlayerTacticalInstruction {
+    return props.activeTactic.details.playerInstructions.find((instruction) => instruction.playerId === playerId) ?? {
+      playerId,
+      aggression: props.activeTactic.details.aggression,
+      takeOn: props.activeTactic.details.takeOn,
+      passingFrequency: props.activeTactic.details.passingFrequency,
+      forwardRuns: 50,
+      defensiveWorkRate: 50,
+      passTargets: [],
+    };
+  }
+
+  function updatePlayerInstruction(playerId: string, update: (current: PlayerTacticalInstruction) => PlayerTacticalInstruction) {
+    const nextInstruction = update(playerInstructionFor(playerId));
+    const exists = props.activeTactic.details.playerInstructions.some((instruction) => instruction.playerId === playerId);
+    const playerInstructions = exists
+      ? props.activeTactic.details.playerInstructions.map((instruction) => instruction.playerId === playerId ? nextInstruction : instruction)
+      : [...props.activeTactic.details.playerInstructions, nextInstruction];
+    const next = { ...props.activeTactic.details, playerInstructions };
+    setDetailDraft((current) => ({ ...current, playerInstructions: cloneTacticDetails(next).playerInstructions }));
+    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
+  }
+
+  function adjustPlayerInstruction(key: "aggression" | "takeOn" | "passingFrequency" | "forwardRuns" | "defensiveWorkRate", value: number) {
+    if (!selectedPlayerData) return;
+    updatePlayerInstruction(selectedPlayerData.id, (current) => ({ ...current, [key]: value }));
+  }
+
+  function startPassAssignment() {
+    if (!selectedPlayerSlot) return;
+    setPassLinking((current) => !current);
+    setPassPointer({ x: selectedPlayerSlot.x, y: selectedPlayerSlot.y });
+    setActivePassId(null);
+  }
+
+  function trackPassPointer(event: ReactMouseEvent<HTMLDivElement>) {
+    if (!passLinking) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPassPointer({
+      x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100)),
+    });
+  }
+
+  function handlePitchPlayerClick(targetIndex: number) {
+    if (!passLinking || props.selectedPlayer === null || !selectedPlayerData) {
+      props.onPlayerClick(targetIndex);
+      return;
+    }
+    if (targetIndex === props.selectedPlayer) {
+      setPassLinking(false);
+      setPassPointer(null);
+      return;
+    }
+    const target = props.lineup[targetIndex];
+    const id = `pass-${selectedPlayerData.id}-${target.id}`;
+    updatePlayerInstruction(selectedPlayerData.id, (current) => current.passTargets.some((pass) => pass.toPlayerId === target.id)
+      ? current
+      : { ...current, passTargets: [...current.passTargets, { id, toPlayerId: target.id, intensity: 50 }] });
+    setPassLinking(false);
+    setPassPointer(null);
+    setActivePassId(id);
+  }
+
+  function adjustPassIntensity(passId: string, intensity: number) {
+    if (!selectedPlayerData) return;
+    updatePlayerInstruction(selectedPlayerData.id, (current) => ({
+      ...current,
+      passTargets: current.passTargets.map((pass) => pass.id === passId ? { ...pass, intensity } : pass),
+    }));
+  }
+
+  function removePassAssignment(passId: string) {
+    if (!selectedPlayerData) return;
+    updatePlayerInstruction(selectedPlayerData.id, (current) => ({
+      ...current,
+      passTargets: current.passTargets.filter((pass) => pass.id !== passId),
+    }));
+    setActivePassId((current) => current === passId ? null : current);
   }
 
   function submitTactic(event: FormEvent<HTMLFormElement>) {
@@ -678,15 +796,7 @@ function MatchRoom(props: MatchRoomProps) {
           )}
           <div className="tactic-detail-summary">
             <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 세부 전술</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계·측면 설정</button></div>
-            <div className="quick-instruction-sliders">
-              {instructionSliders.map((instruction) => (
-                <label key={instruction.key}>
-                  <span><b>{instruction.label}</b><output>{props.activeTactic.details[instruction.key]}</output></span>
-                  <input aria-label={`${instruction.label} 조절`} type="range" min="0" max="100" value={props.activeTactic.details[instruction.key]} onChange={(event) => adjustQuickInstruction(instruction.key, Number(event.target.value))} />
-                  <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
-                </label>
-              ))}
-            </div>
+            <p><b>팀 전체 지침:</b> 라이브 전술 보드 아래에서 즉시 조절 <i /> <b>개인 지침:</b> 선수 클릭</p>
             <p><b>측면:</b> {wideActionLabels[props.activeTactic.details.wideFinalAction]} <i /> <b>관계:</b> {props.activeTactic.details.relationships.length}개</p>
           </div>
           {detailEditorOpen && (
@@ -734,12 +844,12 @@ function MatchRoom(props: MatchRoomProps) {
 
         <section className="board-panel panel">
           <div className="board-toolbar">
-            <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하거나 두 선수를 차례로 눌러 교체하세요." />
+            <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하고, 선수를 클릭해 개인 지침을 설정하세요." />
             <button className="text-button" onClick={props.onReset}>배치 초기화</button>
           </div>
           <div className="pitch-shell">
             <div className="pitch">
-              <div className="pitch-field" onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+              <div className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
                 <div className="pitch-markings" aria-hidden="true">
                   <i className="halfway" /><i className="centre-circle" /><i className="centre-mark" />
                   <i className="penalty-area own" /><i className="penalty-area opponent" />
@@ -775,12 +885,17 @@ function MatchRoom(props: MatchRoomProps) {
                     if (fromIndex < 0 || toIndex < 0) return null;
                     const from = props.slots[fromIndex];
                     const to = props.slots[toIndex];
-                    const dx = to.x - from.x;
-                    const projectedDy = (to.y - from.y) / (105 / 68);
-                    const length = Math.hypot(dx, projectedDy);
-                    const angle = Math.atan2(projectedDy, dx) * 180 / Math.PI;
-                    return <i key={relationship.id} className={`player-relationship-line relation-${relationship.type.toLowerCase()}`} style={{ left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `rotate(${angle}deg)` }} data-relationship-type={relationshipLabels[relationship.type]} />;
+                    return <i key={relationship.id} className={`player-relationship-line relation-${relationship.type.toLowerCase()}`} style={connectionStyle(from, to)} data-relationship-type={relationshipLabels[relationship.type]} />;
                   })}
+                </div>
+                <div className="individual-pass-layer" aria-hidden="true">
+                  {props.activeTactic.details.playerInstructions.flatMap((instruction) => instruction.passTargets.map((pass) => {
+                    const fromIndex = props.lineup.findIndex((player) => player.id === instruction.playerId);
+                    const toIndex = props.lineup.findIndex((player) => player.id === pass.toPlayerId);
+                    if (fromIndex < 0 || toIndex < 0) return null;
+                    return <i key={pass.id} className={`individual-pass-line ${activePassId === pass.id ? "active" : ""}`} style={{ ...connectionStyle(props.slots[fromIndex], props.slots[toIndex]), opacity: .35 + pass.intensity * .006, borderTopWidth: `${1 + pass.intensity / 45}px` }} />;
+                  }))}
+                  {passLinking && selectedPlayerSlot && passPointer && <i className="individual-pass-line pending" style={connectionStyle(selectedPlayerSlot, passPointer)} />}
                 </div>
                 <div className="pitch-coordinate-layer">
                   {props.slots.map((slot, index) => {
@@ -789,14 +904,14 @@ function MatchRoom(props: MatchRoomProps) {
                     return (
                       <button
                         key={player.id}
-                        className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""}`}
+                        className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""} ${passLinking && props.selectedPlayer !== index ? "pass-target" : ""}`}
                         style={{ left: `${slot.x}%`, top: `${slot.y}%`, ...kitCssVariables(kitPalette) }}
                         draggable
                         onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
                         onDragEnd={props.onDragEnd}
                         onDragOver={(event) => event.preventDefault()}
                         onDrop={(event) => props.onDropPlayer(event, index)}
-                        onClick={() => props.onPlayerClick(index)}
+                        onClick={() => handlePitchPlayerClick(index)}
                         aria-label={`${player.name}, ${slot.role}, ${player.role}`}
                         aria-pressed={props.selectedPlayer === index}
                         data-position-zone={slot.role}
@@ -810,6 +925,53 @@ function MatchRoom(props: MatchRoomProps) {
               </div>
             </div>
           </div>
+          <section className="team-instruction-panel" aria-labelledby="team-instruction-title">
+            <div className="instruction-panel-head">
+              <div><span>TEAM INSTRUCTIONS · 0—100</span><h3 id="team-instruction-title">팀 전체 지침</h3></div>
+              <small>{props.activeTactic.name} 전체 선수에게 적용</small>
+            </div>
+            <div className="team-instruction-sliders">
+              {instructionSliders.map((instruction) => (
+                <label key={instruction.key}>
+                  <span><b>{instruction.label}</b><output>{props.activeTactic.details[instruction.key]}</output></span>
+                  <input aria-label={`팀 ${instruction.label} 조절`} type="range" min="0" max="100" value={props.activeTactic.details[instruction.key]} onChange={(event) => adjustQuickInstruction(instruction.key, Number(event.target.value))} />
+                  <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
+                </label>
+              ))}
+            </div>
+          </section>
+          {selectedPlayerData && selectedInstruction ? (
+            <section className="player-instruction-panel" aria-labelledby="player-instruction-title">
+              <div className="instruction-panel-head player">
+                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role}</p></div>
+                <button type="button" onClick={() => props.onPlayerClick(props.selectedPlayer ?? 0)} aria-label={`${selectedPlayerData.name} 개인 지침 닫기`}>×</button>
+              </div>
+              <div className="player-instruction-sliders">
+                {playerInstructionSliders.map((instruction) => (
+                  <label key={instruction.key}>
+                    <span><b>{instruction.label}</b><output>{selectedInstruction[instruction.key]}</output></span>
+                    <input aria-label={`${selectedPlayerData.name} ${instruction.label} 조절`} type="range" min="0" max="100" value={selectedInstruction[instruction.key]} onChange={(event) => adjustPlayerInstruction(instruction.key, Number(event.target.value))} />
+                    <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
+                  </label>
+                ))}
+              </div>
+              <div className="pass-assignment-builder">
+                <div><span>DIRECTED PASS</span><b>패스 대상 지정</b><p>{passLinking ? "보드에서 패스를 받을 선수를 클릭하세요. 화살표가 마우스를 따라갑니다." : "버튼을 누른 뒤 보드의 다른 선수를 선택하세요."}</p></div>
+                <button type="button" className={passLinking ? "active" : ""} onClick={startPassAssignment} aria-pressed={passLinking}>{passLinking ? "지정 취소" : "+ 패스 지정"}</button>
+              </div>
+              <div className="pass-assignment-list">
+                {selectedInstruction.passTargets.length === 0 && <p>아직 지정된 패스 대상이 없습니다.</p>}
+                {selectedInstruction.passTargets.map((pass) => (
+                  <div key={pass.id} className={activePassId === pass.id ? "active" : ""}>
+                    <div className="pass-assignment-row"><span><b>{selectedPlayerData.name}</b><i>→</i><b>{playerName(pass.toPlayerId)}</b></span><button type="button" onClick={() => removePassAssignment(pass.id)} aria-label={`${playerName(pass.toPlayerId)} 패스 지정 삭제`}>×</button></div>
+                    <label><span>패스 적극도 <output>{pass.intensity}</output></span><input aria-label={`${playerName(pass.toPlayerId)} 패스 적극도`} type="range" min="0" max="100" value={pass.intensity} onChange={(event) => adjustPassIntensity(pass.id, Number(event.target.value))} /><small><i>상황 우선</i><i>최우선 연결</i></small></label>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <div className="player-instruction-empty"><b>선수 개인 지침</b><span>전술 보드의 선수를 클릭하면 0–100 지침과 패스 연결 옵션이 열립니다.</span></div>
+          )}
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (

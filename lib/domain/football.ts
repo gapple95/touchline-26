@@ -11,12 +11,29 @@ export interface TacticalPlayerRelationship {
   type: PlayerRelationshipType;
 }
 
+export interface PlayerPassInstruction {
+  id: string;
+  toPlayerId: string;
+  intensity: number;
+}
+
+export interface PlayerTacticalInstruction {
+  playerId: string;
+  aggression: number;
+  takeOn: number;
+  passingFrequency: number;
+  forwardRuns: number;
+  defensiveWorkRate: number;
+  passTargets: PlayerPassInstruction[];
+}
+
 export interface DetailedTacticInstructions {
   aggression: number;
   takeOn: number;
   passingFrequency: number;
   wideFinalAction: WideFinalAction;
   relationships: TacticalPlayerRelationship[];
+  playerInstructions: PlayerTacticalInstruction[];
 }
 export type KitDataSource = "FIFA_OFFICIAL" | "TOURNAMENT_FEED" | "TOUCHLINE_FALLBACK";
 
@@ -191,6 +208,7 @@ export interface TacticPreset {
     wideFinalAction: WideFinalAction;
   };
   relationships: TacticalPlayerRelationship[];
+  playerInstructions: PlayerTacticalInstruction[];
   phaseInstructions: Partial<Record<MatchPhase, string[]>>;
   switchConditions: Array<{ minuteFrom: number; scoreDifferenceMax: number; recommendedNextTacticId: string }>;
   metrics: TacticalMetrics;

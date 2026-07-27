@@ -44,8 +44,9 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /tactic-add-card/);
   assert.match(page, /어떤 전술을 기준으로 만들까요/);
   assert.match(page, /setTacticLayouts/);
-  assert.match(page, /quick-instruction-sliders/);
-  assert.match(page, /aria-label=\{`\$\{instruction\.label\} 조절`\}/);
+  assert.match(page, /team-instruction-sliders/);
+  assert.match(page, /player-instruction-sliders/);
+  assert.match(page, /aria-label=\{`팀 \$\{instruction\.label\} 조절`\}/);
   assert.match(page, /label: "적극성"/);
   assert.match(page, /관계·측면 설정/);
   assert.match(page, /1대1 돌파/);
@@ -53,6 +54,10 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /wideFinalAction/);
   assert.match(page, /onUpdateTacticDetails/);
   assert.match(page + css, /player-relationship-layer/);
+  assert.match(page + css, /individual-pass-layer/);
+  assert.match(page, /passLinking/);
+  assert.match(page, /패스 적극도/);
+  assert.match(page, /playerInstructions/);
   assert.match(page, /Math\.hypot\(dx, projectedDy\)/);
   assert.match(page, /closest<HTMLDivElement>\("\.pitch-field"\)/);
   assert.match(page, /anchorOffsetX/);
@@ -94,7 +99,7 @@ test("provides replaceable default kit colours", async () => {
 
 test("models detailed instructions and player relationships per tactic", async () => {
   const data = JSON.parse(await readFile(new URL("../data/tactics/presets.json", import.meta.url), "utf8"));
-  assert.equal(data.schemaVersion, "1.1.0");
+  assert.equal(data.schemaVersion, "1.2.0");
   assert.equal(data.presets.length, 4);
   for (const tactic of data.presets) {
     assert.equal(typeof tactic.instructions.aggression, "number");
@@ -103,6 +108,13 @@ test("models detailed instructions and player relationships per tactic", async (
     assert.match(tactic.instructions.wideFinalAction, /^(BYLINE_DRIBBLE|EARLY_CROSS|CUTBACK|RECYCLE)$/);
     assert.ok(Array.isArray(tactic.relationships));
     assert.ok(tactic.relationships.every((relationship) => relationship.fromPlayerId !== relationship.toPlayerId));
+    assert.ok(Array.isArray(tactic.playerInstructions));
+  }
+  const playerInstructions = data.presets.flatMap((tactic) => tactic.playerInstructions);
+  assert.ok(playerInstructions.length > 0);
+  for (const instruction of playerInstructions) {
+    assert.ok([instruction.aggression, instruction.takeOn, instruction.passingFrequency, instruction.forwardRuns, instruction.defensiveWorkRate].every((value) => value >= 0 && value <= 100));
+    assert.ok(instruction.passTargets.every((pass) => pass.intensity >= 0 && pass.intensity <= 100));
   }
 });
 
