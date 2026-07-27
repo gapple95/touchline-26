@@ -47,6 +47,9 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(css, /5\.2380952381%/);
   assert.match(css, /17\.4285714286%/);
   assert.match(page, /goalkeeper/);
+  assert.match(page, /TOUCHLINE_FALLBACK/);
+  assert.match(page + css, /--kit-shirt/);
+  assert.match(css, /var\(--kit-number/);
   assert.match(page, /onDragLeavePitch/);
   assert.match(page, /왼쪽은 우리 골대, 오른쪽은 상대 골대/);
   assert.doesNotMatch(page, /ATTACK/);
@@ -58,6 +61,14 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.doesNotMatch(page + layout, /�/);
+});
+
+test("provides replaceable default kit colours", async () => {
+  const sample = JSON.parse(await readFile(new URL("../data/players/kor-2026.sample.json", import.meta.url), "utf8"));
+  assert.equal(sample.kit.source, "TOUCHLINE_FALLBACK");
+  assert.equal(sample.kit.outfield.shirt, "#d8ff50");
+  assert.equal(sample.kit.goalkeeper.shirt, "#ffc857");
+  assert.notEqual(sample.kit.goalkeeper.shirt, sample.kit.outfield.shirt);
 });
 
 test("reassigns the displayed position from pitch coordinates", () => {

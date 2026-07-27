@@ -284,8 +284,8 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   text-align: left;
   pointer-events: auto;
 }
-.player-token > span { grid-row: 1/3; width: 34px; height: 34px; display: grid; place-items: center; border: 3px solid var(--white); border-radius: 50%; background: var(--lime); color: var(--ink); font: 900 11px Arial, sans-serif; transition: .16s; }
-.player-token.goalkeeper > span { border-color: var(--lime); background: #174b34; color: var(--lime); }
+.player-token > span { grid-row: 1/3; width: 34px; height: 34px; display: grid; place-items: center; border: 3px solid var(--kit-outline, var(--white)); border-radius: 50%; background: var(--kit-shirt, var(--lime)); color: var(--kit-number, var(--ink)); font: 900 11px Arial, sans-serif; transition: .16s; }
+.player-token.goalkeeper > span { box-shadow: 0 0 0 2px rgba(8,20,13,.26); }
 .player-token > b { min-width: 47px; padding: 2px 6px; background: rgba(8,20,13,.86); font-size: 8px; white-space: nowrap; }
 .player-token > small { width: min-content; min-width: 24px; padding: 2px 6px; color: #c6d2c9; background: rgba(8,20,13,.66); font: 700 7px Arial, sans-serif; }
 .player-token:hover > span, .player-token.selected > span { background: var(--orange); color: var(--white); transform: scale(1.13); }
@@ -296,7 +296,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .bench-label small { color: var(--muted); font-size: 8px; }
 .bench-row > button { min-width: 0; padding: 7px; display: grid; grid-template-columns: 26px 1fr auto; gap: 7px; align-items: center; border: 1px solid var(--line); background: var(--white); cursor: pointer; text-align: left; }
 .bench-row > button:hover { border-color: var(--orange); }
-.bench-row > button > span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--card); color: var(--white); font: 800 8px Arial, sans-serif; }
+.bench-row > button > span { width: 24px; height: 24px; display: grid; place-items: center; border: 2px solid var(--kit-outline, var(--white)); border-radius: 50%; background: var(--kit-shirt, var(--card)); color: var(--kit-number, var(--white)); font: 800 8px Arial, sans-serif; }
 .bench-row b, .bench-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bench-row b { font-size: 8px; }.bench-row small { color: var(--muted); font-size: 6px; }.bench-row em { color: var(--moss); font: 800 7px Arial, sans-serif; font-style: normal; }
 

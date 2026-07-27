@@ -1,7 +1,9 @@
 "use client";
 
-import { DragEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import type { CSSProperties, DragEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
+import type { KitPalette, TeamKit } from "@/lib/domain/football";
 
 type View = "match" | "review" | "manager" | "duel";
 type TacticId = "control" | "press" | "chase" | "lock";
@@ -36,6 +38,29 @@ type Tactic = {
   summary: string;
   risk: string;
 };
+
+type KitCssVariables = CSSProperties & {
+  "--kit-shirt": string;
+  "--kit-number": string;
+  "--kit-outline": string;
+};
+
+const defaultTeamKit: TeamKit = {
+  teamId: "KOR",
+  competitionId: "FIFA-WC-2026",
+  variant: "DEFAULT",
+  source: "TOUCHLINE_FALLBACK",
+  outfield: { shirt: "#d8ff50", number: "#10231a", outline: "#ffffff" },
+  goalkeeper: { shirt: "#ffc857", number: "#10231a", outline: "#ffffff" },
+};
+
+function kitCssVariables(palette: KitPalette): KitCssVariables {
+  return {
+    "--kit-shirt": palette.shirt,
+    "--kit-number": palette.number,
+    "--kit-outline": palette.outline,
+  };
+}
 
 const players: Player[] = [
   { id: "kim-seunggyu", name: "김승규", number: 1, position: "GK", role: "스위퍼 키퍼", stamina: 88 },
@@ -342,6 +367,7 @@ export default function Home() {
           minute={minute}
           notice={notice}
           simulated={simulated}
+          teamKit={defaultTeamKit}
           onTactic={applyTactic}
           onReset={resetBoard}
           onStartDrag={startDrag}
@@ -394,6 +420,7 @@ type MatchRoomProps = {
   minute: number;
   notice: string;
   simulated: boolean;
+  teamKit: TeamKit;
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
@@ -496,11 +523,12 @@ function MatchRoom(props: MatchRoomProps) {
                 <div className="pitch-coordinate-layer">
                   {props.slots.map((slot, index) => {
                     const player = props.lineup[index];
+                    const kitPalette = player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield;
                     return (
                       <button
                         key={player.id}
                         className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""}`}
-                        style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+                        style={{ left: `${slot.x}%`, top: `${slot.y}%`, ...kitCssVariables(kitPalette) }}
                         draggable
                         onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
                         onDragEnd={props.onDragEnd}
@@ -510,6 +538,7 @@ function MatchRoom(props: MatchRoomProps) {
                         aria-label={`${player.name}, ${slot.role}, ${player.role}`}
                         aria-pressed={props.selectedPlayer === index}
                         data-position-zone={slot.role}
+                        data-kit-source={props.teamKit.source}
                       >
                         <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
                       </button>
@@ -522,7 +551,7 @@ function MatchRoom(props: MatchRoomProps) {
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
-              <button key={player.id} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
+              <button key={player.id} style={kitCssVariables(player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield)} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
                 <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
               </button>
             ))}

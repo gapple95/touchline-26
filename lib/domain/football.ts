@@ -1,6 +1,22 @@
 export type MetricSource = "FIFA_OFFICIAL" | "STATSBOMB_OPEN_DATA" | "TOUCHLINE_DERIVED";
 export type PositionCode = "GK" | "CB" | "FB" | "WB" | "DM" | "CM" | "AM" | "W" | "ST";
 export type MatchPhase = "IN_POSSESSION" | "OUT_OF_POSSESSION" | "ATTACK_TRANSITION" | "DEFENCE_TRANSITION" | "SET_PIECE";
+export type KitDataSource = "FIFA_OFFICIAL" | "TOURNAMENT_FEED" | "TOUCHLINE_FALLBACK";
+
+export interface KitPalette {
+  shirt: string;
+  number: string;
+  outline: string;
+}
+
+export interface TeamKit {
+  teamId: string;
+  competitionId: string;
+  variant: "HOME" | "AWAY" | "THIRD" | "DEFAULT";
+  source: KitDataSource;
+  outfield: KitPalette;
+  goalkeeper: KitPalette;
+}
 
 export interface MetricValue {
   value: number | null;

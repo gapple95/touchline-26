@@ -2,6 +2,22 @@
   "schemaVersion": "1.0.0",
   "competitionId": "FIFA-WC-2026",
   "teamId": "KOR",
+  "kit": {
+    "teamId": "KOR",
+    "competitionId": "FIFA-WC-2026",
+    "variant": "DEFAULT",
+    "source": "TOUCHLINE_FALLBACK",
+    "outfield": {
+      "shirt": "#d8ff50",
+      "number": "#10231a",
+      "outline": "#ffffff"
+    },
+    "goalkeeper": {
+      "shirt": "#ffc857",
+      "number": "#10231a",
+      "outline": "#ffffff"
+    }
+  },
   "sourcePolicy": {
     "officialValuesAreImmutable": true,
     "missingValuesUseNull": true,
