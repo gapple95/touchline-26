@@ -44,7 +44,10 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /tactic-add-card/);
   assert.match(page, /어떤 전술을 기준으로 만들까요/);
   assert.match(page, /setTacticLayouts/);
-  assert.match(page, /행동 지침 편집/);
+  assert.match(page, /quick-instruction-sliders/);
+  assert.match(page, /aria-label=\{`\$\{instruction\.label\} 조절`\}/);
+  assert.match(page, /label: "적극성"/);
+  assert.match(page, /관계·측면 설정/);
   assert.match(page, /1대1 돌파/);
   assert.match(page, /선수 관계 설정/);
   assert.match(page, /wideFinalAction/);

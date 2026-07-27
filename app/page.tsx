@@ -289,11 +289,11 @@ export default function Home() {
     setNotice(`${nextTactic.name} 전술을 ${base.name} 기준으로 만들고 적용했습니다.`);
   }
 
-  function updateTacticDetails(id: TacticId, details: DetailedTacticInstructions) {
+  function updateTacticDetails(id: TacticId, details: DetailedTacticInstructions, announce = true) {
     setSavedTactics((current) => current.map((tactic) => tactic.id === id
       ? { ...tactic, details: { ...details, relationships: details.relationships.map((relationship) => ({ ...relationship })) } }
       : tactic));
-    setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
+    if (announce) setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
@@ -549,7 +549,7 @@ type MatchRoomProps = {
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
   onCreateTactic: (name: string, baseTacticId: TacticId) => void;
-  onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions) => void;
+  onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -579,7 +579,7 @@ function MatchRoom(props: MatchRoomProps) {
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
     setDetailEditorOpen(false);
-  }, [props.activeTactic.id, props.activeTactic.details]);
+  }, [props.activeTactic.id]);
 
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
@@ -592,6 +592,12 @@ function MatchRoom(props: MatchRoomProps) {
     setCreatorOpen(false);
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
     setDetailEditorOpen(true);
+  }
+
+  function adjustQuickInstruction(key: "aggression" | "takeOn" | "passingFrequency", value: number) {
+    const next = { ...props.activeTactic.details, [key]: value };
+    setDetailDraft((current) => ({ ...current, [key]: value }));
+    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
   }
 
   function submitTactic(event: FormEvent<HTMLFormElement>) {
@@ -671,26 +677,21 @@ function MatchRoom(props: MatchRoomProps) {
             </form>
           )}
           <div className="tactic-detail-summary">
-            <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 행동 지침</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>세부 조정</button></div>
-            <div className="detail-value-grid">
-              <span>적극성 <b>{props.activeTactic.details.aggression}</b></span>
-              <span>돌파 <b>{props.activeTactic.details.takeOn}</b></span>
-              <span>패스 <b>{props.activeTactic.details.passingFrequency}</b></span>
+            <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 세부 전술</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계·측면 설정</button></div>
+            <div className="quick-instruction-sliders">
+              {instructionSliders.map((instruction) => (
+                <label key={instruction.key}>
+                  <span><b>{instruction.label}</b><output>{props.activeTactic.details[instruction.key]}</output></span>
+                  <input aria-label={`${instruction.label} 조절`} type="range" min="0" max="100" value={props.activeTactic.details[instruction.key]} onChange={(event) => adjustQuickInstruction(instruction.key, Number(event.target.value))} />
+                  <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
+                </label>
+              ))}
             </div>
             <p><b>측면:</b> {wideActionLabels[props.activeTactic.details.wideFinalAction]} <i /> <b>관계:</b> {props.activeTactic.details.relationships.length}개</p>
           </div>
           {detailEditorOpen && (
             <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>TACTICAL DETAIL</span><b>행동 지침 편집</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
-              <div className="instruction-sliders">
-                {instructionSliders.map((instruction) => (
-                  <label key={instruction.key}>
-                    <span><b>{instruction.label}</b><output>{detailDraft[instruction.key]}</output></span>
-                    <input type="range" min="0" max="100" value={detailDraft[instruction.key]} onChange={(event) => setDetailDraft((current) => ({ ...current, [instruction.key]: Number(event.target.value) }))} />
-                    <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
-                  </label>
-                ))}
-              </div>
+              <div className="detail-editor-head"><div><span>RELATIONS &amp; WIDE PLAY</span><b>관계·측면 행동 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
               <fieldset className="wide-action-field">
                 <legend>측면에서 코너 부근까지 전진했을 때</legend>
                 <div>
