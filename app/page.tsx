@@ -729,6 +729,17 @@ function MatchRoom(props: MatchRoomProps) {
     };
   }, [playerMenuOpen, selectedPlayerData]);
 
+  useEffect(() => {
+    if (!passLinking) return;
+    function cancelPassWithEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setPassLinking(false);
+      setPassPointer(null);
+    }
+    document.addEventListener("keydown", cancelPassWithEscape);
+    return () => document.removeEventListener("keydown", cancelPassWithEscape);
+  }, [passLinking]);
+
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
     setNewTacticName("");
@@ -779,10 +790,19 @@ function MatchRoom(props: MatchRoomProps) {
 
   function startPassAssignment() {
     if (!selectedPlayerSlot) return;
-    setPassLinking((current) => !current);
+    if (passLinking) {
+      cancelPassAssignment();
+      return;
+    }
+    setPassLinking(true);
     setPassPointer({ x: selectedPlayerSlot.x, y: selectedPlayerSlot.y });
     setActivePassId(null);
     setPlayerMenuOpen(false);
+  }
+
+  function cancelPassAssignment() {
+    setPassLinking(false);
+    setPassPointer(null);
   }
 
   function focusPlayerInstructions() {
@@ -822,8 +842,7 @@ function MatchRoom(props: MatchRoomProps) {
       return;
     }
     if (targetIndex === props.selectedPlayer) {
-      setPassLinking(false);
-      setPassPointer(null);
+      cancelPassAssignment();
       return;
     }
     const target = props.lineup[targetIndex];
@@ -1061,6 +1080,12 @@ function MatchRoom(props: MatchRoomProps) {
                   }))}
                   {passLinking && selectedPlayerSlot && passPointer && <i className="individual-pass-line pending" style={connectionStyle(selectedPlayerSlot, passPointer)} />}
                 </div>
+                {passLinking && selectedPlayerData && (
+                  <div className="pass-linking-toolbar" role="status" aria-live="polite">
+                    <div><b>{selectedPlayerData.name}</b><span>패스 대상 선택 중</span><small>대상 선수를 클릭하세요 · 출발 선수를 다시 누르거나 Esc로 취소</small></div>
+                    <button type="button" onClick={cancelPassAssignment} aria-label="패스 대상 지정 취소">× 지정 취소</button>
+                  </div>
+                )}
                 <div className="pitch-coordinate-layer">
                   {props.slots.map((slot, index) => {
                     const player = props.lineup[index];
