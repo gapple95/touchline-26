@@ -260,26 +260,30 @@ export default function Home() {
   }
 
   function dropOnPlayer(event: DragEvent<HTMLButtonElement>, targetIndex: number) {
+    const payload = readDrag(event);
+    if (!payload) return;
+    if (payload.origin === "pitch") {
+      event.preventDefault();
+      event.stopPropagation();
+      setHoveredZone(null);
+      const pitch = event.currentTarget.closest<HTMLDivElement>(".pitch-field");
+      if (!pitch) return;
+      const { x, y } = pitchCoordinates(pitch, event.clientX, event.clientY);
+      const position = resolvePitchPosition(x, y);
+      setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
+      setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
     setHoveredZone(null);
-    const payload = readDrag(event);
-    if (!payload) return;
-
-    if (payload.origin === "pitch") {
-      setLineup((current) => {
-        const next = [...current];
-        [next[payload.index], next[targetIndex]] = [next[targetIndex], next[payload.index]];
-        return next;
-      });
-    } else {
-      const incoming = bench[payload.index];
-      const outgoing = lineup[targetIndex];
-      setLineup((current) => current.map((player, index) => index === targetIndex ? incoming : player));
-      setBench((current) => current.map((player, index) => index === payload.index ? outgoing : player));
-    }
+    const incoming = bench[payload.index];
+    const outgoing = lineup[targetIndex];
+    setLineup((current) => current.map((player, index) => index === targetIndex ? incoming : player));
+    setBench((current) => current.map((player, index) => index === payload.index ? outgoing : player));
     setSelectedPlayer(null);
-    setNotice("선수 배치를 교체했습니다. 역할 적합도와 시너지가 다시 계산됩니다.");
+    setNotice(`${outgoing.name} 대신 ${incoming.name} 선수를 투입했습니다. 역할 적합도와 시너지가 다시 계산됩니다.`);
   }
 
   function clickPitchPlayer(index: number) {

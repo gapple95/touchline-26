@@ -39,6 +39,7 @@ test("keeps the core interaction contract in source", async () => {
 
   assert.match(page, /draggable/);
   assert.match(page, /dropOnPitch/);
+  assert.match(page, /closest<HTMLDivElement>\("\.pitch-field"\)/);
   assert.match(page, /position-zone-preview/);
   assert.match(page, /pitch-coordinate-layer/);
   assert.match(page, /pitch-field/);
@@ -50,6 +51,7 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /TOUCHLINE_FALLBACK/);
   assert.match(page + css, /--kit-shirt/);
   assert.match(css, /var\(--kit-number/);
+  assert.match(css, /player-token > span, \.player-token > b, \.player-token > small \{ pointer-events: none/);
   assert.match(page, /onDragLeavePitch/);
   assert.match(page, /왼쪽은 우리 골대, 오른쪽은 상대 골대/);
   assert.doesNotMatch(page, /ATTACK/);

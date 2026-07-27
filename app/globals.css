@@ -288,6 +288,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .player-token.goalkeeper > span { box-shadow: 0 0 0 2px rgba(8,20,13,.26); }
 .player-token > b { min-width: 47px; padding: 2px 6px; background: rgba(8,20,13,.86); font-size: 8px; white-space: nowrap; }
 .player-token > small { width: min-content; min-width: 24px; padding: 2px 6px; color: #c6d2c9; background: rgba(8,20,13,.66); font: 700 7px Arial, sans-serif; }
+.player-token > span, .player-token > b, .player-token > small { pointer-events: none; }
 .player-token:hover > span, .player-token.selected > span { background: var(--orange); color: var(--white); transform: scale(1.13); }
 .player-token.selected > b { color: var(--lime); }
 .bench-row { max-width: 720px; margin: 15px auto 0; display: grid; grid-template-columns: 1fr repeat(3, minmax(110px, 1fr)); gap: 7px; }
