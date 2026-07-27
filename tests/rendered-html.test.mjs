@@ -59,6 +59,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page + css, /player-action-menu/);
   assert.ok(page.indexOf('<section className="team-instruction-panel"') < page.indexOf('<div className="bench-row">'));
   assert.ok(page.indexOf('<div className="bench-row">') < page.indexOf('<div className="pitch-shell">'));
+  assert.match(css, /\.bench-row \{[^}]*grid-template-columns: repeat\(3/);
+  assert.match(css, /\.bench-label \{[^}]*grid-column: 1 \/ -1/);
   assert.ok(page.indexOf('<div className="pitch-shell">') < page.indexOf('<section id="player-instruction-panel"'));
   assert.match(page, /passLinking/);
   assert.match(page, /패스 적극도/);
