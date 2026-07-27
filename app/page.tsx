@@ -20,7 +20,8 @@ type Player = {
 
 type Slot = { x: number; y: number; role: string };
 type FormationSlot = Pick<Slot, "x" | "y">;
-type DragPayload = { origin: "pitch" | "bench"; index: number };
+type DragPayload = { origin: "pitch" | "bench"; index: number; anchorOffsetX: number; anchorOffsetY: number };
+type DragAnchor = Pick<DragPayload, "anchorOffsetX" | "anchorOffsetY">;
 
 type Tactic = {
   id: TacticId;
@@ -168,6 +169,7 @@ export default function Home() {
   const [bench, setBench] = useState(players.slice(11));
   const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
   const [hoveredZone, setHoveredZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
+  const [dragAnchor, setDragAnchor] = useState<DragAnchor | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
   const [minute, setMinute] = useState(70);
   const [switchCount, setSwitchCount] = useState(0);
@@ -208,7 +210,13 @@ export default function Home() {
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
-    event.dataTransfer.setData("application/json", JSON.stringify({ origin, index } satisfies DragPayload));
+    const marker = origin === "pitch" ? event.currentTarget.querySelector<HTMLElement>(":scope > span") : null;
+    const markerRect = marker?.getBoundingClientRect();
+    const anchorOffsetX = markerRect ? event.clientX - (markerRect.left + markerRect.width / 2) : 0;
+    const anchorOffsetY = markerRect ? event.clientY - (markerRect.top + markerRect.height / 2) : 0;
+    const payload = { origin, index, anchorOffsetX, anchorOffsetY } satisfies DragPayload;
+    setDragAnchor(origin === "pitch" ? { anchorOffsetX, anchorOffsetY } : null);
+    event.dataTransfer.setData("application/json", JSON.stringify(payload));
     event.dataTransfer.effectAllowed = "move";
   }
 
@@ -233,7 +241,11 @@ export default function Home() {
   function previewPitchZone(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    const { x, y } = pitchCoordinates(event.currentTarget, event.clientX, event.clientY);
+    const { x, y } = pitchCoordinates(
+      event.currentTarget,
+      event.clientX - (dragAnchor?.anchorOffsetX ?? 0),
+      event.clientY - (dragAnchor?.anchorOffsetY ?? 0),
+    );
     const nextZone = resolvePitchPosition(x, y);
     setHoveredZone((current) => current?.zoneId === nextZone.zoneId ? current : nextZone);
   }
@@ -246,6 +258,7 @@ export default function Home() {
 
   function clearPitchZone() {
     setHoveredZone(null);
+    setDragAnchor(null);
   }
 
   function dropOnPitch(event: DragEvent<HTMLDivElement>) {
@@ -253,9 +266,14 @@ export default function Home() {
     setHoveredZone(null);
     const payload = readDrag(event);
     if (!payload || payload.origin !== "pitch") return;
-    const { x, y } = pitchCoordinates(event.currentTarget, event.clientX, event.clientY);
+    const { x, y } = pitchCoordinates(
+      event.currentTarget,
+      event.clientX - (payload.anchorOffsetX ?? 0),
+      event.clientY - (payload.anchorOffsetY ?? 0),
+    );
     const position = resolvePitchPosition(x, y);
     setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
+    setDragAnchor(null);
     setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
   }
 
@@ -268,9 +286,14 @@ export default function Home() {
       setHoveredZone(null);
       const pitch = event.currentTarget.closest<HTMLDivElement>(".pitch-field");
       if (!pitch) return;
-      const { x, y } = pitchCoordinates(pitch, event.clientX, event.clientY);
+      const { x, y } = pitchCoordinates(
+        pitch,
+        event.clientX - (payload.anchorOffsetX ?? 0),
+        event.clientY - (payload.anchorOffsetY ?? 0),
+      );
       const position = resolvePitchPosition(x, y);
       setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
+      setDragAnchor(null);
       setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
       return;
     }
@@ -278,6 +301,7 @@ export default function Home() {
     event.preventDefault();
     event.stopPropagation();
     setHoveredZone(null);
+    setDragAnchor(null);
     const incoming = bench[payload.index];
     const outgoing = lineup[targetIndex];
     setLineup((current) => current.map((player, index) => index === targetIndex ? incoming : player));
