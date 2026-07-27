@@ -174,30 +174,49 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .text-button { height: 34px; padding: 0 12px; border: 1px solid #b9b9af; background: transparent; cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .text-button:hover { color: var(--white); background: var(--green); border-color: var(--green); }
 
-.tactic-list { display: grid; gap: 8px; }
+.tactic-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tactic-card {
   position: relative;
-  min-height: 67px;
-  padding: 10px 12px;
+  min-width: 0;
+  min-height: 86px;
+  padding: 12px 10px;
   display: grid;
-  grid-template-columns: 38px 1fr auto;
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
   border: 1px solid #c7c5bc;
   background: rgba(255,255,255,.65);
   cursor: pointer;
   text-align: left;
 }
-.tactic-card:hover { transform: translateX(2px); border-color: var(--green); }
+.tactic-card:hover { transform: translateY(-2px); border-color: var(--green); }
 .tactic-card.active { background: var(--green); color: var(--white); border-color: var(--green); box-shadow: 5px 5px 0 rgba(21,62,44,.13); }
 .tactic-letter { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: var(--ink); background: var(--lime); font: 900 12px Arial, sans-serif; }
 .tactic-card.orange .tactic-letter { background: var(--orange); color: var(--white); }
 .tactic-card.mint .tactic-letter { background: var(--mint); }
 .tactic-card.yellow .tactic-letter { background: var(--yellow); }
-.tactic-card b { display: block; font: 900 13px Arial, sans-serif; }
+.tactic-card b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 900 12px Arial, sans-serif; }
 .tactic-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
 .tactic-card.active small { color: #b9c8bd; }
-.tactic-card em { color: var(--lime); font: 900 9px Arial, sans-serif; font-style: normal; }
+.tactic-card em { position: absolute; right: 9px; bottom: 8px; color: var(--lime); font: 900 9px Arial, sans-serif; font-style: normal; }
+.tactic-add-card { min-height: 86px; padding: 10px; display: grid; place-content: center; justify-items: center; gap: 3px; border: 1px dashed #9c9d94; background: rgba(255,255,255,.3); color: var(--green); cursor: pointer; }
+.tactic-add-card:hover, .tactic-add-card[aria-expanded="true"] { border-color: var(--orange); background: #fff4e8; color: var(--orange); }
+.tactic-add-card > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: currentColor; color: var(--white); font: 500 23px/1 Arial, sans-serif; }
+.tactic-add-card b { font-size: 10px; }.tactic-add-card small { color: var(--muted); font-size: 7px; }
+.tactic-creator { margin-top: 10px; padding: 14px; border: 1px solid var(--green); background: var(--white); box-shadow: 5px 5px 0 rgba(21,62,44,.11); }
+.tactic-creator-head { display: flex; justify-content: space-between; align-items: start; }
+.tactic-creator-head span, .tactic-creator-head b { display: block; }.tactic-creator-head span { color: var(--orange); font: 900 7px Arial, sans-serif; letter-spacing: .12em; }.tactic-creator-head b { margin-top: 3px; font-size: 13px; }
+.tactic-creator-head > button { width: 26px; height: 26px; padding: 0; border: 0; background: var(--ink); color: var(--white); cursor: pointer; font-size: 17px; }
+.tactic-name-field { margin-top: 13px; display: block; color: var(--muted); font-size: 8px; font-weight: 850; }
+.tactic-name-field input { width: 100%; height: 37px; margin-top: 5px; padding: 0 10px; border: 1px solid #b9b9af; background: #faf9f4; color: var(--ink); font-size: 11px; font-weight: 850; }
+.tactic-name-field input:focus { border-color: var(--orange); outline: 2px solid rgba(242,95,62,.18); }
+.tactic-creator fieldset { min-width: 0; margin: 13px 0 0; padding: 0; border: 0; }.tactic-creator legend { margin-bottom: 7px; color: var(--muted); font-size: 8px; font-weight: 850; }
+.base-tactic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.base-tactic-grid button { min-width: 0; padding: 8px; border: 1px solid var(--line); background: #f5f3eb; cursor: pointer; text-align: left; }
+.base-tactic-grid button:hover, .base-tactic-grid button.active { color: var(--white); background: var(--green); border-color: var(--green); }.base-tactic-grid b, .base-tactic-grid small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.base-tactic-grid b { font-size: 8px; }.base-tactic-grid small { margin-top: 3px; color: var(--muted); font-size: 7px; }.base-tactic-grid button.active small { color: #b9c8bd; }
+.base-tactic-preview { margin-top: 10px; padding: 9px; display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; background: var(--card); color: var(--white); }.base-tactic-preview > span { color: var(--lime); font: 900 7px Arial, sans-serif; letter-spacing: .08em; }.base-tactic-preview b, .base-tactic-preview small { display: block; }.base-tactic-preview b { font-size: 9px; }.base-tactic-preview small { margin-top: 2px; color: #afbeb4; font-size: 7px; }
+.create-tactic-button { width: 100%; min-height: 38px; margin-top: 8px; border: 0; background: var(--orange); color: var(--white); cursor: pointer; font-size: 9px; font-weight: 900; }
+.create-tactic-button:hover { background: var(--green); }
 
 .metric-card { margin-top: 18px; padding: 16px; background: var(--green); color: var(--white); }
 .metric-heading { margin-bottom: 17px; display: flex; justify-content: space-between; align-items: center; }
@@ -410,7 +429,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   .app-header { padding: 0 14px; }.wordmark > span:last-child { display: none; }.wordmark-box { width: 29px; height: 29px; }.primary-nav button { padding: 0 8px; font-size: 10px; }
   .match-hero { padding: 34px 18px 30px; }.match-hero h1 { font-size: 43px; }.score-strip > div { min-height: 96px; padding: 15px 8px; }.current-score b { font-size: 26px; }
   .decision-banner { padding: 10px 18px; gap: 12px; }.decision-banner p { font-size: 10px; }
-  .panel { padding: 24px 16px; }.tactic-list { grid-template-columns: 1fr 1fr; }.tactic-card { min-height: 61px; }.board-toolbar { align-items: flex-start; }.board-toolbar .section-title { margin-bottom: 14px; }.pitch-shell { padding: 6px; }.pitch { padding: 10px; }.player-token { --token-anchor-x: -15px; grid-template-columns: 31px auto; }.player-token > span { width: 30px; height: 30px; }.player-token > b { min-width: 40px; font-size: 7px; }
+  .panel { padding: 24px 16px; }.tactic-list { grid-template-columns: 1fr 1fr; }.tactic-card, .tactic-add-card { min-height: 68px; }.board-toolbar { align-items: flex-start; }.board-toolbar .section-title { margin-bottom: 14px; }.pitch-shell { padding: 6px; }.pitch { padding: 10px; }.player-token { --token-anchor-x: -15px; grid-template-columns: 31px auto; }.player-token > span { width: 30px; height: 30px; }.player-token > b { min-width: 40px; font-size: 7px; }
   .bench-row { grid-template-columns: 1fr; }.bench-label { margin: 8px 0 3px; }
   .page-screen, .duel-screen { padding: 38px 18px 50px; }.screen-header { margin-bottom: 28px; }.screen-header h1 { font-size: 36px; }
   .decision-card { grid-template-columns: 44px 1fr; padding: 17px; }.decision-card > span { width: 42px; height: 42px; }.timeline-line { gap: 4px; }.timeline-line button { font-size: 8px; }

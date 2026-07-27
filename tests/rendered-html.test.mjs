@@ -24,6 +24,7 @@ test("server-renders the TOUCHLINE 26 product shell", async () => {
   assert.match(html, /TOUCHLINE 26/);
   assert.match(html, /결정을 내리는 축구/);
   assert.match(html, /라이브 전술 보드/);
+  assert.match(html, /새 전술/);
   assert.match(html, /전술 요청/);
   assert.match(html, /전술 대결/);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview/);
@@ -39,6 +40,10 @@ test("keeps the core interaction contract in source", async () => {
 
   assert.match(page, /draggable/);
   assert.match(page, /dropOnPitch/);
+  assert.match(page, /createTactic/);
+  assert.match(page, /tactic-add-card/);
+  assert.match(page, /어떤 전술을 기준으로 만들까요/);
+  assert.match(page, /setTacticLayouts/);
   assert.match(page, /closest<HTMLDivElement>\("\.pitch-field"\)/);
   assert.match(page, /anchorOffsetX/);
   assert.match(page, /event\.clientX - \(payload\.anchorOffsetX \?\? 0\)/);

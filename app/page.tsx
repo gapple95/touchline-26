@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CSSProperties, DragEvent } from "react";
+import type { CSSProperties, DragEvent, FormEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
 import type { KitPalette, TeamKit } from "@/lib/domain/football";
 
 type View = "match" | "review" | "manager" | "duel";
-type TacticId = "control" | "press" | "chase" | "lock";
+type TacticId = string;
 type Tone = "lime" | "orange" | "mint" | "yellow";
 
 type Player = {
@@ -80,7 +80,7 @@ const players: Player[] = [
   { id: "hong-chul", name: "홍철", number: 14, position: "LB", role: "와이드 풀백", stamina: 87 },
 ];
 
-const tactics: Tactic[] = [
+const initialTactics: Tactic[] = [
   {
     id: "control",
     name: "CONTROL",
@@ -150,8 +150,12 @@ const formationSlots: Record<TacticId, FormationSlot[]> = {
   ],
 };
 
-function createFormationSlots(id: TacticId): Slot[] {
-  return formationSlots[id].map(({ x, y }) => ({ x, y, role: resolvePitchPosition(x, y).code }));
+function createFormationSlots(id: TacticId, layouts: Record<TacticId, FormationSlot[]> = formationSlots): Slot[] {
+  return (layouts[id] ?? formationSlots.control).map(({ x, y }) => ({ x, y, role: resolvePitchPosition(x, y).code }));
+}
+
+function cloneFormationLayouts(layouts: Record<TacticId, FormationSlot[]>): Record<TacticId, FormationSlot[]> {
+  return Object.fromEntries(Object.entries(layouts).map(([id, layout]) => [id, layout.map((slot) => ({ ...slot }))]));
 }
 
 const navItems: Array<{ id: View; label: string; number: string }> = [
@@ -163,6 +167,9 @@ const navItems: Array<{ id: View; label: string; number: string }> = [
 
 export default function Home() {
   const [view, setView] = useState<View>("match");
+  const [savedTactics, setSavedTactics] = useState<Tactic[]>(initialTactics);
+  const [tacticLayouts, setTacticLayouts] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
+  const [tacticDefaults, setTacticDefaults] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
   const [activeTacticId, setActiveTacticId] = useState<TacticId>("control");
   const [previousTacticId, setPreviousTacticId] = useState<TacticId>("control");
   const [lineup, setLineup] = useState(players.slice(0, 11));
@@ -179,8 +186,8 @@ export default function Home() {
   const [simulated, setSimulated] = useState(false);
   const [duelResolved, setDuelResolved] = useState(false);
 
-  const activeTactic = tactics.find((tactic) => tactic.id === activeTacticId) ?? tactics[0];
-  const previousTactic = tactics.find((tactic) => tactic.id === previousTacticId) ?? tactics[0];
+  const activeTactic = savedTactics.find((tactic) => tactic.id === activeTacticId) ?? savedTactics[0];
+  const previousTactic = savedTactics.find((tactic) => tactic.id === previousTacticId) ?? savedTactics[0];
 
   const metricDelta = useMemo(() => ({
     attack: activeTactic.metrics.attack - previousTactic.metrics.attack,
@@ -189,10 +196,10 @@ export default function Home() {
   }), [activeTactic, previousTactic]);
 
   function applyTactic(id: TacticId, source: "direct" | "coach" = "direct") {
-    const next = tactics.find((tactic) => tactic.id === id) ?? tactics[0];
+    const next = savedTactics.find((tactic) => tactic.id === id) ?? savedTactics[0];
     setPreviousTacticId(activeTacticId);
     setActiveTacticId(id);
-    setSlots(createFormationSlots(id));
+    setSlots(createFormationSlots(id, tacticLayouts));
     setHoveredZone(null);
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
@@ -203,10 +210,40 @@ export default function Home() {
   function resetBoard() {
     setLineup(players.slice(0, 11));
     setBench(players.slice(11));
-    setSlots(createFormationSlots(activeTacticId));
+    const defaultLayout = tacticDefaults[activeTacticId] ?? formationSlots.control;
+    setTacticLayouts((current) => ({ ...current, [activeTacticId]: defaultLayout.map((slot) => ({ ...slot })) }));
+    setSlots(createFormationSlots(activeTacticId, { ...tacticLayouts, [activeTacticId]: defaultLayout }));
     setHoveredZone(null);
     setSelectedPlayer(null);
     setNotice("선수 배치를 현재 전술의 기본 위치로 되돌렸습니다.");
+  }
+
+  function createTactic(name: string, baseTacticId: TacticId) {
+    const base = savedTactics.find((tactic) => tactic.id === baseTacticId) ?? activeTactic;
+    const customNumber = savedTactics.filter((tactic) => tactic.id.startsWith("custom-")).length + 1;
+    const id = `custom-${customNumber}`;
+    const layout = (tacticLayouts[base.id] ?? formationSlots.control).map((slot) => ({ ...slot }));
+    const tones: Tone[] = ["orange", "mint", "yellow", "lime"];
+    const nextTactic: Tactic = {
+      ...base,
+      id,
+      name: name.trim() || `MY TACTIC ${customNumber}`,
+      intent: `${base.name} 기반`,
+      tone: tones[(customNumber - 1) % tones.length],
+      metrics: { ...base.metrics },
+      summary: `${base.name} 전술을 기준으로 만든 사용자 전술`,
+    };
+
+    setSavedTactics((current) => [...current, nextTactic]);
+    setTacticLayouts((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
+    setTacticDefaults((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
+    setPreviousTacticId(activeTacticId);
+    setActiveTacticId(id);
+    setSlots(createFormationSlots(id, { ...tacticLayouts, [id]: layout }));
+    setHoveredZone(null);
+    setSelectedPlayer(null);
+    setSwitchCount((count) => count + 1);
+    setNotice(`${nextTactic.name} 전술을 ${base.name} 기준으로 만들고 적용했습니다.`);
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
@@ -261,6 +298,16 @@ export default function Home() {
     setDragAnchor(null);
   }
 
+  function movePitchPlayer(index: number, x: number, y: number) {
+    const position = resolvePitchPosition(x, y);
+    setSlots((current) => current.map((slot, slotIndex) => slotIndex === index ? { ...slot, x, y, role: position.code } : slot));
+    setTacticLayouts((current) => {
+      const activeLayout = current[activeTacticId] ?? slots.map((slot) => ({ x: slot.x, y: slot.y }));
+      return { ...current, [activeTacticId]: activeLayout.map((slot, slotIndex) => slotIndex === index ? { x, y } : slot) };
+    });
+    setNotice(`${lineup[index].name} 선수를 ${position.code} 구역으로 이동하고 현재 전술에 저장했습니다.`);
+  }
+
   function dropOnPitch(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setHoveredZone(null);
@@ -271,10 +318,8 @@ export default function Home() {
       event.clientX - (payload.anchorOffsetX ?? 0),
       event.clientY - (payload.anchorOffsetY ?? 0),
     );
-    const position = resolvePitchPosition(x, y);
-    setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
+    movePitchPlayer(payload.index, x, y);
     setDragAnchor(null);
-    setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
   }
 
   function dropOnPlayer(event: DragEvent<HTMLButtonElement>, targetIndex: number) {
@@ -291,10 +336,8 @@ export default function Home() {
         event.clientX - (payload.anchorOffsetX ?? 0),
         event.clientY - (payload.anchorOffsetY ?? 0),
       );
-      const position = resolvePitchPosition(x, y);
-      setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
+      movePitchPlayer(payload.index, x, y);
       setDragAnchor(null);
-      setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
       return;
     }
 
@@ -351,7 +394,7 @@ export default function Home() {
     if (/압박|탈취|세컨드볼/.test(prompt)) next = "press";
     if (/점유|안정|통제/.test(prompt)) next = "control";
     setRecommendation(next);
-    const tactic = tactics.find((item) => item.id === next) ?? tactics[0];
+    const tactic = savedTactics.find((item) => item.id === next) ?? savedTactics[0];
     setNotice(`AI 코치가 요청을 ${tactic.intent} 의도로 해석했습니다. 적용 전 이유와 위험을 확인하세요.`);
   }
 
@@ -382,6 +425,7 @@ export default function Home() {
 
       {view === "match" && (
         <MatchRoom
+          savedTactics={savedTactics}
           activeTactic={activeTactic}
           previousTactic={previousTactic}
           metricDelta={metricDelta}
@@ -398,6 +442,7 @@ export default function Home() {
           teamKit={defaultTeamKit}
           onTactic={applyTactic}
           onReset={resetBoard}
+          onCreateTactic={createTactic}
           onStartDrag={startDrag}
           onDragOverPitch={previewPitchZone}
           onDragLeavePitch={leavePitchZone}
@@ -435,6 +480,7 @@ export default function Home() {
 }
 
 type MatchRoomProps = {
+  savedTactics: Tactic[];
   activeTactic: Tactic;
   previousTactic: Tactic;
   metricDelta: { attack: number; defence: number; centre: number };
@@ -451,6 +497,7 @@ type MatchRoomProps = {
   teamKit: TeamKit;
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
+  onCreateTactic: (name: string, baseTacticId: TacticId) => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -466,7 +513,24 @@ type MatchRoomProps = {
 };
 
 function MatchRoom(props: MatchRoomProps) {
-  const recommended = tactics.find((tactic) => tactic.id === props.recommendation) ?? null;
+  const [creatorOpen, setCreatorOpen] = useState(false);
+  const [newTacticName, setNewTacticName] = useState("");
+  const [baseTacticId, setBaseTacticId] = useState<TacticId>(props.activeTactic.id);
+  const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
+  const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
+
+  function openTacticCreator() {
+    setBaseTacticId(props.activeTactic.id);
+    setNewTacticName("");
+    setCreatorOpen(true);
+  }
+
+  function submitTactic(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    props.onCreateTactic(newTacticName, baseTacticId);
+    setCreatorOpen(false);
+    setNewTacticName("");
+  }
   return (
     <>
       <section className="match-hero">
@@ -490,14 +554,35 @@ function MatchRoom(props: MatchRoomProps) {
         <aside className="tactic-panel panel">
           <SectionTitle number="01" eyebrow="MATCH PLAN" title="저장 전술" description="경기 중 즉시 전환할 수 있습니다." />
           <div className="tactic-list">
-            {tactics.map((tactic) => (
+            {props.savedTactics.map((tactic) => (
               <button key={tactic.id} className={`tactic-card ${tactic.tone} ${props.activeTactic.id === tactic.id ? "active" : ""}`} onClick={() => props.onTactic(tactic.id)} aria-pressed={props.activeTactic.id === tactic.id}>
                 <span className="tactic-letter">{tactic.name.slice(0, 1)}</span>
                 <span><b>{tactic.name}</b><small>{tactic.formation} · {tactic.intent}</small></span>
                 {props.activeTactic.id === tactic.id && <em>ON</em>}
               </button>
             ))}
+            <button className="tactic-add-card" onClick={openTacticCreator} aria-expanded={creatorOpen}>
+              <span>+</span><b>새 전술</b><small>기준 전술에서 만들기</small>
+            </button>
           </div>
+          {creatorOpen && (
+            <form className="tactic-creator" onSubmit={submitTactic}>
+              <div className="tactic-creator-head"><div><span>NEW PLAN</span><b>새 전술 만들기</b></div><button type="button" onClick={() => setCreatorOpen(false)} aria-label="전술 만들기 닫기">×</button></div>
+              <label className="tactic-name-field">전술 이름<input autoFocus maxLength={18} value={newTacticName} onChange={(event) => setNewTacticName(event.target.value)} placeholder={`MY TACTIC ${props.savedTactics.length - initialTactics.length + 1}`} /></label>
+              <fieldset>
+                <legend>어떤 전술을 기준으로 만들까요?</legend>
+                <div className="base-tactic-grid">
+                  {props.savedTactics.map((tactic) => (
+                    <button key={tactic.id} type="button" className={baseTacticId === tactic.id ? "active" : ""} onClick={() => setBaseTacticId(tactic.id)} aria-pressed={baseTacticId === tactic.id}>
+                      <b>{tactic.name}</b><small>{tactic.formation}</small>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="base-tactic-preview"><span>BASE</span><div><b>{baseTactic.name}</b><small>{baseTactic.formation} · {baseTactic.intent}</small></div></div>
+              <button className="create-tactic-button" type="submit">전술 생성하고 적용</button>
+            </form>
+          )}
           <div className="metric-card">
             <div className="metric-heading"><span>전술 지표</span><small>TOUCHLINE DERIVED</small></div>
             <Metric label="공격 위협" value={props.activeTactic.metrics.attack} tone="orange" />
