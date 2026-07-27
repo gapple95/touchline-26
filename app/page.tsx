@@ -598,6 +598,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [passLinking, setPassLinking] = useState(false);
   const [passPointer, setPassPointer] = useState<FormationSlot | null>(null);
   const [activePassId, setActivePassId] = useState<string | null>(null);
+  const [playerMenuOpen, setPlayerMenuOpen] = useState(false);
   const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
@@ -610,12 +611,14 @@ function MatchRoom(props: MatchRoomProps) {
     setPassLinking(false);
     setPassPointer(null);
     setActivePassId(null);
+    setPlayerMenuOpen(false);
   }, [props.activeTactic.id]);
 
   useEffect(() => {
     setPassLinking(false);
     setPassPointer(null);
     setActivePassId(null);
+    setPlayerMenuOpen(props.selectedPlayer !== null);
   }, [props.selectedPlayer]);
 
   function openTacticCreator() {
@@ -645,6 +648,7 @@ function MatchRoom(props: MatchRoomProps) {
       passingFrequency: props.activeTactic.details.passingFrequency,
       forwardRuns: 50,
       defensiveWorkRate: 50,
+      runDirection: "HOLD",
       passTargets: [],
     };
   }
@@ -670,6 +674,25 @@ function MatchRoom(props: MatchRoomProps) {
     setPassLinking((current) => !current);
     setPassPointer({ x: selectedPlayerSlot.x, y: selectedPlayerSlot.y });
     setActivePassId(null);
+    setPlayerMenuOpen(false);
+  }
+
+  function focusPlayerInstructions() {
+    setPlayerMenuOpen(false);
+    requestAnimationFrame(() => {
+      const panel = document.getElementById("player-instruction-panel");
+      panel?.focus();
+      panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+
+  function chooseRunDirection(direction: "FORWARD" | "BACKWARD") {
+    if (!selectedPlayerData) return;
+    updatePlayerInstruction(selectedPlayerData.id, (current) => ({
+      ...current,
+      runDirection: current.runDirection === direction ? "HOLD" : direction,
+    }));
+    setPlayerMenuOpen(false);
   }
 
   function trackPassPointer(event: ReactMouseEvent<HTMLDivElement>) {
@@ -683,6 +706,10 @@ function MatchRoom(props: MatchRoomProps) {
 
   function handlePitchPlayerClick(targetIndex: number) {
     if (!passLinking || props.selectedPlayer === null || !selectedPlayerData) {
+      if (props.selectedPlayer === targetIndex) {
+        setPlayerMenuOpen((current) => !current);
+        return;
+      }
       props.onPlayerClick(targetIndex);
       return;
     }
@@ -699,6 +726,7 @@ function MatchRoom(props: MatchRoomProps) {
     setPassLinking(false);
     setPassPointer(null);
     setActivePassId(id);
+    setPlayerMenuOpen(false);
   }
 
   function adjustPassIntensity(passId: string, intensity: number) {
@@ -889,11 +917,26 @@ function MatchRoom(props: MatchRoomProps) {
                   })}
                 </div>
                 <div className="individual-pass-layer" aria-hidden="true">
+                  {props.activeTactic.details.playerInstructions.map((instruction) => {
+                    if (instruction.runDirection === "HOLD") return null;
+                    const fromIndex = props.lineup.findIndex((player) => player.id === instruction.playerId);
+                    if (fromIndex < 0) return null;
+                    const from = props.slots[fromIndex];
+                    const to = { x: Math.max(4, Math.min(96, from.x + (instruction.runDirection === "FORWARD" ? 15 : -15))), y: from.y };
+                    return <i key={`run-${instruction.playerId}`} className={`player-run-line ${instruction.runDirection.toLowerCase()}`} style={connectionStyle(from, to)} />;
+                  })}
                   {props.activeTactic.details.playerInstructions.flatMap((instruction) => instruction.passTargets.map((pass) => {
                     const fromIndex = props.lineup.findIndex((player) => player.id === instruction.playerId);
                     const toIndex = props.lineup.findIndex((player) => player.id === pass.toPlayerId);
                     if (fromIndex < 0 || toIndex < 0) return null;
-                    return <i key={pass.id} className={`individual-pass-line ${activePassId === pass.id ? "active" : ""}`} style={{ ...connectionStyle(props.slots[fromIndex], props.slots[toIndex]), opacity: .35 + pass.intensity * .006, borderTopWidth: `${1 + pass.intensity / 45}px` }} />;
+                    const from = props.slots[fromIndex];
+                    const to = props.slots[toIndex];
+                    const fromPlayer = props.lineup[fromIndex];
+                    const toPlayer = props.lineup[toIndex];
+                    return [
+                      <i key={`${pass.id}-line`} className={`individual-pass-line ${activePassId === pass.id ? "active" : ""}`} style={{ ...connectionStyle(from, to), opacity: .35 + pass.intensity * .006, borderTopWidth: `${1 + pass.intensity / 45}px` }} />,
+                      <span key={`${pass.id}-direction`} className="pass-direction-chip" style={{ left: `${(from.x + to.x) / 2}%`, top: `${(from.y + to.y) / 2}%` }}>{fromPlayer.number} → {toPlayer.number}</span>,
+                    ];
                   }))}
                   {passLinking && selectedPlayerSlot && passPointer && <i className="individual-pass-line pending" style={connectionStyle(selectedPlayerSlot, passPointer)} />}
                 </div>
@@ -922,6 +965,20 @@ function MatchRoom(props: MatchRoomProps) {
                     );
                   })}
                 </div>
+                {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && (
+                  <div
+                    className={`player-action-menu ${selectedPlayerSlot.x > 68 ? "align-left" : ""} ${selectedPlayerSlot.y > 58 ? "align-up" : ""}`}
+                    style={{ left: `${selectedPlayerSlot.x}%`, top: `${selectedPlayerSlot.y}%` }}
+                    role="group"
+                    aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴`}
+                  >
+                    <div><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요</small></div>
+                    <button type="button" onClick={startPassAssignment}><i>→</i>패스 지정</button>
+                    <button type="button" onClick={focusPlayerInstructions}><i>≡</i>개인 지침</button>
+                    <button type="button" className={selectedInstruction.runDirection === "FORWARD" ? "active" : ""} onClick={() => chooseRunDirection("FORWARD")} aria-pressed={selectedInstruction.runDirection === "FORWARD"}><i>↗</i>앞으로 달리기</button>
+                    <button type="button" className={selectedInstruction.runDirection === "BACKWARD" ? "active" : ""} onClick={() => chooseRunDirection("BACKWARD")} aria-pressed={selectedInstruction.runDirection === "BACKWARD"}><i>↙</i>뒤로 달리기</button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -941,9 +998,9 @@ function MatchRoom(props: MatchRoomProps) {
             </div>
           </section>
           {selectedPlayerData && selectedInstruction ? (
-            <section className="player-instruction-panel" aria-labelledby="player-instruction-title">
+            <section id="player-instruction-panel" className="player-instruction-panel" aria-labelledby="player-instruction-title" tabIndex={-1}>
               <div className="instruction-panel-head player">
-                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role}</p></div>
+                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "앞으로" : selectedInstruction.runDirection === "BACKWARD" ? "뒤로" : "유지"}</p></div>
                 <button type="button" onClick={() => props.onPlayerClick(props.selectedPlayer ?? 0)} aria-label={`${selectedPlayerData.name} 개인 지침 닫기`}>×</button>
               </div>
               <div className="player-instruction-sliders">

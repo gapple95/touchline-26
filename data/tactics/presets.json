@@ -19,6 +19,7 @@
           "passingFrequency": 88,
           "forwardRuns": 64,
           "defensiveWorkRate": 42,
+          "runDirection": "FORWARD",
           "passTargets": [
             { "id": "control-pass-lee-to-cho", "toPlayerId": "cho-guesung", "intensity": 82 }
           ]

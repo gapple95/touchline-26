@@ -24,6 +24,7 @@ export interface PlayerTacticalInstruction {
   passingFrequency: number;
   forwardRuns: number;
   defensiveWorkRate: number;
+  runDirection: "HOLD" | "FORWARD" | "BACKWARD";
   passTargets: PlayerPassInstruction[];
 }
 

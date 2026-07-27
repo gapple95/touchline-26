@@ -55,8 +55,12 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /onUpdateTacticDetails/);
   assert.match(page + css, /player-relationship-layer/);
   assert.match(page + css, /individual-pass-layer/);
+  assert.match(page + css, /pass-direction-chip/);
+  assert.match(page + css, /player-action-menu/);
   assert.match(page, /passLinking/);
   assert.match(page, /패스 적극도/);
+  assert.match(page, /앞으로 달리기/);
+  assert.match(page, /뒤로 달리기/);
   assert.match(page, /playerInstructions/);
   assert.match(page, /Math\.hypot\(dx, projectedDy\)/);
   assert.match(page, /closest<HTMLDivElement>\("\.pitch-field"\)/);
@@ -114,6 +118,7 @@ test("models detailed instructions and player relationships per tactic", async (
   assert.ok(playerInstructions.length > 0);
   for (const instruction of playerInstructions) {
     assert.ok([instruction.aggression, instruction.takeOn, instruction.passingFrequency, instruction.forwardRuns, instruction.defensiveWorkRate].every((value) => value >= 0 && value <= 100));
+    assert.match(instruction.runDirection, /^(HOLD|FORWARD|BACKWARD)$/);
     assert.ok(instruction.passTargets.every((pass) => pass.intensity >= 0 && pass.intensity <= 100));
   }
 });
