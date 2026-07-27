@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
-import type { KitPalette, TeamKit } from "@/lib/domain/football";
+import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
 type View = "match" | "review" | "manager" | "duel";
 type TacticId = string;
@@ -38,7 +38,33 @@ type Tactic = {
   };
   summary: string;
   risk: string;
+  details: DetailedTacticInstructions;
 };
+
+const relationshipLabels: Record<PlayerRelationshipType, string> = {
+  COMBINATION: "짧은 연계",
+  OVERLAP: "오버랩",
+  COVER: "커버",
+  SUPPLY: "패스 공급",
+  SWITCH: "위치 스위칭",
+};
+
+const wideActionLabels: Record<WideFinalAction, string> = {
+  BYLINE_DRIBBLE: "코너까지 돌파",
+  EARLY_CROSS: "빠른 크로스",
+  CUTBACK: "컷백 연결",
+  RECYCLE: "뒤로 돌려 점유",
+};
+
+const instructionSliders: Array<{ key: "aggression" | "takeOn" | "passingFrequency"; label: string; low: string; high: string }> = [
+  { key: "aggression", label: "적극성", low: "신중", high: "과감" },
+  { key: "takeOn", label: "1대1 돌파", low: "자제", high: "자주" },
+  { key: "passingFrequency", label: "패스 활용", low: "직접 전진", high: "많이 연결" },
+];
+
+function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTacticInstructions {
+  return { ...details, relationships: details.relationships.map((relationship) => ({ ...relationship })) };
+}
 
 type KitCssVariables = CSSProperties & {
   "--kit-shirt": string;
@@ -90,6 +116,10 @@ const initialTactics: Tactic[] = [
     metrics: { attack: 64, defence: 82, centre: 86, transition: 66, fatigue: 41 },
     summary: "중앙 수적 우위와 안정적인 3+2 빌드업",
     risk: "낮은 템포로 박스 진입 횟수가 줄어들 수 있음",
+    details: {
+      aggression: 52, takeOn: 38, passingFrequency: 84, wideFinalAction: "CUTBACK",
+      relationships: [{ id: "control-supply", fromPlayerId: "lee-kangin", toPlayerId: "cho-guesung", type: "SUPPLY" }],
+    },
   },
   {
     id: "press",
@@ -100,6 +130,10 @@ const initialTactics: Tactic[] = [
     metrics: { attack: 79, defence: 68, centre: 72, transition: 86, fatigue: 78 },
     summary: "센터백을 압박하고 첫 패스를 측면으로 유도",
     risk: "압박이 풀리면 수비 라인 뒤 공간이 커짐",
+    details: {
+      aggression: 86, takeOn: 61, passingFrequency: 58, wideFinalAction: "EARLY_CROSS",
+      relationships: [{ id: "press-cover", fromPlayerId: "jung-wooyoung", toPlayerId: "kim-jinsu", type: "COVER" }],
+    },
   },
   {
     id: "chase",
@@ -110,6 +144,10 @@ const initialTactics: Tactic[] = [
     metrics: { attack: 88, defence: 54, centre: 61, transition: 90, fatigue: 92 },
     summary: "전방 5명을 확보하고 반대편 채널을 즉시 공략",
     risk: "양쪽 윙백 전진 시 전환 수비가 크게 약화됨",
+    details: {
+      aggression: 92, takeOn: 82, passingFrequency: 49, wideFinalAction: "BYLINE_DRIBBLE",
+      relationships: [{ id: "chase-overlap", fromPlayerId: "kim-jinsu", toPlayerId: "son-heungmin", type: "OVERLAP" }],
+    },
   },
   {
     id: "lock",
@@ -120,6 +158,10 @@ const initialTactics: Tactic[] = [
     metrics: { attack: 38, defence: 91, centre: 88, transition: 55, fatigue: 32 },
     summary: "하프스페이스를 닫고 한 명의 역습 출구를 유지",
     risk: "상대 진영에서 공을 소유하기 어려움",
+    details: {
+      aggression: 34, takeOn: 28, passingFrequency: 76, wideFinalAction: "RECYCLE",
+      relationships: [{ id: "lock-cover", fromPlayerId: "kim-younggwon", toPlayerId: "kim-jinsu", type: "COVER" }],
+    },
   },
 ];
 
@@ -232,6 +274,7 @@ export default function Home() {
       tone: tones[(customNumber - 1) % tones.length],
       metrics: { ...base.metrics },
       summary: `${base.name} 전술을 기준으로 만든 사용자 전술`,
+      details: { ...base.details, relationships: base.details.relationships.map((relationship) => ({ ...relationship, id: `${id}-${relationship.id}` })) },
     };
 
     setSavedTactics((current) => [...current, nextTactic]);
@@ -244,6 +287,13 @@ export default function Home() {
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
     setNotice(`${nextTactic.name} 전술을 ${base.name} 기준으로 만들고 적용했습니다.`);
+  }
+
+  function updateTacticDetails(id: TacticId, details: DetailedTacticInstructions) {
+    setSavedTactics((current) => current.map((tactic) => tactic.id === id
+      ? { ...tactic, details: { ...details, relationships: details.relationships.map((relationship) => ({ ...relationship })) } }
+      : tactic));
+    setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
@@ -443,6 +493,7 @@ export default function Home() {
           onTactic={applyTactic}
           onReset={resetBoard}
           onCreateTactic={createTactic}
+          onUpdateTacticDetails={updateTacticDetails}
           onStartDrag={startDrag}
           onDragOverPitch={previewPitchZone}
           onDragLeavePitch={leavePitchZone}
@@ -498,6 +549,7 @@ type MatchRoomProps = {
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
   onCreateTactic: (name: string, baseTacticId: TacticId) => void;
+  onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions) => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -514,15 +566,32 @@ type MatchRoomProps = {
 
 function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
+  const [detailEditorOpen, setDetailEditorOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [baseTacticId, setBaseTacticId] = useState<TacticId>(props.activeTactic.id);
+  const [detailDraft, setDetailDraft] = useState<DetailedTacticInstructions>(() => cloneTacticDetails(props.activeTactic.details));
+  const [relationFrom, setRelationFrom] = useState(props.lineup[8]?.id ?? props.lineup[0]?.id ?? "");
+  const [relationTo, setRelationTo] = useState(props.lineup[10]?.id ?? props.lineup[1]?.id ?? "");
+  const [relationType, setRelationType] = useState<PlayerRelationshipType>("COMBINATION");
   const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
+
+  useEffect(() => {
+    setDetailDraft(cloneTacticDetails(props.activeTactic.details));
+    setDetailEditorOpen(false);
+  }, [props.activeTactic.id, props.activeTactic.details]);
 
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
     setNewTacticName("");
+    setDetailEditorOpen(false);
     setCreatorOpen(true);
+  }
+
+  function openDetailEditor() {
+    setCreatorOpen(false);
+    setDetailDraft(cloneTacticDetails(props.activeTactic.details));
+    setDetailEditorOpen(true);
   }
 
   function submitTactic(event: FormEvent<HTMLFormElement>) {
@@ -530,6 +599,24 @@ function MatchRoom(props: MatchRoomProps) {
     props.onCreateTactic(newTacticName, baseTacticId);
     setCreatorOpen(false);
     setNewTacticName("");
+  }
+
+  function addRelationship() {
+    if (!relationFrom || !relationTo || relationFrom === relationTo) return;
+    const id = `${relationFrom}-${relationTo}-${relationType}`;
+    setDetailDraft((current) => current.relationships.some((relationship) => relationship.id === id)
+      ? current
+      : { ...current, relationships: [...current.relationships, { id, fromPlayerId: relationFrom, toPlayerId: relationTo, type: relationType }] });
+  }
+
+  function saveTacticDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    props.onUpdateTacticDetails(props.activeTactic.id, detailDraft);
+    setDetailEditorOpen(false);
+  }
+
+  function playerName(playerId: string) {
+    return [...props.lineup, ...props.bench].find((player) => player.id === playerId)?.name ?? playerId;
   }
   return (
     <>
@@ -583,6 +670,53 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="create-tactic-button" type="submit">전술 생성하고 적용</button>
             </form>
           )}
+          <div className="tactic-detail-summary">
+            <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 행동 지침</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>세부 조정</button></div>
+            <div className="detail-value-grid">
+              <span>적극성 <b>{props.activeTactic.details.aggression}</b></span>
+              <span>돌파 <b>{props.activeTactic.details.takeOn}</b></span>
+              <span>패스 <b>{props.activeTactic.details.passingFrequency}</b></span>
+            </div>
+            <p><b>측면:</b> {wideActionLabels[props.activeTactic.details.wideFinalAction]} <i /> <b>관계:</b> {props.activeTactic.details.relationships.length}개</p>
+          </div>
+          {detailEditorOpen && (
+            <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
+              <div className="detail-editor-head"><div><span>TACTICAL DETAIL</span><b>행동 지침 편집</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
+              <div className="instruction-sliders">
+                {instructionSliders.map((instruction) => (
+                  <label key={instruction.key}>
+                    <span><b>{instruction.label}</b><output>{detailDraft[instruction.key]}</output></span>
+                    <input type="range" min="0" max="100" value={detailDraft[instruction.key]} onChange={(event) => setDetailDraft((current) => ({ ...current, [instruction.key]: Number(event.target.value) }))} />
+                    <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
+                  </label>
+                ))}
+              </div>
+              <fieldset className="wide-action-field">
+                <legend>측면에서 코너 부근까지 전진했을 때</legend>
+                <div>
+                  {(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => (
+                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setDetailDraft((current) => ({ ...current, wideFinalAction: value }))} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset className="relationship-field">
+                <legend>선수 관계 설정</legend>
+                <div className="relationship-builder">
+                  <select aria-label="관계를 시작할 선수" value={relationFrom} onChange={(event) => setRelationFrom(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
+                  <select aria-label="관계 유형" value={relationType} onChange={(event) => setRelationType(event.target.value as PlayerRelationshipType)}>{(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                  <select aria-label="관계를 받을 선수" value={relationTo} onChange={(event) => setRelationTo(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
+                  <button type="button" onClick={addRelationship} disabled={relationFrom === relationTo}>+ 관계 추가</button>
+                </div>
+                <div className="relationship-list">
+                  {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
+                  {detailDraft.relationships.map((relationship) => (
+                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => setDetailDraft((current) => ({ ...current, relationships: current.relationships.filter((item) => item.id !== relationship.id) }))} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
+                  ))}
+                </div>
+              </fieldset>
+              <button className="save-detail-button" type="submit">세부 전술 저장</button>
+            </form>
+          )}
           <div className="metric-card">
             <div className="metric-heading"><span>전술 지표</span><small>TOUCHLINE DERIVED</small></div>
             <Metric label="공격 위협" value={props.activeTactic.metrics.attack} tone="orange" />
@@ -632,6 +766,20 @@ function MatchRoom(props: MatchRoomProps) {
                     </div>
                   )}
                   {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
+                </div>
+                <div className="player-relationship-layer" aria-hidden="true">
+                  {props.activeTactic.details.relationships.map((relationship) => {
+                    const fromIndex = props.lineup.findIndex((player) => player.id === relationship.fromPlayerId);
+                    const toIndex = props.lineup.findIndex((player) => player.id === relationship.toPlayerId);
+                    if (fromIndex < 0 || toIndex < 0) return null;
+                    const from = props.slots[fromIndex];
+                    const to = props.slots[toIndex];
+                    const dx = to.x - from.x;
+                    const projectedDy = (to.y - from.y) / (105 / 68);
+                    const length = Math.hypot(dx, projectedDy);
+                    const angle = Math.atan2(projectedDy, dx) * 180 / Math.PI;
+                    return <i key={relationship.id} className={`player-relationship-line relation-${relationship.type.toLowerCase()}`} style={{ left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `rotate(${angle}deg)` }} data-relationship-type={relationshipLabels[relationship.type]} />;
+                  })}
                 </div>
                 <div className="pitch-coordinate-layer">
                   {props.slots.map((slot, index) => {

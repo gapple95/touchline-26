@@ -1,6 +1,23 @@
 export type MetricSource = "FIFA_OFFICIAL" | "STATSBOMB_OPEN_DATA" | "TOUCHLINE_DERIVED";
 export type PositionCode = "GK" | "CB" | "FB" | "WB" | "DM" | "CM" | "AM" | "W" | "ST";
 export type MatchPhase = "IN_POSSESSION" | "OUT_OF_POSSESSION" | "ATTACK_TRANSITION" | "DEFENCE_TRANSITION" | "SET_PIECE";
+export type WideFinalAction = "BYLINE_DRIBBLE" | "EARLY_CROSS" | "CUTBACK" | "RECYCLE";
+export type PlayerRelationshipType = "COMBINATION" | "OVERLAP" | "COVER" | "SUPPLY" | "SWITCH";
+
+export interface TacticalPlayerRelationship {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  type: PlayerRelationshipType;
+}
+
+export interface DetailedTacticInstructions {
+  aggression: number;
+  takeOn: number;
+  passingFrequency: number;
+  wideFinalAction: WideFinalAction;
+  relationships: TacticalPlayerRelationship[];
+}
 export type KitDataSource = "FIFA_OFFICIAL" | "TOURNAMENT_FEED" | "TOUCHLINE_FALLBACK";
 
 export interface KitPalette {
@@ -168,7 +185,12 @@ export interface TacticPreset {
     attackingWidth: number;
     tempo: number;
     risk: number;
+    aggression: number;
+    takeOn: number;
+    passingFrequency: number;
+    wideFinalAction: WideFinalAction;
   };
+  relationships: TacticalPlayerRelationship[];
   phaseInstructions: Partial<Record<MatchPhase, string[]>>;
   switchConditions: Array<{ minuteFrom: number; scoreDifferenceMax: number; recommendedNextTacticId: string }>;
   metrics: TacticalMetrics;

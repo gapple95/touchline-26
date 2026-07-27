@@ -44,6 +44,13 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /tactic-add-card/);
   assert.match(page, /어떤 전술을 기준으로 만들까요/);
   assert.match(page, /setTacticLayouts/);
+  assert.match(page, /행동 지침 편집/);
+  assert.match(page, /1대1 돌파/);
+  assert.match(page, /선수 관계 설정/);
+  assert.match(page, /wideFinalAction/);
+  assert.match(page, /onUpdateTacticDetails/);
+  assert.match(page + css, /player-relationship-layer/);
+  assert.match(page, /Math\.hypot\(dx, projectedDy\)/);
   assert.match(page, /closest<HTMLDivElement>\("\.pitch-field"\)/);
   assert.match(page, /anchorOffsetX/);
   assert.match(page, /event\.clientX - \(payload\.anchorOffsetX \?\? 0\)/);
@@ -80,6 +87,20 @@ test("provides replaceable default kit colours", async () => {
   assert.equal(sample.kit.outfield.shirt, "#d8ff50");
   assert.equal(sample.kit.goalkeeper.shirt, "#ffc857");
   assert.notEqual(sample.kit.goalkeeper.shirt, sample.kit.outfield.shirt);
+});
+
+test("models detailed instructions and player relationships per tactic", async () => {
+  const data = JSON.parse(await readFile(new URL("../data/tactics/presets.json", import.meta.url), "utf8"));
+  assert.equal(data.schemaVersion, "1.1.0");
+  assert.equal(data.presets.length, 4);
+  for (const tactic of data.presets) {
+    assert.equal(typeof tactic.instructions.aggression, "number");
+    assert.equal(typeof tactic.instructions.takeOn, "number");
+    assert.equal(typeof tactic.instructions.passingFrequency, "number");
+    assert.match(tactic.instructions.wideFinalAction, /^(BYLINE_DRIBBLE|EARLY_CROSS|CUTBACK|RECYCLE)$/);
+    assert.ok(Array.isArray(tactic.relationships));
+    assert.ok(tactic.relationships.every((relationship) => relationship.fromPlayerId !== relationship.toPlayerId));
+  }
 });
 
 test("reassigns the displayed position from pitch coordinates", () => {

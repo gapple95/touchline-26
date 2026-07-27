@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "metricMethodologyVersion": "tactical-index-v1.0.0",
   "presets": [
     {
@@ -7,7 +7,10 @@
       "name": "CONTROL 4-2-3-1",
       "intent": "CONTROL",
       "formationId": "4-2-3-1",
-      "instructions": { "pressing": 52, "defensiveLine": 50, "attackingWidth": 58, "tempo": 55, "risk": 43 },
+      "instructions": { "pressing": 52, "defensiveLine": 50, "attackingWidth": 58, "tempo": 55, "risk": 43, "aggression": 52, "takeOn": 38, "passingFrequency": 84, "wideFinalAction": "CUTBACK" },
+      "relationships": [
+        { "id": "control-supply", "fromPlayerId": "lee-kangin", "toPlayerId": "cho-guesung", "type": "SUPPLY" }
+      ],
       "phaseInstructions": {
         "IN_POSSESSION": ["double-pivot-support", "right-halfspace-creator", "left-wing-depth"],
         "OUT_OF_POSSESSION": ["mid-block", "protect-centre"],
@@ -31,7 +34,10 @@
       "name": "PRESS 4-3-3",
       "intent": "PRESS",
       "formationId": "4-3-3",
-      "instructions": { "pressing": 82, "defensiveLine": 70, "attackingWidth": 64, "tempo": 76, "risk": 68 },
+      "instructions": { "pressing": 82, "defensiveLine": 70, "attackingWidth": 64, "tempo": 76, "risk": 68, "aggression": 86, "takeOn": 61, "passingFrequency": 58, "wideFinalAction": "EARLY_CROSS" },
+      "relationships": [
+        { "id": "press-cover", "fromPlayerId": "jung-wooyoung", "toPlayerId": "kim-jinsu", "type": "COVER" }
+      ],
       "phaseInstructions": {
         "OUT_OF_POSSESSION": ["press-centre-backs", "force-right-touchline"],
         "ATTACK_TRANSITION": ["first-pass-forward", "both-wingers-run-behind"],
@@ -56,7 +62,10 @@
       "name": "CHASE 3-4-3",
       "intent": "CHASE",
       "formationId": "3-4-3",
-      "instructions": { "pressing": 88, "defensiveLine": 76, "attackingWidth": 82, "tempo": 88, "risk": 91 },
+      "instructions": { "pressing": 88, "defensiveLine": 76, "attackingWidth": 82, "tempo": 88, "risk": 91, "aggression": 92, "takeOn": 82, "passingFrequency": 49, "wideFinalAction": "BYLINE_DRIBBLE" },
+      "relationships": [
+        { "id": "chase-overlap", "fromPlayerId": "kim-jinsu", "toPlayerId": "son-heungmin", "type": "OVERLAP" }
+      ],
       "phaseInstructions": {
         "IN_POSSESSION": ["front-five", "wide-overload", "far-side-run"],
         "ATTACK_TRANSITION": ["find-creator-first", "channel-runner-immediate"],
@@ -80,7 +89,10 @@
       "name": "PROTECT 5-4-1",
       "intent": "PROTECT",
       "formationId": "5-4-1",
-      "instructions": { "pressing": 38, "defensiveLine": 34, "attackingWidth": 50, "tempo": 36, "risk": 24 },
+      "instructions": { "pressing": 38, "defensiveLine": 34, "attackingWidth": 50, "tempo": 36, "risk": 24, "aggression": 34, "takeOn": 28, "passingFrequency": 76, "wideFinalAction": "RECYCLE" },
+      "relationships": [
+        { "id": "lock-cover", "fromPlayerId": "kim-younggwon", "toPlayerId": "kim-jinsu", "type": "COVER" }
+      ],
       "phaseInstructions": {
         "OUT_OF_POSSESSION": ["compact-5-4-1", "deny-halfspace"],
         "ATTACK_TRANSITION": ["single-outlet", "win-set-piece"],
