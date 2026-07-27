@@ -75,6 +75,13 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /passLinking/);
   assert.doesNotMatch(page + css, /pass-linking-toolbar/);
   assert.match(page + css, /pass-confirm-popover/);
+  assert.match(page + css, /pass-confirm-header/);
+  assert.match(page, /passPopoverPosition/);
+  assert.match(page, /clampPassPopoverPosition/);
+  assert.match(page, /startPassPopoverDrag/);
+  assert.match(page, /dragPassPopover/);
+  assert.match(page, /passLinking \|\| pendingPass/);
+  assert.match(page, /onClick=\{\(event\) => event\.stopPropagation\(\)\}/);
   assert.match(page, /PendingPassDraft/);
   assert.match(page, /confirmPendingPass/);
   assert.match(page, /handlePitchGroundClick/);

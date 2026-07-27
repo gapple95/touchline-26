@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
@@ -692,9 +692,13 @@ function MatchRoom(props: MatchRoomProps) {
   const [passLinking, setPassLinking] = useState(false);
   const [passPointer, setPassPointer] = useState<FormationSlot | null>(null);
   const [pendingPass, setPendingPass] = useState<PendingPassDraft | null>(null);
+  const [passPopoverPosition, setPassPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [activePassId, setActivePassId] = useState<string | null>(null);
   const [playerMenuOpen, setPlayerMenuOpen] = useState(false);
   const playerMenuRef = useRef<HTMLDivElement>(null);
+  const pitchFieldRef = useRef<HTMLDivElement>(null);
+  const passPopoverRef = useRef<HTMLDivElement>(null);
+  const passPopoverDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
   const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
@@ -750,6 +754,35 @@ function MatchRoom(props: MatchRoomProps) {
     document.addEventListener("keydown", cancelPassWithEscape);
     return () => document.removeEventListener("keydown", cancelPassWithEscape);
   }, [passLinking, pendingPass]);
+
+  useEffect(() => {
+    if (!pendingPass) {
+      setPassPopoverPosition(null);
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const pitch = pitchFieldRef.current;
+      const popover = passPopoverRef.current;
+      const targetIndex = props.lineup.findIndex((player) => player.id === pendingPass.toPlayerId);
+      if (!pitch || !popover || targetIndex < 0) return;
+      const targetSlot = props.slots[targetIndex];
+      const preferredX = pitch.clientWidth * targetSlot.x / 100 + 24;
+      const alternateX = pitch.clientWidth * targetSlot.x / 100 - popover.offsetWidth - 24;
+      const x = preferredX + popover.offsetWidth <= pitch.clientWidth - 8 ? preferredX : alternateX;
+      const y = pitch.clientHeight * targetSlot.y / 100 - 18;
+      setPassPopoverPosition(clampPassPopoverPosition(x, y));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingPass?.id, props.lineup, props.slots]);
+
+  useEffect(() => {
+    if (!pendingPass) return;
+    function keepPassPopoverInsidePitch() {
+      setPassPopoverPosition((current) => current ? clampPassPopoverPosition(current.x, current.y) : current);
+    }
+    window.addEventListener("resize", keepPassPopoverInsidePitch);
+    return () => window.removeEventListener("resize", keepPassPopoverInsidePitch);
+  }, [pendingPass?.id]);
 
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
@@ -819,6 +852,49 @@ function MatchRoom(props: MatchRoomProps) {
     setActivePassId(null);
   }
 
+  function clampPassPopoverPosition(x: number, y: number) {
+    const pitch = pitchFieldRef.current;
+    const popover = passPopoverRef.current;
+    if (!pitch || !popover) return { x, y };
+    const margin = 8;
+    const maxX = Math.max(margin, pitch.clientWidth - popover.offsetWidth - margin);
+    const maxY = Math.max(margin, pitch.clientHeight - popover.offsetHeight - margin);
+    return {
+      x: Math.min(Math.max(margin, x), maxX),
+      y: Math.min(Math.max(margin, y), maxY),
+    };
+  }
+
+  function startPassPopoverDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !passPopoverRef.current) return;
+    const popoverRect = passPopoverRef.current.getBoundingClientRect();
+    passPopoverDragRef.current = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - popoverRect.left,
+      offsetY: event.clientY - popoverRect.top,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function dragPassPopover(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = passPopoverDragRef.current;
+    const pitch = pitchFieldRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !pitch) return;
+    const pitchRect = pitch.getBoundingClientRect();
+    setPassPopoverPosition(clampPassPopoverPosition(
+      event.clientX - pitchRect.left - drag.offsetX,
+      event.clientY - pitchRect.top - drag.offsetY,
+    ));
+  }
+
+  function finishPassPopoverDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (passPopoverDragRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    passPopoverDragRef.current = null;
+  }
+
   function focusPlayerInstructions() {
     setPlayerMenuOpen(false);
     requestAnimationFrame(() => {
@@ -847,7 +923,7 @@ function MatchRoom(props: MatchRoomProps) {
   }
 
   function handlePitchGroundClick() {
-    if (passLinking) cancelPassAssignment();
+    if (passLinking || pendingPass) cancelPassAssignment();
   }
 
   function handlePitchPlayerClick(targetIndex: number) {
@@ -1061,7 +1137,7 @@ function MatchRoom(props: MatchRoomProps) {
           </div>
           <div className="pitch-shell">
             <div className="pitch">
-              <div className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onClick={handlePitchGroundClick} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+              <div ref={pitchFieldRef} className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onClick={handlePitchGroundClick} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
                 <div className="pitch-markings" aria-hidden="true">
                   <i className="halfway" /><i className="centre-circle" /><i className="centre-mark" />
                   <i className="penalty-area own" /><i className="penalty-area opponent" />
@@ -1150,8 +1226,8 @@ function MatchRoom(props: MatchRoomProps) {
                   const targetPlayer = props.lineup[targetIndex];
                   const targetSlot = props.slots[targetIndex];
                   return (
-                    <div className={`pass-confirm-popover ${targetSlot.x > 68 ? "align-left" : ""} ${targetSlot.y > 58 ? "align-up" : ""}`} style={{ left: `${targetSlot.x}%`, top: `${targetSlot.y}%` }} role="dialog" aria-label={`${fromPlayer.name}에서 ${targetPlayer.name} 패스 설정`}>
-                      <div><span>PASS INSTRUCTION</span><b>{fromPlayer.name} → {targetPlayer.name}</b></div>
+                    <div ref={passPopoverRef} className="pass-confirm-popover" style={passPopoverPosition ? { left: passPopoverPosition.x, top: passPopoverPosition.y } : { left: `${targetSlot.x}%`, top: `${targetSlot.y}%`, visibility: "hidden" }} role="dialog" aria-label={`${fromPlayer.name}에서 ${targetPlayer.name} 패스 설정`} onClick={(event) => event.stopPropagation()}>
+                      <div className="pass-confirm-header" onPointerDown={startPassPopoverDrag} onPointerMove={dragPassPopover} onPointerUp={finishPassPopoverDrag} onPointerCancel={finishPassPopoverDrag} title="드래그하여 창 이동"><span>PASS INSTRUCTION · DRAG</span><b>{fromPlayer.name} → {targetPlayer.name}</b></div>
                       <label><span>패스 적극도 <output>{pendingPass.intensity}</output></span><input autoFocus aria-label={`${targetPlayer.name} 패스 적극도 설정`} type="range" min="0" max="100" value={pendingPass.intensity} onChange={(event) => setPendingPass((current) => current ? { ...current, intensity: Number(event.target.value) } : current)} /><small><i>상황 우선</i><i>최우선 연결</i></small></label>
                       <div className="pass-confirm-actions"><button type="button" onClick={confirmPendingPass}>연결</button><button type="button" onClick={cancelPassAssignment}>취소</button></div>
                     </div>
