@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "1.0.0",
+  "metricMethodologyVersion": "tactical-index-v1.0.0",
+  "presets": [
+    {
+      "tacticId": "kor-control-4231-v1",
+      "name": "CONTROL 4-2-3-1",
+      "intent": "CONTROL",
+      "formationId": "4-2-3-1",
+      "instructions": { "pressing": 52, "defensiveLine": 50, "attackingWidth": 58, "tempo": 55, "risk": 43 },
+      "phaseInstructions": {
+        "IN_POSSESSION": ["double-pivot-support", "right-halfspace-creator", "left-wing-depth"],
+        "OUT_OF_POSSESSION": ["mid-block", "protect-centre"],
+        "DEFENCE_TRANSITION": ["five-second-counterpress", "fallback-4-4-1-1"]
+      },
+      "metrics": {
+        "classification": "TOUCHLINE_DERIVED",
+        "attack": 68,
+        "defence": 76,
+        "transition": 66,
+        "buildup": 81,
+        "setPiece": 62,
+        "fatigueRisk": 41
+      },
+      "switchConditions": [
+        { "minuteFrom": 70, "scoreDifferenceMax": -1, "recommendedNextTacticId": "kor-chase-343-v1" }
+      ]
+    },
+    {
+      "tacticId": "kor-press-433-v1",
+      "name": "PRESS 4-3-3",
+      "intent": "PRESS",
+      "formationId": "4-3-3",
+      "instructions": { "pressing": 82, "defensiveLine": 70, "attackingWidth": 64, "tempo": 76, "risk": 68 },
+      "phaseInstructions": {
+        "OUT_OF_POSSESSION": ["press-centre-backs", "force-right-touchline"],
+        "ATTACK_TRANSITION": ["first-pass-forward", "both-wingers-run-behind"],
+        "DEFENCE_TRANSITION": ["six-second-counterpress", "anchor-hold"]
+      },
+      "metrics": {
+        "classification": "TOUCHLINE_DERIVED",
+        "attack": 79,
+        "defence": 68,
+        "transition": 86,
+        "buildup": 71,
+        "setPiece": 60,
+        "fatigueRisk": 78
+      },
+      "switchConditions": [
+        { "minuteFrom": 62, "scoreDifferenceMax": -1, "recommendedNextTacticId": "kor-chase-343-v1" },
+        { "minuteFrom": 75, "scoreDifferenceMax": 0, "recommendedNextTacticId": "kor-control-4231-v1" }
+      ]
+    },
+    {
+      "tacticId": "kor-chase-343-v1",
+      "name": "CHASE 3-4-3",
+      "intent": "CHASE",
+      "formationId": "3-4-3",
+      "instructions": { "pressing": 88, "defensiveLine": 76, "attackingWidth": 82, "tempo": 88, "risk": 91 },
+      "phaseInstructions": {
+        "IN_POSSESSION": ["front-five", "wide-overload", "far-side-run"],
+        "ATTACK_TRANSITION": ["find-creator-first", "channel-runner-immediate"],
+        "DEFENCE_TRANSITION": ["central-midfield-delay", "outside-centre-back-cover"]
+      },
+      "metrics": {
+        "classification": "TOUCHLINE_DERIVED",
+        "attack": 91,
+        "defence": 47,
+        "transition": 90,
+        "buildup": 63,
+        "setPiece": 73,
+        "fatigueRisk": 92
+      },
+      "switchConditions": [
+        { "minuteFrom": 85, "scoreDifferenceMax": 0, "recommendedNextTacticId": "kor-control-4231-v1" }
+      ]
+    },
+    {
+      "tacticId": "kor-protect-541-v1",
+      "name": "PROTECT 5-4-1",
+      "intent": "PROTECT",
+      "formationId": "5-4-1",
+      "instructions": { "pressing": 38, "defensiveLine": 34, "attackingWidth": 50, "tempo": 36, "risk": 24 },
+      "phaseInstructions": {
+        "OUT_OF_POSSESSION": ["compact-5-4-1", "deny-halfspace"],
+        "ATTACK_TRANSITION": ["single-outlet", "win-set-piece"],
+        "SET_PIECE": ["keep-three-back"]
+      },
+      "metrics": {
+        "classification": "TOUCHLINE_DERIVED",
+        "attack": 38,
+        "defence": 91,
+        "transition": 55,
+        "buildup": 52,
+        "setPiece": 68,
+        "fatigueRisk": 32
+      },
+      "switchConditions": []
+    }
+  ]
+}

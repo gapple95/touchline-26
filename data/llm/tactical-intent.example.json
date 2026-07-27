@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0.0",
+  "input": {
+    "text": "후반 70분에 한 골이 필요해. 손흥민이 침투할 공간을 만들고 이강인의 패스를 살려줘.",
+    "locale": "ko-KR",
+    "matchState": {
+      "minute": 70,
+      "scoreDifference": -1,
+      "substitutionsRemaining": 3
+    }
+  },
+  "parsedIntent": {
+    "priorities": ["SCORE", "PREVENT_COUNTER"],
+    "preferredZones": ["RIGHT_HALFSPACE", "LEFT"],
+    "focalPlayerIds": ["fifa-2026-kor-lee-kangin", "fifa-2026-kor-son-heungmin"],
+    "requestedRoleIds": ["WIDE_PLAYMAKER", "CHANNEL_RUNNER"],
+    "maxRisk": 88
+  },
+  "constraints": {
+    "allowedPlayerIdsSource": "current-squad.json",
+    "allowedTacticIdsSource": "data/tactics/presets.json",
+    "allowUnknownPlayer": false,
+    "allowInventedTactic": false,
+    "requiresUserConfirmation": true
+  },
+  "recommendations": [
+    {
+      "rank": 1,
+      "tacticId": "kor-chase-343-v1",
+      "confidence": 0.86,
+      "roleAssignments": [
+        { "playerId": "fifa-2026-kor-lee-kangin", "position": "W", "roleId": "WIDE_PLAYMAKER", "zone": "RIGHT_HALFSPACE" },
+        { "playerId": "fifa-2026-kor-son-heungmin", "position": "W", "roleId": "CHANNEL_RUNNER", "zone": "LEFT" }
+      ],
+      "reasons": [
+        "이강인이 오른쪽 하프스페이스에서 전진 패스를 공급하도록 배치합니다.",
+        "손흥민은 반대편 채널 러너로 두어 수비 뒤 공간을 직접 공격합니다.",
+        "전방 다섯 명을 확보해 한 골이 필요한 상황의 박스 점유를 높입니다."
+      ],
+      "risks": [
+        "수비 지표가 47로 내려가며 양쪽 측면 뒷공간 위험이 커집니다.",
+        "전술 지속 시간이 짧고 체력 위험 지표가 92까지 상승합니다."
+      ]
+    },
+    {
+      "rank": 2,
+      "tacticId": "kor-press-433-v1",
+      "confidence": 0.73,
+      "reasons": [
+        "수비 구조를 네 명으로 유지하면서 전환 속도를 높일 수 있습니다.",
+        "한 번의 전술 전환으로 3-4-3보다 위험을 낮출 수 있습니다."
+      ],
+      "risks": ["박스 안 공격 숫자는 CHASE 전술보다 적습니다."]
+    }
+  ],
+  "model": {
+    "task": "TACTICAL_INTENT_PARSER_AND_RANKER",
+    "version": "llm-coach-v1.0.0",
+    "outputValidation": "JSON_SCHEMA_STRICT"
+  }
+}

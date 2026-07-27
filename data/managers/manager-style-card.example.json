@@ -1,0 +1,48 @@
+{
+  "managerId": "manager-demo-001",
+  "displayName": "터치라인 설계자",
+  "sample": {
+    "matches": 4,
+    "duelRounds": 9,
+    "decisionCount": 27
+  },
+  "traits": {
+    "pressingAggression": 82,
+    "riskTolerance": 68,
+    "switchingTempo": 76,
+    "widthPreference": 71,
+    "centralPreference": 54,
+    "transitionPreference": 79,
+    "roleFitPriority": 88,
+    "evidenceReliance": 73,
+    "comebackAggression": 85
+  },
+  "primaryArchetype": "HIGH_PRESS_ARCHITECT",
+  "secondaryArchetype": "TRANSITION_GAMBLER",
+  "evidence": [
+    {
+      "trait": "pressingAggression",
+      "matchId": "match-kor-uru-demo",
+      "minute": 61,
+      "decisionId": "decision-061-press",
+      "summary": "동점 상황에서 전방 압박을 72에서 88로 높이고 볼 위닝 미드필더를 투입했다."
+    },
+    {
+      "trait": "switchingTempo",
+      "matchId": "match-kor-por-demo",
+      "minute": 70,
+      "decisionId": "decision-070-chase",
+      "summary": "상대가 낮은 블록으로 전환한 직후 폭을 넓히는 CHASE 전술로 변경했다."
+    },
+    {
+      "trait": "roleFitPriority",
+      "matchId": "match-kor-bra-demo",
+      "minute": 0,
+      "decisionId": "decision-000-lineup",
+      "summary": "종합 수치가 높은 선수보다 역할 적합도와 조합 시너지가 높은 선발을 선택했다."
+    }
+  ],
+  "confidence": 0.78,
+  "methodologyVersion": "manager-style-v1.0.0",
+  "generatedAt": "2026-07-27T12:00:00+09:00"
+}

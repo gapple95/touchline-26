@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0.0",
+  "matchId": "demo-kor-opponent-001",
+  "result": { "home": 2, "away": 1 },
+  "managerScore": 84,
+  "classification": "TOUCHLINE_DERIVED",
+  "dimensions": {
+    "lineupFit": 86,
+    "switchTiming": 91,
+    "synergyRealization": 88,
+    "riskManagement": 69,
+    "substitutionImpact": 87
+  },
+  "tacticTimeline": [
+    { "fromMinute": 0, "toMinute": 61, "tacticId": "kor-control-4231-v1" },
+    { "fromMinute": 62, "toMinute": 78, "tacticId": "kor-press-433-v1" },
+    { "fromMinute": 79, "toMinute": 93, "tacticId": "kor-chase-343-v1" }
+  ],
+  "decisions": [
+    {
+      "minute": 62,
+      "action": "CONTROL에서 PRESS로 전환",
+      "assessment": "GOOD",
+      "expectedMetricDelta": { "attack": 11, "defence": -8, "transition": 20 },
+      "observedOutcome": "전환 후 8분 동안 상대 진영 소유권 회복 4회",
+      "explanation": "동점 상황에서 수비 구조를 유지한 채 압박 강도를 먼저 높여 위험을 단계적으로 관리했습니다."
+    },
+    {
+      "minute": 79,
+      "action": "CHASE 3-4-3 전환과 채널 러너 투입",
+      "assessment": "GOOD",
+      "expectedMetricDelta": { "attack": 12, "defence": -21, "transition": 4 },
+      "observedOutcome": "반대편 침투에서 결승 득점 장면 생성",
+      "explanation": "남은 시간과 필요한 득점을 고려하면 높은 위험을 감수할 합리적 시점이었습니다."
+    },
+    {
+      "minute": 88,
+      "action": "CHASE 전술 유지",
+      "assessment": "REVIEW",
+      "expectedMetricDelta": { "defence": -21 },
+      "observedOutcome": "득점 후에도 높은 수비선을 유지해 역습 한 차례 허용",
+      "explanation": "리드를 잡은 직후 CONTROL 또는 PROTECT로 전환했다면 종료 구간의 위험을 줄일 수 있었습니다."
+    }
+  ],
+  "strengths": [
+    "이강인의 창의성과 반대편 채널 러너의 침투를 하나의 공격 경로로 연결했습니다.",
+    "고위험 전술을 경기 초반부터 사용하지 않고 단계적으로 전환했습니다."
+  ],
+  "improvements": [
+    "득점 직후 수비 전술로 복귀하는 자동 알림을 설정하세요.",
+    "양쪽 윙백이 동시에 전진할 때 중앙 미드필더 한 명에게 후방 잔류 지시를 부여하세요."
+  ],
+  "replaySuggestions": [
+    { "startMinute": 79, "alternativeTacticId": "kor-press-433-v1", "question": "수비 안정성을 유지하면서도 같은 득점 기회를 만들 수 있었을까요?" },
+    { "startMinute": 86, "alternativeTacticId": "kor-protect-541-v1", "question": "득점 직후 전환하면 종료 구간 위험이 얼마나 줄어들까요?" }
+  ],
+  "methodologyVersion": "manager-eval-v1.0.0"
+}

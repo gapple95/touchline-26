@@ -1,0 +1,56 @@
+{
+  "duelId": "duel-demo-001",
+  "mode": "LIVE",
+  "scenarioId": "wc-kor-uru-2022-minute-60",
+  "roomCode": "KOR226",
+  "status": "IN_PROGRESS",
+  "participants": [
+    {
+      "participantId": "participant-home",
+      "displayName": "터치라인 설계자",
+      "control": "HUMAN",
+      "managerStyleCardId": "manager-demo-001"
+    },
+    {
+      "participantId": "participant-away",
+      "displayName": "하프스페이스 장인",
+      "control": "HUMAN",
+      "managerStyleCardId": "manager-demo-002"
+    }
+  ],
+  "rounds": [
+    {
+      "roundId": "round-060",
+      "minute": 60,
+      "score": [
+        0,
+        0
+      ],
+      "deadlineAt": "2026-07-27T12:01:00+09:00",
+      "decisions": [
+        {
+          "decisionId": "duel-decision-home-060",
+          "participantId": "participant-home",
+          "tacticId": "tactic-press-4231",
+          "assignments": [],
+          "instructions": {
+            "pressing": 86,
+            "defensiveLine": 72,
+            "attackingWidth": 78,
+            "tempo": 82,
+            "risk": 67
+          },
+          "submittedAt": "2026-07-27T12:00:42+09:00",
+          "locked": true
+        }
+      ],
+      "resolution": null
+    }
+  ],
+  "winnerParticipantId": null,
+  "deterministicSeed": "wc-kor-uru-2022-minute-60:v1",
+  "fallbackMode": "AI",
+  "createdAt": "2026-07-27T11:59:20+09:00",
+  "completedAt": null,
+  "schemaVersion": "1.0.0"
+}

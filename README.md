@@ -1,22 +1,24 @@
 # TOUCHLINE 26
 
-월드컵의 한 경기를 다시 지휘하는 인터랙티브 전술 시뮬레이터입니다. 첫 시나리오는 2022 FIFA 월드컵 조별리그 대한민국 대 포르투갈전입니다.
+TOUCHLINE 26은 공식 축구 데이터를 감독의 선택과 결과로 연결하는 인터랙티브 전술 시뮬레이터입니다.
 
-## 감독 경험
+## 현재 구현 범위
 
-- 4-2-3-1, 4-3-3, 3-4-3 포메이션 전환
-- 드래그앤드롭 또는 클릭으로 선수 위치 교환
-- 벤치 선수 드래그 교체
-- 압박 강도, 수비 라인, 공격 리스크 조절
-- 경기 시점별 매치 플랜과 전술 적합도 분석
-- 선택을 반영한 결과 시뮬레이션
+- CONTROL, PRESS, CHASE, LOCK 저장 전술 즉시 전환
+- 선수 드래그 배치와 클릭 교체
+- 벤치 선수 교체
+- 공격, 수비, 중앙 보호, 전환 속도 지표 비교
+- 자연어 전술 요청을 저장 전술에 연결하는 AI 코치 데모
+- 경기 후 결정 품질 리뷰
+- 감독 성향 카드
+- 동일 조건 기반 Tactical Duel 판정 화면
+- 반응형 데스크톱·모바일 레이아웃
 
-## 데이터
+## 데이터 원칙
 
-경기 맥락과 결과는 FIFA의 공식 2022 대한민국–포르투갈 경기 기록을 참고합니다. 이벤트 데이터 모델은 StatsBomb Open Data의 2022 월드컵 공개 데이터 구조를 참고했습니다. 화면의 전술 적합도, 승리 확률, 예상 득점은 사용자 선택을 설명하기 위한 교육용 시뮬레이션 지표이며 실제 예측값이 아닙니다.
+FIFA 공식 기록은 출처와 단위를 보존하고 수정하지 않습니다. 역할 적합도, 시너지, 전술 지표와 경기 평가는 `TOUCHLINE_DERIVED` 분류 및 방법론 버전과 함께 별도 객체로 관리합니다.
 
-- FIFA 경기 리포트: https://www.fifa.com/en/articles/korea-republic-portugal-world-cup-qatar-2022-group-h-match-report
-- StatsBomb Open Data: https://github.com/statsbomb/open-data
+상세 객체 계약은 `lib/domain/football.ts`, 예시 데이터는 `data/`, 제품 정의는 `docs/PRODUCT_SPEC_V2.md`에서 확인할 수 있습니다.
 
 ## 실행
 
@@ -27,8 +29,13 @@ npm ci
 npm run dev
 ```
 
-프로덕션 빌드는 `npm run build`로 생성합니다.
+검증은 다음 명령으로 실행합니다.
 
-## 기술
+```bash
+npm run build
+npm test
+```
 
-Next.js 16, React 19, TypeScript, vinext, Cloudflare Workers 호환 배포 구조를 사용합니다. 별도 API 키, 회원가입, 유료 서비스가 필요하지 않습니다.
+## 기술 구성
+
+Next.js 16, React 19, TypeScript, vinext, Cloudflare Workers 호환 배포 구조를 사용합니다.
