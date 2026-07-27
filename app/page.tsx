@@ -37,6 +37,8 @@ type Tactic = {
   risk: string;
 };
 
+const PITCH_INSET_PX = 14;
+
 const players: Player[] = [
   { id: "kim-seunggyu", name: "김승규", number: 1, position: "GK", role: "스위퍼 키퍼", stamina: 88 },
   { id: "kim-munhwan", name: "김문환", number: 15, position: "RB", role: "오버래핑 풀백", stamina: 91 },
@@ -199,9 +201,11 @@ export default function Home() {
 
   function pitchCoordinates(element: HTMLDivElement, clientX: number, clientY: number) {
     const rect = element.getBoundingClientRect();
+    const innerWidth = Math.max(1, rect.width - PITCH_INSET_PX * 2);
+    const innerHeight = Math.max(1, rect.height - PITCH_INSET_PX * 2);
     return {
-      x: Math.max(6, Math.min(94, ((clientX - rect.left) / rect.width) * 100)),
-      y: Math.max(7, Math.min(93, ((clientY - rect.top) / rect.height) * 100)),
+      x: Math.max(2, Math.min(98, ((clientX - rect.left - PITCH_INSET_PX) / innerWidth) * 100)),
+      y: Math.max(2, Math.min(98, ((clientY - rect.top - PITCH_INSET_PX) / innerHeight) * 100)),
     };
   }
 
@@ -484,29 +488,29 @@ function MatchRoom(props: MatchRoomProps) {
                 )}
                 {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
               </div>
-              <div className="goal-label own">우리 골대</div>
-              <div className="goal-label opponent">상대 골대</div>
-              {props.slots.map((slot, index) => {
-                const player = props.lineup[index];
-                return (
-                  <button
-                    key={player.id}
-                    className={`player-token ${props.selectedPlayer === index ? "selected" : ""}`}
-                    style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
-                    draggable
-                    onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
-                    onDragEnd={props.onDragEnd}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => props.onDropPlayer(event, index)}
-                    onClick={() => props.onPlayerClick(index)}
-                    aria-label={`${player.name}, ${slot.role}, ${player.role}`}
-                    aria-pressed={props.selectedPlayer === index}
-                    data-position-zone={slot.role}
-                  >
-                    <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
-                  </button>
-                );
-              })}
+              <div className="pitch-coordinate-layer">
+                {props.slots.map((slot, index) => {
+                  const player = props.lineup[index];
+                  return (
+                    <button
+                      key={player.id}
+                      className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""}`}
+                      style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+                      draggable
+                      onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
+                      onDragEnd={props.onDragEnd}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => props.onDropPlayer(event, index)}
+                      onClick={() => props.onPlayerClick(index)}
+                      aria-label={`${player.name}, ${slot.role}, ${player.role}`}
+                      aria-pressed={props.selectedPlayer === index}
+                      data-position-zone={slot.role}
+                    >
+                      <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <div className="bench-row">
