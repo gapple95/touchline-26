@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0.0",
+  "methodologyVersion": "synergy-v1.0.0",
+  "scoreRange": [-100, 100],
+  "rules": [
+    {
+      "ruleId": "WIDE_CREATOR_OVERLAPPING_FULLBACK",
+      "polarity": "POSITIVE",
+      "roles": ["WIDE_PLAYMAKER", "OVERLAPPING_FULLBACK"],
+      "requiredContext": { "phase": "IN_POSSESSION", "adjacentSide": true },
+      "effects": { "attack": 14, "buildup": 8, "transition": -3 },
+      "reasonTemplate": "플레이메이커가 안쪽으로 이동하면 풀백이 바깥 폭을 제공해 패스 선택지가 늘어납니다."
+    },
+    {
+      "ruleId": "CREATOR_CHANNEL_RUNNER",
+      "polarity": "POSITIVE",
+      "roles": ["CENTRAL_PLAYMAKER", "CHANNEL_RUNNER"],
+      "metricThresholds": [
+        { "path": "distribution.defensiveLinebreakAccuracy", "operator": ">=", "value": 60 },
+        { "path": "movement.ballProgressions", "operator": ">=", "value": 4 }
+      ],
+      "effects": { "attack": 16, "transition": 12, "buildup": 5 },
+      "reasonTemplate": "라인 브레이킹 패스와 수비 뒤 침투가 결합돼 직접적인 득점 경로를 만듭니다."
+    },
+    {
+      "ruleId": "ANCHOR_ADVANCING_EIGHT",
+      "polarity": "POSITIVE",
+      "roles": ["ANCHOR", "BOX_TO_BOX"],
+      "requiredContext": { "sameCentralUnit": true },
+      "effects": { "attack": 6, "defence": 13, "transition": 9 },
+      "reasonTemplate": "앵커가 중앙을 보호해 전진형 미드필더가 더 과감하게 박스로 접근할 수 있습니다."
+    },
+    {
+      "ruleId": "BALL_PLAYING_CB_SWEEPER_KEEPER",
+      "polarity": "POSITIVE",
+      "roles": ["BALL_PLAYING_CB", "SWEEPER_KEEPER"],
+      "requiredContext": { "defensiveLineMin": 60 },
+      "effects": { "defence": 10, "buildup": 15, "transition": 4 },
+      "reasonTemplate": "높은 수비선 뒤 공간을 골키퍼가 커버하고 센터백은 전진 패스에 집중할 수 있습니다."
+    },
+    {
+      "ruleId": "TARGET_FORWARD_EARLY_CROSSER",
+      "polarity": "POSITIVE",
+      "roles": ["TARGET_FORWARD", "TOUCHLINE_WINGER"],
+      "metricThresholds": [
+        { "path": "attacking.headedAttempts", "operator": ">=", "value": 2 },
+        { "path": "distribution.crossingAccuracy", "operator": ">=", "value": 25 }
+      ],
+      "effects": { "attack": 13, "setPiece": 6 },
+      "reasonTemplate": "빠른 크로스와 공중볼 우위가 결합돼 박스 안 타깃이 명확해집니다."
+    },
+    {
+      "ruleId": "DOUBLE_HIGH_FULLBACK_COUNTER_RISK",
+      "polarity": "NEGATIVE",
+      "roles": ["OVERLAPPING_FULLBACK", "OVERLAPPING_FULLBACK"],
+      "requiredContext": { "bothSides": true, "restDefencePlayersMax": 2 },
+      "effects": { "attack": 8, "defence": -16, "transition": -18 },
+      "reasonTemplate": "양쪽 풀백이 동시에 전진해 볼을 잃었을 때 측면 뒷공간이 크게 열립니다."
+    },
+    {
+      "ruleId": "SAME_ZONE_OCCUPANCY",
+      "polarity": "NEGATIVE",
+      "requiredContext": { "preferredZoneOverlap": 0.7 },
+      "effects": { "attack": -9, "buildup": -8 },
+      "reasonTemplate": "두 선수가 같은 공간을 선호해 패스 각도와 침투 동선이 겹칩니다."
+    }
+  ]
+}

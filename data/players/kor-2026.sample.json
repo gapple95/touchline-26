@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "1.0.0",
+  "competitionId": "FIFA-WC-2026",
+  "teamId": "KOR",
+  "sourcePolicy": {
+    "officialValuesAreImmutable": true,
+    "missingValuesUseNull": true,
+    "derivedValuesRequireMethodologyVersion": true
+  },
+  "players": [
+    {
+      "playerId": "fifa-2026-kor-lee-kangin",
+      "identity": {
+        "fifaDisplayName": "Lee Kangin",
+        "shirtName": "LEE KANGIN",
+        "teamId": "KOR",
+        "fifaPositionGroup": "MF",
+        "eligiblePositions": ["CM", "AM", "W"],
+        "preferredFoot": "LEFT"
+      },
+      "officialStats": {
+        "classification": "FIFA_OFFICIAL",
+        "tournamentAggregate": {
+          "goals": null,
+          "assists": null,
+          "minutesPlayed": null,
+          "availability": "FETCH_FROM_FIFA_PLAYER_STATISTICS"
+        },
+        "matchBreakdowns": [
+          {
+            "matchId": "FIFA-WC-2026-KOR-CZE",
+            "opponent": "CZE",
+            "distribution": {
+              "passes": { "value": 38, "unit": "count" },
+              "passesCompleted": { "value": 38, "unit": "count" },
+              "passingAccuracy": { "value": 100, "unit": "percent" }
+            },
+            "attacking": {
+              "assists": { "value": 1, "unit": "count" }
+            },
+            "source": {
+              "provider": "FIFA",
+              "url": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/power-rankings-group-stage-messi-rezaeian-cornelius",
+              "collectedAt": "2026-07-27T00:00:00+09:00"
+            }
+          }
+        ]
+      },
+      "touchlineDerived": {
+        "classification": "TOUCHLINE_DERIVED",
+        "roleAffinities": [
+          {
+            "roleId": "WIDE_PLAYMAKER",
+            "score": 91,
+            "confidence": 0.74,
+            "evidence": ["distribution.passingAccuracy", "attacking.assists"],
+            "methodologyVersion": "role-fit-v1.0.0"
+          },
+          {
+            "roleId": "CENTRAL_PLAYMAKER",
+            "score": 87,
+            "confidence": 0.69,
+            "evidence": ["distribution.passesCompleted", "distribution.passingAccuracy"],
+            "methodologyVersion": "role-fit-v1.0.0"
+          }
+        ],
+        "tacticalTags": ["left-footed-creator", "line-breaking-candidate", "right-halfspace", "final-pass"]
+      }
+    },
+    {
+      "playerId": "fifa-2026-kor-hwang-inbeom",
+      "identity": {
+        "fifaDisplayName": "Hwang Inbeom",
+        "shirtName": "HWANG INBEOM",
+        "shirtNumber": 6,
+        "teamId": "KOR",
+        "fifaPositionGroup": "MF",
+        "eligiblePositions": ["DM", "CM", "AM"],
+        "preferredFoot": "RIGHT"
+      },
+      "officialStats": {
+        "classification": "FIFA_OFFICIAL",
+        "tournamentAggregate": {
+          "goals": null,
+          "assists": null,
+          "minutesPlayed": null,
+          "availability": "FETCH_FROM_FIFA_PLAYER_STATISTICS"
+        },
+        "matchBreakdowns": [
+          {
+            "matchId": "FIFA-WC-2026-KOR-CZE",
+            "opponent": "CZE",
+            "attacking": {
+              "goals": { "value": 1, "unit": "count" },
+              "assists": { "value": 1, "unit": "count" }
+            },
+            "awards": ["FIFA_PLAYER_OF_THE_MATCH"],
+            "source": {
+              "provider": "FIFA",
+              "url": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/hwang-inbeom-stars-korea-republic-czechia",
+              "collectedAt": "2026-07-27T00:00:00+09:00"
+            }
+          }
+        ]
+      },
+      "touchlineDerived": {
+        "classification": "TOUCHLINE_DERIVED",
+        "roleAffinities": [
+          {
+            "roleId": "BOX_TO_BOX",
+            "score": 90,
+            "confidence": 0.77,
+            "evidence": ["attacking.goals", "attacking.assists", "awards.FIFA_PLAYER_OF_THE_MATCH"],
+            "methodologyVersion": "role-fit-v1.0.0"
+          },
+          {
+            "roleId": "REGISTA",
+            "score": 84,
+            "confidence": 0.62,
+            "evidence": ["editorial.dictated-tempo", "eligiblePositions.DM", "eligiblePositions.CM"],
+            "methodologyVersion": "role-fit-v1.0.0"
+          }
+        ],
+        "tacticalTags": ["tempo-controller", "late-box-arrival", "two-way-midfielder", "set-piece-option"]
+      }
+    }
+  ]
+}
