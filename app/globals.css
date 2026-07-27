@@ -171,10 +171,9 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .section-title h2 { margin: 4px 0 3px; font-size: 20px; letter-spacing: -.05em; }
 .section-title p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .board-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.board-toolbar-actions { min-width: 260px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.board-toolbar-actions { min-width: 200px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
 .board-toolbar-actions > span { grid-column: 1 / -1; justify-self: end; padding: 4px 7px; border-radius: 20px; font: 900 7px Arial, sans-serif; letter-spacing: .04em; }.board-toolbar-actions > span.dirty { background: #ffe1d9; color: #b53520; }.board-toolbar-actions > span.saved { background: #dcebd7; color: #397233; }
 .board-toolbar-actions button { min-height: 34px; padding: 0 8px; cursor: pointer; font-size: 8px; font-weight: 900; white-space: nowrap; }.board-toolbar-actions button:disabled { opacity: .38; cursor: not-allowed; }
-.revert-tactic-button { border: 1px solid var(--green); background: transparent; color: var(--green); }.revert-tactic-button:hover:not(:disabled) { background: var(--green); color: var(--white); }
 .save-tactic-button { border: 1px solid var(--orange); background: var(--orange); color: var(--white); }.save-tactic-button:hover:not(:disabled) { border-color: var(--green); background: var(--green); }
 .text-button { height: 34px; padding: 0 12px; border: 1px solid #b9b9af; background: transparent; cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .text-button:hover { color: var(--white); background: var(--green); border-color: var(--green); }

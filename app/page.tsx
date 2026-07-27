@@ -296,7 +296,6 @@ export default function Home() {
   const [bench, setBench] = useState(players.slice(11));
   const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
   const [confirmedTactics, setConfirmedTactics] = useState<Record<TacticId, ConfirmedTacticSnapshot>>(() => createInitialConfirmedTactics());
-  const [boardResetSignal, setBoardResetSignal] = useState(0);
   const [hoveredZone, setHoveredZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
   const [dragAnchor, setDragAnchor] = useState<DragAnchor | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
@@ -397,21 +396,6 @@ export default function Home() {
     setConfirmedTactics((current) => ({ ...current, [activeTacticId]: cloneTacticSnapshot(currentTacticSnapshot) }));
     setTacticLayouts((current) => ({ ...current, [activeTacticId]: slots.map(({ x, y }) => ({ x, y })) }));
     setNotice(`${activeTactic.name} 전술의 현재 배치와 팀·개인 지침을 확정했습니다.`);
-  }
-
-  function revertCurrentTactic() {
-    const snapshot = confirmedTactics[activeTacticId];
-    if (!snapshot) return;
-    const restored = cloneTacticSnapshot(snapshot);
-    setLineup(restored.lineup);
-    setBench(restored.bench);
-    setSlots(restored.slots);
-    setSavedTactics((current) => current.map((tactic) => tactic.id === activeTacticId ? { ...tactic, details: restored.details } : tactic));
-    setTacticLayouts((current) => ({ ...current, [activeTacticId]: restored.slots.map(({ x, y }) => ({ x, y })) }));
-    setHoveredZone(null);
-    setSelectedPlayer(null);
-    setBoardResetSignal((signal) => signal + 1);
-    setNotice(`${activeTactic.name} 전술을 마지막 확정 상태로 되돌렸습니다.`);
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
@@ -598,14 +582,12 @@ export default function Home() {
           notice={notice}
           simulated={simulated}
           hasUnconfirmedChanges={hasUnconfirmedChanges}
-          boardResetSignal={boardResetSignal}
           teamKit={defaultTeamKit}
           onTactic={applyTactic}
           onReset={resetBoard}
           onCreateTactic={createTactic}
           onUpdateTacticDetails={updateTacticDetails}
           onConfirmTactic={confirmCurrentTactic}
-          onRevertTactic={revertCurrentTactic}
           onStartDrag={startDrag}
           onDragOverPitch={previewPitchZone}
           onDragLeavePitch={leavePitchZone}
@@ -658,14 +640,12 @@ type MatchRoomProps = {
   notice: string;
   simulated: boolean;
   hasUnconfirmedChanges: boolean;
-  boardResetSignal: number;
   teamKit: TeamKit;
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
   onCreateTactic: (name: string, baseTacticId: TacticId) => void;
   onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
   onConfirmTactic: () => void;
-  onRevertTactic: () => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -715,7 +695,7 @@ function MatchRoom(props: MatchRoomProps) {
     setPendingPass(null);
     setActivePassId(null);
     setPlayerMenuOpen(false);
-  }, [props.activeTactic.id, props.boardResetSignal]);
+  }, [props.activeTactic.id]);
 
   useEffect(() => {
     setPassLinking(false);
@@ -1181,7 +1161,6 @@ function MatchRoom(props: MatchRoomProps) {
             <div className="board-toolbar-actions">
               <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
               <button className="text-button" onClick={props.onReset}>배치 초기화</button>
-              <button className="revert-tactic-button" onClick={props.onRevertTactic} disabled={!props.hasUnconfirmedChanges}>확정 전으로</button>
               <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
             </div>
           </div>
