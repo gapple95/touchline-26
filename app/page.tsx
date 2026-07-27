@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
@@ -599,6 +599,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [passPointer, setPassPointer] = useState<FormationSlot | null>(null);
   const [activePassId, setActivePassId] = useState<string | null>(null);
   const [playerMenuOpen, setPlayerMenuOpen] = useState(false);
+  const playerMenuRef = useRef<HTMLDivElement>(null);
   const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
@@ -620,6 +621,26 @@ function MatchRoom(props: MatchRoomProps) {
     setActivePassId(null);
     setPlayerMenuOpen(props.selectedPlayer !== null);
   }, [props.selectedPlayer]);
+
+  useEffect(() => {
+    if (!playerMenuOpen) return;
+    function closePlayerMenu(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (playerMenuRef.current?.contains(target)) return;
+      if (selectedPlayerData && target.closest(`[data-player-id="${selectedPlayerData.id}"]`)) return;
+      setPlayerMenuOpen(false);
+    }
+    function closePlayerMenuWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPlayerMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", closePlayerMenu);
+    document.addEventListener("keydown", closePlayerMenuWithEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closePlayerMenu);
+      document.removeEventListener("keydown", closePlayerMenuWithEscape);
+    };
+  }, [playerMenuOpen, selectedPlayerData]);
 
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
@@ -980,7 +1001,9 @@ function MatchRoom(props: MatchRoomProps) {
                         onClick={() => handlePitchPlayerClick(index)}
                         aria-label={`${player.name}, ${slot.role}, ${player.role}`}
                         aria-pressed={props.selectedPlayer === index}
+                        aria-expanded={props.selectedPlayer === index ? playerMenuOpen : undefined}
                         data-position-zone={slot.role}
+                        data-player-id={player.id}
                         data-kit-source={props.teamKit.source}
                       >
                         <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
@@ -990,12 +1013,13 @@ function MatchRoom(props: MatchRoomProps) {
                 </div>
                 {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && (
                   <div
+                    ref={playerMenuRef}
                     className={`player-action-menu ${selectedPlayerSlot.x > 68 ? "align-left" : ""} ${selectedPlayerSlot.y > 58 ? "align-up" : ""}`}
                     style={{ left: `${selectedPlayerSlot.x}%`, top: `${selectedPlayerSlot.y}%` }}
                     role="group"
                     aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴`}
                   >
-                    <div><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요</small></div>
+                    <div><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요</small><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
                     <button type="button" onClick={startPassAssignment}><i>→</i>패스 지정</button>
                     <button type="button" onClick={focusPlayerInstructions}><i>≡</i>개인 지침</button>
                     <button type="button" className={selectedInstruction.runDirection === "FORWARD" ? "active" : ""} onClick={() => chooseRunDirection("FORWARD")} aria-pressed={selectedInstruction.runDirection === "FORWARD"}><i>↗</i>앞으로 달리기</button>

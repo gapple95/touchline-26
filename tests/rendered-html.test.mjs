@@ -57,6 +57,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page + css, /individual-pass-layer/);
   assert.match(page + css, /pass-direction-chip/);
   assert.match(page + css, /player-action-menu/);
+  assert.match(page, /document\.addEventListener\("pointerdown", closePlayerMenu\)/);
+  assert.match(page + css, /player-action-close/);
   assert.ok(page.indexOf('<section className="team-instruction-panel"') < page.indexOf('<div className="bench-row">'));
   assert.ok(page.indexOf('<div className="bench-row">') < page.indexOf('<div className="pitch-shell">'));
   assert.match(css, /\.bench-row \{[^}]*grid-template-columns: repeat\(3/);
