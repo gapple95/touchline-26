@@ -48,6 +48,13 @@ type ConfirmedTacticSnapshot = {
   details: DetailedTacticInstructions;
 };
 
+type PendingPassDraft = {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  intensity: number;
+};
+
 const relationshipLabels: Record<PlayerRelationshipType, string> = {
   COMBINATION: "짧은 연계",
   OVERLAP: "오버랩",
@@ -684,6 +691,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [relationType, setRelationType] = useState<PlayerRelationshipType>("COMBINATION");
   const [passLinking, setPassLinking] = useState(false);
   const [passPointer, setPassPointer] = useState<FormationSlot | null>(null);
+  const [pendingPass, setPendingPass] = useState<PendingPassDraft | null>(null);
   const [activePassId, setActivePassId] = useState<string | null>(null);
   const [playerMenuOpen, setPlayerMenuOpen] = useState(false);
   const playerMenuRef = useRef<HTMLDivElement>(null);
@@ -698,6 +706,7 @@ function MatchRoom(props: MatchRoomProps) {
     setDetailEditorOpen(false);
     setPassLinking(false);
     setPassPointer(null);
+    setPendingPass(null);
     setActivePassId(null);
     setPlayerMenuOpen(false);
   }, [props.activeTactic.id, props.boardResetSignal]);
@@ -705,6 +714,7 @@ function MatchRoom(props: MatchRoomProps) {
   useEffect(() => {
     setPassLinking(false);
     setPassPointer(null);
+    setPendingPass(null);
     setActivePassId(null);
     setPlayerMenuOpen(props.selectedPlayer !== null);
   }, [props.selectedPlayer]);
@@ -730,15 +740,16 @@ function MatchRoom(props: MatchRoomProps) {
   }, [playerMenuOpen, selectedPlayerData]);
 
   useEffect(() => {
-    if (!passLinking) return;
+    if (!passLinking && !pendingPass) return;
     function cancelPassWithEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setPassLinking(false);
       setPassPointer(null);
+      setPendingPass(null);
     }
     document.addEventListener("keydown", cancelPassWithEscape);
     return () => document.removeEventListener("keydown", cancelPassWithEscape);
-  }, [passLinking]);
+  }, [passLinking, pendingPass]);
 
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
@@ -796,6 +807,7 @@ function MatchRoom(props: MatchRoomProps) {
     }
     setPassLinking(true);
     setPassPointer({ x: selectedPlayerSlot.x, y: selectedPlayerSlot.y });
+    setPendingPass(null);
     setActivePassId(null);
     setPlayerMenuOpen(false);
   }
@@ -803,6 +815,8 @@ function MatchRoom(props: MatchRoomProps) {
   function cancelPassAssignment() {
     setPassLinking(false);
     setPassPointer(null);
+    setPendingPass(null);
+    setActivePassId(null);
   }
 
   function focusPlayerInstructions() {
@@ -832,6 +846,10 @@ function MatchRoom(props: MatchRoomProps) {
     });
   }
 
+  function handlePitchGroundClick() {
+    if (passLinking) cancelPassAssignment();
+  }
+
   function handlePitchPlayerClick(targetIndex: number) {
     if (!passLinking || props.selectedPlayer === null || !selectedPlayerData) {
       if (props.selectedPlayer === targetIndex) {
@@ -846,14 +864,25 @@ function MatchRoom(props: MatchRoomProps) {
       return;
     }
     const target = props.lineup[targetIndex];
-    const id = `pass-${selectedPlayerData.id}-${target.id}`;
-    updatePlayerInstruction(selectedPlayerData.id, (current) => current.passTargets.some((pass) => pass.toPlayerId === target.id)
-      ? current
-      : { ...current, passTargets: [...current.passTargets, { id, toPlayerId: target.id, intensity: 50 }] });
+    const existing = selectedInstruction?.passTargets.find((pass) => pass.toPlayerId === target.id);
+    const id = existing?.id ?? `pass-${selectedPlayerData.id}-${target.id}`;
+    setPendingPass({ id, fromPlayerId: selectedPlayerData.id, toPlayerId: target.id, intensity: existing?.intensity ?? 50 });
     setPassLinking(false);
     setPassPointer(null);
     setActivePassId(id);
     setPlayerMenuOpen(false);
+  }
+
+  function confirmPendingPass() {
+    if (!pendingPass) return;
+    updatePlayerInstruction(pendingPass.fromPlayerId, (current) => {
+      const nextPass = { id: pendingPass.id, toPlayerId: pendingPass.toPlayerId, intensity: pendingPass.intensity };
+      return current.passTargets.some((pass) => pass.toPlayerId === pendingPass.toPlayerId)
+        ? { ...current, passTargets: current.passTargets.map((pass) => pass.toPlayerId === pendingPass.toPlayerId ? nextPass : pass) }
+        : { ...current, passTargets: [...current.passTargets, nextPass] };
+    });
+    setActivePassId(pendingPass.id);
+    setPendingPass(null);
   }
 
   function adjustPassIntensity(passId: string, intensity: number) {
@@ -1032,7 +1061,7 @@ function MatchRoom(props: MatchRoomProps) {
           </div>
           <div className="pitch-shell">
             <div className="pitch">
-              <div className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+              <div className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onClick={handlePitchGroundClick} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
                 <div className="pitch-markings" aria-hidden="true">
                   <i className="halfway" /><i className="centre-circle" /><i className="centre-mark" />
                   <i className="penalty-area own" /><i className="penalty-area opponent" />
@@ -1071,6 +1100,7 @@ function MatchRoom(props: MatchRoomProps) {
                     return <i key={`run-${instruction.playerId}`} className={`player-run-line ${instruction.runDirection.toLowerCase()}`} style={connectionStyle(from, to)} />;
                   })}
                   {props.activeTactic.details.playerInstructions.flatMap((instruction) => instruction.passTargets.map((pass) => {
+                    if (pendingPass?.id === pass.id) return null;
                     const fromIndex = props.lineup.findIndex((player) => player.id === instruction.playerId);
                     const toIndex = props.lineup.findIndex((player) => player.id === pass.toPlayerId);
                     if (fromIndex < 0 || toIndex < 0) return null;
@@ -1079,13 +1109,13 @@ function MatchRoom(props: MatchRoomProps) {
                     return <i key={pass.id} className={`individual-pass-line ${activePassId === pass.id ? "active" : ""}`} style={{ ...arrowConnectionStyle(from, to), opacity: .42 + pass.intensity * .0055, height: `${2 + pass.intensity / 60}px` }} />;
                   }))}
                   {passLinking && selectedPlayerSlot && passPointer && <i className="individual-pass-line pending" style={connectionStyle(selectedPlayerSlot, passPointer)} />}
+                  {pendingPass && (() => {
+                    const fromIndex = props.lineup.findIndex((player) => player.id === pendingPass.fromPlayerId);
+                    const toIndex = props.lineup.findIndex((player) => player.id === pendingPass.toPlayerId);
+                    if (fromIndex < 0 || toIndex < 0) return null;
+                    return <i className="individual-pass-line active pending-confirmation" style={{ ...arrowConnectionStyle(props.slots[fromIndex], props.slots[toIndex]), opacity: .42 + pendingPass.intensity * .0055, height: `${2 + pendingPass.intensity / 60}px` }} />;
+                  })()}
                 </div>
-                {passLinking && selectedPlayerData && (
-                  <div className="pass-linking-toolbar" role="status" aria-live="polite">
-                    <div><b>{selectedPlayerData.name}</b><span>패스 대상 선택 중</span><small>대상 선수를 클릭하세요 · 출발 선수를 다시 누르거나 Esc로 취소</small></div>
-                    <button type="button" onClick={cancelPassAssignment} aria-label="패스 대상 지정 취소">× 지정 취소</button>
-                  </div>
-                )}
                 <div className="pitch-coordinate-layer">
                   {props.slots.map((slot, index) => {
                     const player = props.lineup[index];
@@ -1100,7 +1130,7 @@ function MatchRoom(props: MatchRoomProps) {
                         onDragEnd={props.onDragEnd}
                         onDragOver={(event) => event.preventDefault()}
                         onDrop={(event) => props.onDropPlayer(event, index)}
-                        onClick={() => handlePitchPlayerClick(index)}
+                        onClick={(event) => { event.stopPropagation(); handlePitchPlayerClick(index); }}
                         aria-label={`${player.name}, ${slot.role}, ${player.role}`}
                         aria-pressed={props.selectedPlayer === index}
                         aria-expanded={props.selectedPlayer === index ? playerMenuOpen : undefined}
@@ -1113,7 +1143,21 @@ function MatchRoom(props: MatchRoomProps) {
                     );
                   })}
                 </div>
-                {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && (
+                {pendingPass && (() => {
+                  const fromPlayer = props.lineup.find((player) => player.id === pendingPass.fromPlayerId);
+                  const targetIndex = props.lineup.findIndex((player) => player.id === pendingPass.toPlayerId);
+                  if (!fromPlayer || targetIndex < 0) return null;
+                  const targetPlayer = props.lineup[targetIndex];
+                  const targetSlot = props.slots[targetIndex];
+                  return (
+                    <div className={`pass-confirm-popover ${targetSlot.x > 68 ? "align-left" : ""} ${targetSlot.y > 58 ? "align-up" : ""}`} style={{ left: `${targetSlot.x}%`, top: `${targetSlot.y}%` }} role="dialog" aria-label={`${fromPlayer.name}에서 ${targetPlayer.name} 패스 설정`}>
+                      <div><span>PASS INSTRUCTION</span><b>{fromPlayer.name} → {targetPlayer.name}</b></div>
+                      <label><span>패스 적극도 <output>{pendingPass.intensity}</output></span><input autoFocus aria-label={`${targetPlayer.name} 패스 적극도 설정`} type="range" min="0" max="100" value={pendingPass.intensity} onChange={(event) => setPendingPass((current) => current ? { ...current, intensity: Number(event.target.value) } : current)} /><small><i>상황 우선</i><i>최우선 연결</i></small></label>
+                      <div className="pass-confirm-actions"><button type="button" onClick={cancelPassAssignment}>지정 취소</button><button type="button" onClick={confirmPendingPass}>패스 확정</button></div>
+                    </div>
+                  );
+                })()}
+                {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && !pendingPass && (
                   <div
                     ref={playerMenuRef}
                     className={`player-action-menu ${selectedPlayerSlot.x > 68 ? "align-left" : ""} ${selectedPlayerSlot.y > 58 ? "align-up" : ""}`}

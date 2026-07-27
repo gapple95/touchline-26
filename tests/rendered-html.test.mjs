@@ -73,10 +73,15 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(css, /\.bench-label \{[^}]*grid-column: 1 \/ -1/);
   assert.ok(page.indexOf('<div className="pitch-shell">') < page.indexOf('<section id="player-instruction-panel"'));
   assert.match(page, /passLinking/);
-  assert.match(page + css, /pass-linking-toolbar/);
+  assert.doesNotMatch(page + css, /pass-linking-toolbar/);
+  assert.match(page + css, /pass-confirm-popover/);
+  assert.match(page, /PendingPassDraft/);
+  assert.match(page, /confirmPendingPass/);
+  assert.match(page, /handlePitchGroundClick/);
+  assert.match(page, /event\.stopPropagation\(\); handlePitchPlayerClick/);
   assert.match(page, /cancelPassAssignment/);
   assert.match(page, /cancelPassWithEscape/);
-  assert.match(page, /× 지정 취소/);
+  assert.match(page, /패스 확정/);
   assert.match(page, /패스 적극도/);
   assert.match(page, /앞으로 달리기/);
   assert.match(page, /뒤로 달리기/);
