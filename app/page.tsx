@@ -875,6 +875,29 @@ function MatchRoom(props: MatchRoomProps) {
             <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하고, 선수를 클릭해 개인 지침을 설정하세요." />
             <button className="text-button" onClick={props.onReset}>배치 초기화</button>
           </div>
+          <section className="team-instruction-panel" aria-labelledby="team-instruction-title">
+            <div className="instruction-panel-head">
+              <div><span>TEAM INSTRUCTIONS · 0—100</span><h3 id="team-instruction-title">팀 전체 지침</h3></div>
+              <small>{props.activeTactic.name} 전체 선수에게 적용</small>
+            </div>
+            <div className="team-instruction-sliders">
+              {instructionSliders.map((instruction) => (
+                <label key={instruction.key}>
+                  <span><b>{instruction.label}</b><output>{props.activeTactic.details[instruction.key]}</output></span>
+                  <input aria-label={`팀 ${instruction.label} 조절`} type="range" min="0" max="100" value={props.activeTactic.details[instruction.key]} onChange={(event) => adjustQuickInstruction(instruction.key, Number(event.target.value))} />
+                  <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
+                </label>
+              ))}
+            </div>
+          </section>
+          <div className="bench-row">
+            <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
+            {props.bench.map((player, index) => (
+              <button key={player.id} style={kitCssVariables(player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield)} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
+                <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
+              </button>
+            ))}
+          </div>
           <div className="pitch-shell">
             <div className="pitch">
               <div className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
@@ -982,21 +1005,6 @@ function MatchRoom(props: MatchRoomProps) {
               </div>
             </div>
           </div>
-          <section className="team-instruction-panel" aria-labelledby="team-instruction-title">
-            <div className="instruction-panel-head">
-              <div><span>TEAM INSTRUCTIONS · 0—100</span><h3 id="team-instruction-title">팀 전체 지침</h3></div>
-              <small>{props.activeTactic.name} 전체 선수에게 적용</small>
-            </div>
-            <div className="team-instruction-sliders">
-              {instructionSliders.map((instruction) => (
-                <label key={instruction.key}>
-                  <span><b>{instruction.label}</b><output>{props.activeTactic.details[instruction.key]}</output></span>
-                  <input aria-label={`팀 ${instruction.label} 조절`} type="range" min="0" max="100" value={props.activeTactic.details[instruction.key]} onChange={(event) => adjustQuickInstruction(instruction.key, Number(event.target.value))} />
-                  <small><i>{instruction.low}</i><i>{instruction.high}</i></small>
-                </label>
-              ))}
-            </div>
-          </section>
           {selectedPlayerData && selectedInstruction ? (
             <section id="player-instruction-panel" className="player-instruction-panel" aria-labelledby="player-instruction-title" tabIndex={-1}>
               <div className="instruction-panel-head player">
@@ -1029,14 +1037,6 @@ function MatchRoom(props: MatchRoomProps) {
           ) : (
             <div className="player-instruction-empty"><b>선수 개인 지침</b><span>전술 보드의 선수를 클릭하면 0–100 지침과 패스 연결 옵션이 열립니다.</span></div>
           )}
-          <div className="bench-row">
-            <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
-            {props.bench.map((player, index) => (
-              <button key={player.id} style={kitCssVariables(player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield)} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
-                <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
-              </button>
-            ))}
-          </div>
         </section>
 
         <aside className="coach-panel panel">

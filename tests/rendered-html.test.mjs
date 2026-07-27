@@ -57,6 +57,9 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page + css, /individual-pass-layer/);
   assert.match(page + css, /pass-direction-chip/);
   assert.match(page + css, /player-action-menu/);
+  assert.ok(page.indexOf('<section className="team-instruction-panel"') < page.indexOf('<div className="bench-row">'));
+  assert.ok(page.indexOf('<div className="bench-row">') < page.indexOf('<div className="pitch-shell">'));
+  assert.ok(page.indexOf('<div className="pitch-shell">') < page.indexOf('<section id="player-instruction-panel"'));
   assert.match(page, /passLinking/);
   assert.match(page, /패스 적극도/);
   assert.match(page, /앞으로 달리기/);

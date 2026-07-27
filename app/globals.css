@@ -345,7 +345,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .player-action-menu button { min-height: 37px; padding: 5px; display: flex; gap: 5px; align-items: center; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: var(--white); cursor: pointer; font-size: 7px; font-weight: 850; text-align: left; }.player-action-menu button:hover, .player-action-menu button.active { border-color: var(--yellow); background: var(--yellow); color: var(--ink); }.player-action-menu button i { width: 19px; height: 19px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--orange); color: var(--white); font: 900 10px Arial, sans-serif; font-style: normal; }
 .team-instruction-panel, .player-instruction-panel, .player-instruction-empty { max-width: 630px; margin: 13px auto 0; border: 1px solid #c4c5bb; background: var(--white); }
 .team-instruction-panel, .player-instruction-panel { padding: 15px; }
-.team-instruction-panel { border-top: 4px solid var(--green); }
+.team-instruction-panel { margin: 0 auto 13px; border-top: 4px solid var(--green); }
 .player-instruction-panel { border-top: 4px solid var(--orange); box-shadow: 7px 7px 0 rgba(21,62,44,.08); }
 .instruction-panel-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
 .instruction-panel-head span { display: block; color: var(--green); font: 900 7px Arial, sans-serif; letter-spacing: .1em; }
@@ -366,6 +366,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .pass-assignment-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.pass-assignment-row > span { display: flex; align-items: center; gap: 7px; font-size: 8px; }.pass-assignment-row i { color: var(--orange); font: 900 14px Arial, sans-serif; font-style: normal; }.pass-assignment-row button { width: 23px; height: 23px; border: 0; background: var(--orange); color: var(--white); cursor: pointer; }.pass-assignment-list label { display: block; margin-top: 8px; }
 .player-instruction-empty { padding: 13px 15px; display: flex; gap: 12px; align-items: center; background: #eeece4; }.player-instruction-empty b { font-size: 9px; }.player-instruction-empty span { color: var(--muted); font-size: 8px; }
 .bench-row { max-width: 720px; margin: 15px auto 0; display: grid; grid-template-columns: 1fr repeat(3, minmax(110px, 1fr)); gap: 7px; }
+.board-panel > .bench-row { margin: 0 auto 13px; }
 .bench-label { align-self: center; }
 .bench-label span { display: block; font: 900 10px Arial, sans-serif; }
 .bench-label small { color: var(--muted); font-size: 8px; }
