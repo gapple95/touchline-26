@@ -53,9 +53,11 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /선수 관계 설정/);
   assert.match(page, /wideFinalAction/);
   assert.match(page, /onUpdateTacticDetails/);
-  assert.match(page + css, /player-relationship-layer/);
+  assert.doesNotMatch(page + css, /player-relationship-layer/);
   assert.match(page + css, /individual-pass-layer/);
-  assert.match(page + css, /pass-direction-chip/);
+  assert.doesNotMatch(page + css, /pass-direction-chip/);
+  assert.match(page, /arrowConnectionStyle/);
+  assert.match(css, /@keyframes pass-flow/);
   assert.match(page + css, /player-action-menu/);
   assert.match(page, /document\.addEventListener\("pointerdown", closePlayerMenu\)/);
   assert.match(page + css, /player-action-close/);

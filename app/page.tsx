@@ -87,6 +87,18 @@ function connectionStyle(from: FormationSlot, to: FormationSlot): CSSProperties 
   return { left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `rotate(${angle}deg)` };
 }
 
+function arrowConnectionStyle(from: FormationSlot, to: FormationSlot): CSSProperties {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 10) return connectionStyle(from, to);
+  const insetRatio = Math.min(.22, 4.5 / distance);
+  return connectionStyle(
+    { x: from.x + dx * insetRatio, y: from.y + dy * insetRatio },
+    { x: to.x - dx * insetRatio, y: to.y - dy * insetRatio },
+  );
+}
+
 type KitCssVariables = CSSProperties & {
   "--kit-shirt": string;
   "--kit-number": string;
@@ -950,16 +962,6 @@ function MatchRoom(props: MatchRoomProps) {
                   )}
                   {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
                 </div>
-                <div className="player-relationship-layer" aria-hidden="true">
-                  {props.activeTactic.details.relationships.map((relationship) => {
-                    const fromIndex = props.lineup.findIndex((player) => player.id === relationship.fromPlayerId);
-                    const toIndex = props.lineup.findIndex((player) => player.id === relationship.toPlayerId);
-                    if (fromIndex < 0 || toIndex < 0) return null;
-                    const from = props.slots[fromIndex];
-                    const to = props.slots[toIndex];
-                    return <i key={relationship.id} className={`player-relationship-line relation-${relationship.type.toLowerCase()}`} style={connectionStyle(from, to)} data-relationship-type={relationshipLabels[relationship.type]} />;
-                  })}
-                </div>
                 <div className="individual-pass-layer" aria-hidden="true">
                   {props.activeTactic.details.playerInstructions.map((instruction) => {
                     if (instruction.runDirection === "HOLD") return null;
@@ -975,12 +977,7 @@ function MatchRoom(props: MatchRoomProps) {
                     if (fromIndex < 0 || toIndex < 0) return null;
                     const from = props.slots[fromIndex];
                     const to = props.slots[toIndex];
-                    const fromPlayer = props.lineup[fromIndex];
-                    const toPlayer = props.lineup[toIndex];
-                    return [
-                      <i key={`${pass.id}-line`} className={`individual-pass-line ${activePassId === pass.id ? "active" : ""}`} style={{ ...connectionStyle(from, to), opacity: .35 + pass.intensity * .006, borderTopWidth: `${1 + pass.intensity / 45}px` }} />,
-                      <span key={`${pass.id}-direction`} className="pass-direction-chip" style={{ left: `${(from.x + to.x) / 2}%`, top: `${(from.y + to.y) / 2}%` }}>{fromPlayer.number} → {toPlayer.number}</span>,
-                    ];
+                    return <i key={pass.id} className={`individual-pass-line ${activePassId === pass.id ? "active" : ""}`} style={{ ...arrowConnectionStyle(from, to), opacity: .42 + pass.intensity * .0055, height: `${2 + pass.intensity / 60}px` }} />;
                   }))}
                   {passLinking && selectedPlayerSlot && passPointer && <i className="individual-pass-line pending" style={connectionStyle(selectedPlayerSlot, passPointer)} />}
                 </div>
