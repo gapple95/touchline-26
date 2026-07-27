@@ -142,6 +142,7 @@ export default function Home() {
   const [lineup, setLineup] = useState(players.slice(0, 11));
   const [bench, setBench] = useState(players.slice(11));
   const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
+  const [hoveredZone, setHoveredZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
   const [minute, setMinute] = useState(70);
   const [switchCount, setSwitchCount] = useState(0);
@@ -165,6 +166,7 @@ export default function Home() {
     setPreviousTacticId(activeTacticId);
     setActiveTacticId(id);
     setSlots(createFormationSlots(id));
+    setHoveredZone(null);
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
     setSimulated(false);
@@ -175,6 +177,7 @@ export default function Home() {
     setLineup(players.slice(0, 11));
     setBench(players.slice(11));
     setSlots(createFormationSlots(activeTacticId));
+    setHoveredZone(null);
     setSelectedPlayer(null);
     setNotice("선수 배치를 현재 전술의 기본 위치로 되돌렸습니다.");
   }
@@ -194,13 +197,38 @@ export default function Home() {
     }
   }
 
+  function pitchCoordinates(element: HTMLDivElement, clientX: number, clientY: number) {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.max(6, Math.min(94, ((clientX - rect.left) / rect.width) * 100)),
+      y: Math.max(7, Math.min(93, ((clientY - rect.top) / rect.height) * 100)),
+    };
+  }
+
+  function previewPitchZone(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const { x, y } = pitchCoordinates(event.currentTarget, event.clientX, event.clientY);
+    const nextZone = resolvePitchPosition(x, y);
+    setHoveredZone((current) => current?.zoneId === nextZone.zoneId ? current : nextZone);
+  }
+
+  function leavePitchZone(event: DragEvent<HTMLDivElement>) {
+    const relatedTarget = event.relatedTarget;
+    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) return;
+    setHoveredZone(null);
+  }
+
+  function clearPitchZone() {
+    setHoveredZone(null);
+  }
+
   function dropOnPitch(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    setHoveredZone(null);
     const payload = readDrag(event);
     if (!payload || payload.origin !== "pitch") return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(6, Math.min(94, ((event.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(7, Math.min(93, ((event.clientY - rect.top) / rect.height) * 100));
+    const { x, y } = pitchCoordinates(event.currentTarget, event.clientX, event.clientY);
     const position = resolvePitchPosition(x, y);
     setSlots((current) => current.map((slot, index) => index === payload.index ? { ...slot, x, y, role: position.code } : slot));
     setNotice(`${lineup[payload.index].name} 선수를 ${position.code} 구역으로 이동했습니다.`);
@@ -209,6 +237,7 @@ export default function Home() {
   function dropOnPlayer(event: DragEvent<HTMLButtonElement>, targetIndex: number) {
     event.preventDefault();
     event.stopPropagation();
+    setHoveredZone(null);
     const payload = readDrag(event);
     if (!payload) return;
 
@@ -306,6 +335,7 @@ export default function Home() {
           lineup={lineup}
           bench={bench}
           slots={slots}
+          hoveredZone={hoveredZone}
           selectedPlayer={selectedPlayer}
           coachInput={coachInput}
           recommendation={recommendation}
@@ -315,6 +345,9 @@ export default function Home() {
           onTactic={applyTactic}
           onReset={resetBoard}
           onStartDrag={startDrag}
+          onDragOverPitch={previewPitchZone}
+          onDragLeavePitch={leavePitchZone}
+          onDragEnd={clearPitchZone}
           onDropPitch={dropOnPitch}
           onDropPlayer={dropOnPlayer}
           onPlayerClick={clickPitchPlayer}
@@ -354,6 +387,7 @@ type MatchRoomProps = {
   lineup: Player[];
   bench: Player[];
   slots: Slot[];
+  hoveredZone: ReturnType<typeof resolvePitchPosition> | null;
   selectedPlayer: number | null;
   coachInput: string;
   recommendation: TacticId | null;
@@ -363,6 +397,9 @@ type MatchRoomProps = {
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
+  onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
+  onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
   onDropPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDropPlayer: (event: DragEvent<HTMLButtonElement>, targetIndex: number) => void;
   onPlayerClick: (index: number) => void;
@@ -426,12 +463,26 @@ function MatchRoom(props: MatchRoomProps) {
             <button className="text-button" onClick={props.onReset}>배치 초기화</button>
           </div>
           <div className="pitch-shell">
-            <div className="pitch" onDragOver={(event) => event.preventDefault()} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+            <div className="pitch" onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
               <div className="pitch-markings" aria-hidden="true"><i className="halfway" /><i className="centre-circle" /><i className="penalty own" /><i className="penalty opponent" /><i className="goal own" /><i className="goal opponent" /></div>
               <div className="position-zones" aria-hidden="true">
                 {PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}
                 {PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}
-                {PITCH_PHASES.map((phase) => <span key={phase.id} style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
+                {props.hoveredZone && (
+                  <div
+                    className="position-zone-preview"
+                    style={{
+                      left: `${props.hoveredZone.bounds.left}%`,
+                      top: `${props.hoveredZone.bounds.top}%`,
+                      width: `${props.hoveredZone.bounds.width}%`,
+                      height: `${props.hoveredZone.bounds.height}%`,
+                    }}
+                  >
+                    <b>{props.hoveredZone.code}</b>
+                    <span>{props.hoveredZone.label}</span>
+                  </div>
+                )}
+                {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
               </div>
               <div className="goal-label own">우리 골대</div>
               <div className="goal-label opponent">상대 골대</div>
@@ -444,6 +495,7 @@ function MatchRoom(props: MatchRoomProps) {
                     style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
                     draggable
                     onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
+                    onDragEnd={props.onDragEnd}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => props.onDropPlayer(event, index)}
                     onClick={() => props.onPlayerClick(index)}
@@ -460,7 +512,7 @@ function MatchRoom(props: MatchRoomProps) {
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
-              <button key={player.id} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onClick={() => props.onBenchClick(index)}>
+              <button key={player.id} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
                 <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
               </button>
             ))}

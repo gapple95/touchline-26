@@ -39,6 +39,8 @@ test("keeps the core interaction contract in source", async () => {
 
   assert.match(page, /draggable/);
   assert.match(page, /dropOnPitch/);
+  assert.match(page, /position-zone-preview/);
+  assert.match(page, /onDragLeavePitch/);
   assert.match(page, /왼쪽은 우리 골대, 오른쪽은 상대 골대/);
   assert.doesNotMatch(page, /ATTACK/);
   assert.match(page, /generateRecommendation/);
@@ -52,7 +54,10 @@ test("keeps the core interaction contract in source", async () => {
 
 test("reassigns the displayed position from pitch coordinates", () => {
   assert.equal(resolvePitchPosition(24, 50).code, "CB");
-  assert.equal(resolvePitchPosition(24, 90).code, "RB");
+  const rightBackZone = resolvePitchPosition(24, 90);
+  assert.equal(rightBackZone.code, "RB");
+  assert.equal(rightBackZone.label, "오른쪽 풀백");
+  assert.deepEqual(rightBackZone.bounds, { left: 18, top: 76, width: 20, height: 24 });
   assert.equal(resolvePitchPosition(24, 10).code, "LB");
   assert.equal(resolvePitchPosition(44, 50).code, "DM");
   assert.equal(resolvePitchPosition(72, 50).code, "AM");
