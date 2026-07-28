@@ -22,7 +22,10 @@ test("server-renders the TOUCHLINE 26 product shell", async () => {
 
   const html = await response.text();
   assert.match(html, /TOUCHLINE 26/);
-  assert.match(html, /결정을 내리는 축구/);
+  assert.match(html, /class="match-status-bar"/);
+  assert.doesNotMatch(html, /class="header-match"/);
+  assert.doesNotMatch(html, /WORLD CUP MATCH LAB/);
+  assert.doesNotMatch(html, /결정을 내리는 축구/);
   assert.match(html, /라이브 전술 보드/);
   assert.match(html, /새 전술/);
   assert.match(html, /전술 요청/);

@@ -571,9 +571,11 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        <div className="header-match">
-          <span className="live-dot" /> <b>{minute}&apos;</b> KOR 1-1 POR
-        </div>
+        {view !== "match" && (
+          <div className="header-match">
+            <span className="live-dot" /> <b>{minute}&apos;</b> KOR 1-1 POR
+          </div>
+        )}
       </header>
 
       {view === "match" && (
@@ -626,11 +628,13 @@ export default function Home() {
         <DuelScreen activeTactic={activeTactic} resolved={duelResolved} onResolve={() => setDuelResolved(true)} onBack={() => setView("match")} />
       )}
 
-      <footer className="app-footer">
-        <div><b>DATA POLICY</b><span>FIFA 공식값과 TOUCHLINE 파생 지표를 분리 표시합니다.</span></div>
-        <div><span className="source-dot official" /> OFFICIAL DATA <span className="source-dot derived" /> DERIVED SIMULATION</div>
-        <strong>THE TOUCHLINE IS YOURS.</strong>
-      </footer>
+      {view !== "match" && (
+        <footer className="app-footer">
+          <div><b>DATA POLICY</b><span>FIFA 공식값과 TOUCHLINE 파생 지표를 분리 표시합니다.</span></div>
+          <div><span className="source-dot official" /> OFFICIAL DATA <span className="source-dot derived" /> DERIVED SIMULATION</div>
+          <strong>THE TOUCHLINE IS YOURS.</strong>
+        </footer>
+      )}
     </main>
   );
 }
@@ -1075,17 +1079,11 @@ function MatchRoom(props: MatchRoomProps) {
   }
   return (
     <>
-      <section className="match-hero">
-        <div>
-          <p className="eyebrow">WORLD CUP MATCH LAB / GROUP H</p>
-          <h1>결정을 내리는 축구.</h1>
-          <p>공식 경기 데이터를 읽고, 직접 전술을 움직이고, 선택의 결과를 복기하세요.</p>
-        </div>
-        <div className="score-strip" aria-label="현재 경기 상황">
-          <div><span className="team-code">KOR</span><strong>대한민국</strong></div>
-          <div className="current-score"><small>{props.minute}&apos; LIVE</small><b>1 <i>-</i> 1</b><span>다음 장면까지 03:18</span></div>
-          <div><span className="team-code">POR</span><strong>포르투갈</strong></div>
-        </div>
+      <section className="match-status-bar" aria-label="현재 경기 상황">
+        <div className="match-team home"><span>KOR</span><b>대한민국</b></div>
+        <div className="match-live-score"><small><i />{props.minute}&apos; LIVE</small><strong>1 <i>-</i> 1</strong></div>
+        <div className="match-team away"><span>POR</span><b>포르투갈</b></div>
+        <div className="match-clock"><span>GROUP H</span><b>다음 장면 03:18</b></div>
       </section>
 
       <section className="decision-banner" aria-live="polite">
