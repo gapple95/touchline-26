@@ -1157,29 +1157,6 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="save-detail-button" type="submit">세부 전술 저장</button>
             </form>
           )}
-          <div className="metric-card">
-            <div className="metric-heading"><span>라이브 전술 지표</span><small><i /> LIVE PLAN INDEX</small></div>
-            <Metric label="공격 위협" value={props.liveMetrics.attack} tone="orange" />
-            <Metric label="수비 안정" value={props.liveMetrics.defence} tone="mint" />
-            <Metric label="중앙 보호" value={props.liveMetrics.centre} tone="yellow" />
-            <Metric label="전환 속도" value={props.liveMetrics.transition} tone="lime" />
-            <Metric label="체력 부담" value={props.liveMetrics.fatigue} tone="orange" />
-            <div className="live-index-grid">
-              <LiveMetricFact label="수비 라인" value={`${props.liveMetrics.defensiveLineMetres}m`} />
-              <LiveMetricFact label="팀 길이" value={`${props.liveMetrics.teamLengthMetres}m`} />
-              <LiveMetricFact label="팀 폭" value={`${props.liveMetrics.teamWidthMetres}m`} />
-              <LiveMetricFact label="컴팩트" value={props.liveMetrics.compactness} />
-              <LiveMetricFact label="압박 의도" value={props.liveMetrics.pressing} />
-              <LiveMetricFact label="뒷공간 위험" value={props.liveMetrics.spaceBehindRisk} warning />
-            </div>
-            <div className="live-phase"><span>예상 플레이 국면</span><b>{props.liveMetrics.phaseLabel}</b></div>
-            <p className="metric-disclaimer">선수 배치·팀/개인 지침·패스 연결 기반 계획값이며 공식 경기 통계가 아닙니다.</p>
-          </div>
-          <div className="delta-card">
-            <span>마지막 확정 대비 · 실시간</span>
-            <div><b className={deltaClass(props.metricDelta.attack)}>공격 {formatDelta(props.metricDelta.attack)}</b><b className={deltaClass(props.metricDelta.defence)}>수비 {formatDelta(props.metricDelta.defence)}</b><b className={deltaClass(props.metricDelta.centre)}>중앙 {formatDelta(props.metricDelta.centre)}</b><b className={deltaClass(props.metricDelta.transition)}>전환 {formatDelta(props.metricDelta.transition)}</b><b className={deltaClass(-props.metricDelta.fatigue)}>부담 {formatDelta(props.metricDelta.fatigue)}</b></div>
-          </div>
-          <div className="risk-note"><span>LIVE RISK</span><p>뒷공간 {props.liveMetrics.spaceBehindRisk} · 체력 부담 {props.liveMetrics.fatigue}<br />{props.activeTactic.risk}</p></div>
         </aside>
 
         <section className="board-panel panel">
@@ -1394,7 +1371,35 @@ function MatchRoom(props: MatchRoomProps) {
           )}
         </aside>
       </section>
+      <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
     </>
+  );
+}
+
+function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTacticalMetrics; metricDelta: MatchRoomProps["metricDelta"] }) {
+  const scores: Array<{ label: string; value: number; tone: Tone }> = [
+    { label: "공격", value: liveMetrics.attack, tone: "orange" },
+    { label: "수비", value: liveMetrics.defence, tone: "mint" },
+    { label: "중앙", value: liveMetrics.centre, tone: "yellow" },
+    { label: "전환", value: liveMetrics.transition, tone: "lime" },
+    { label: "부담", value: liveMetrics.fatigue, tone: "orange" },
+  ];
+
+  return (
+    <aside className="live-metric-dock" aria-label="라이브 전술 지표" aria-live="polite">
+      <div className="live-metric-dock-inner">
+        <div className="dock-title"><small><i /> LIVE PLAN INDEX</small><b>라이브 전술 지표</b><span>{liveMetrics.phaseLabel}</span></div>
+        <div className="dock-score-grid">
+          {scores.map((score) => (
+            <div key={score.label} className={`dock-score ${score.tone}`}><span>{score.label}</span><b>{score.value}</b><i><em style={{ width: `${score.value}%` }} /></i></div>
+          ))}
+        </div>
+        <div className="dock-details">
+          <div className="dock-facts"><span>수비 라인 <b>{liveMetrics.defensiveLineMetres}m</b></span><span>팀 길이 <b>{liveMetrics.teamLengthMetres}m</b></span><span>팀 폭 <b>{liveMetrics.teamWidthMetres}m</b></span><span>컴팩트 <b>{liveMetrics.compactness}</b></span><span>압박 <b>{liveMetrics.pressing}</b></span><span className="warning">뒷공간 <b>{liveMetrics.spaceBehindRisk}</b></span></div>
+          <div className="dock-delta"><span>마지막 확정 대비</span><b className={deltaClass(metricDelta.attack)}>공격 {formatDelta(metricDelta.attack)}</b><b className={deltaClass(metricDelta.defence)}>수비 {formatDelta(metricDelta.defence)}</b><b className={deltaClass(metricDelta.centre)}>중앙 {formatDelta(metricDelta.centre)}</b><b className={deltaClass(metricDelta.transition)}>전환 {formatDelta(metricDelta.transition)}</b><b className={deltaClass(-metricDelta.fatigue)}>부담 {formatDelta(metricDelta.fatigue)}</b></div>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -1494,10 +1499,6 @@ function ScreenHeader({ eyebrow, title, description, dark = false }: { eyebrow: 
 
 function Metric({ label, value, tone }: { label: string; value: number; tone: Tone }) {
   return <div className={`metric ${tone}`}><div><span>{label}</span><b>{value}</b></div><div className="metric-track"><i style={{ width: `${value}%` }} /></div></div>;
-}
-
-function LiveMetricFact({ label, value, warning = false }: { label: string; value: string | number; warning?: boolean }) {
-  return <div className={warning ? "warning" : ""}><span>{label}</span><b>{value}</b></div>;
 }
 
 function DecisionCard({ number, tone, title, body, tag }: { number: string; tone: Tone; title: string; body: string; tag: string }) {
