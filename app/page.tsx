@@ -1189,7 +1189,7 @@ function MatchRoom(props: MatchRoomProps) {
             <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하고, 선수를 클릭해 개인 지침을 설정하세요." />
             <div className="board-toolbar-actions">
               <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
-              <button className="text-button" onClick={handleBoardReset}>배치 초기화</button>
+              <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
               <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
             </div>
           </div>

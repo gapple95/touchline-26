@@ -102,6 +102,7 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /setSlots\(restoredSnapshot\.slots\)/);
   assert.match(page, /details: cloneTacticDetails\(restoredSnapshot\.details\)/);
   assert.match(page, /onClick=\{handleBoardReset\}/);
+  assert.match(page, />되돌리기<\/button>/);
   assert.match(page, /cancelPassWithEscape/);
   assert.match(page, /confirmPendingPass}>연결/);
   assert.match(page, /cancelPassAssignment}>취소/);
