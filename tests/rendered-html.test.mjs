@@ -96,8 +96,11 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /event\.stopPropagation\(\); handlePitchPlayerClick/);
   assert.match(page, /cancelPassAssignment/);
   assert.match(page, /function handleBoardReset\(\)/);
-  assert.match(page, /playerInstructions: details\.playerInstructions\.map/);
-  assert.match(page, /passTargets: \[\]/);
+  assert.match(page, /const restoredSnapshot = cloneTacticSnapshot\(confirmedTacticSnapshot\)/);
+  assert.match(page, /setLineup\(restoredSnapshot\.lineup\)/);
+  assert.match(page, /setBench\(restoredSnapshot\.bench\)/);
+  assert.match(page, /setSlots\(restoredSnapshot\.slots\)/);
+  assert.match(page, /details: cloneTacticDetails\(restoredSnapshot\.details\)/);
   assert.match(page, /onClick=\{handleBoardReset\}/);
   assert.match(page, /cancelPassWithEscape/);
   assert.match(page, /confirmPendingPass}>연결/);

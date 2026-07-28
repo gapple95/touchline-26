@@ -292,7 +292,6 @@ export default function Home() {
   const [view, setView] = useState<View>("match");
   const [savedTactics, setSavedTactics] = useState<Tactic[]>(initialTactics);
   const [tacticLayouts, setTacticLayouts] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
-  const [tacticDefaults, setTacticDefaults] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
   const [activeTacticId, setActiveTacticId] = useState<TacticId>("control");
   const [lineup, setLineup] = useState(players.slice(0, 11));
   const [bench, setBench] = useState(players.slice(11));
@@ -339,28 +338,21 @@ export default function Home() {
   }
 
   function resetBoard() {
-    setLineup(players.slice(0, 11));
-    setBench(players.slice(11));
-    const defaultLayout = tacticDefaults[activeTacticId] ?? formationSlots.control;
-    setTacticLayouts((current) => ({ ...current, [activeTacticId]: defaultLayout.map((slot) => ({ ...slot })) }));
-    setSlots(createFormationSlots(activeTacticId, { ...tacticLayouts, [activeTacticId]: defaultLayout }));
-    setSavedTactics((current) => current.map((tactic) => {
-      if (tactic.id !== activeTacticId) return tactic;
-      const details = cloneTacticDetails(tactic.details);
-      return {
-        ...tactic,
-        details: {
-          ...details,
-          playerInstructions: details.playerInstructions.map((instruction) => ({
-            ...instruction,
-            passTargets: [],
-          })),
-        },
-      };
+    if (!confirmedTacticSnapshot) return;
+    const restoredSnapshot = cloneTacticSnapshot(confirmedTacticSnapshot);
+    setLineup(restoredSnapshot.lineup);
+    setBench(restoredSnapshot.bench);
+    setSlots(restoredSnapshot.slots);
+    setTacticLayouts((current) => ({
+      ...current,
+      [activeTacticId]: restoredSnapshot.slots.map(({ x, y }) => ({ x, y })),
     }));
+    setSavedTactics((current) => current.map((tactic) => tactic.id === activeTacticId
+      ? { ...tactic, details: cloneTacticDetails(restoredSnapshot.details) }
+      : tactic));
     setHoveredZone(null);
     setSelectedPlayer(null);
-    setNotice("선수 배치와 패스 연결을 현재 전술의 기본 상태로 되돌렸습니다.");
+    setNotice(`${activeTactic.name} 전술을 마지막 확정 상태로 되돌렸습니다.`);
   }
 
   function createTactic(name: string, baseTacticId: TacticId) {
@@ -390,7 +382,6 @@ export default function Home() {
 
     setSavedTactics((current) => [...current, nextTactic]);
     setTacticLayouts((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
-    setTacticDefaults((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
     setActiveTacticId(id);
     setSlots(createdSlots);
     setConfirmedTactics((current) => ({ ...current, [id]: cloneTacticSnapshot({
