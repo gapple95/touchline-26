@@ -95,6 +95,10 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /handlePitchGroundClick/);
   assert.match(page, /event\.stopPropagation\(\); handlePitchPlayerClick/);
   assert.match(page, /cancelPassAssignment/);
+  assert.match(page, /function handleBoardReset\(\)/);
+  assert.match(page, /playerInstructions: details\.playerInstructions\.map/);
+  assert.match(page, /passTargets: \[\]/);
+  assert.match(page, /onClick=\{handleBoardReset\}/);
   assert.match(page, /cancelPassWithEscape/);
   assert.match(page, /confirmPendingPass}>연결/);
   assert.match(page, /cancelPassAssignment}>취소/);

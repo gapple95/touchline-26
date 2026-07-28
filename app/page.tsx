@@ -344,9 +344,23 @@ export default function Home() {
     const defaultLayout = tacticDefaults[activeTacticId] ?? formationSlots.control;
     setTacticLayouts((current) => ({ ...current, [activeTacticId]: defaultLayout.map((slot) => ({ ...slot })) }));
     setSlots(createFormationSlots(activeTacticId, { ...tacticLayouts, [activeTacticId]: defaultLayout }));
+    setSavedTactics((current) => current.map((tactic) => {
+      if (tactic.id !== activeTacticId) return tactic;
+      const details = cloneTacticDetails(tactic.details);
+      return {
+        ...tactic,
+        details: {
+          ...details,
+          playerInstructions: details.playerInstructions.map((instruction) => ({
+            ...instruction,
+            passTargets: [],
+          })),
+        },
+      };
+    }));
     setHoveredZone(null);
     setSelectedPlayer(null);
-    setNotice("선수 배치를 현재 전술의 기본 위치로 되돌렸습니다.");
+    setNotice("선수 배치와 패스 연결을 현재 전술의 기본 상태로 되돌렸습니다.");
   }
 
   function createTactic(name: string, baseTacticId: TacticId) {
@@ -864,7 +878,14 @@ function MatchRoom(props: MatchRoomProps) {
     setPassLinking(false);
     setPassPointer(null);
     setPendingPass(null);
+    setPassPopoverPosition(null);
     setActivePassId(null);
+  }
+
+  function handleBoardReset() {
+    cancelPassAssignment();
+    setPlayerMenuOpen(false);
+    props.onReset();
   }
 
   function clampPassPopoverPosition(x: number, y: number) {
@@ -1177,7 +1198,7 @@ function MatchRoom(props: MatchRoomProps) {
             <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하고, 선수를 클릭해 개인 지침을 설정하세요." />
             <div className="board-toolbar-actions">
               <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
-              <button className="text-button" onClick={props.onReset}>배치 초기화</button>
+              <button className="text-button" onClick={handleBoardReset}>배치 초기화</button>
               <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
             </div>
           </div>
