@@ -274,6 +274,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .dock-delta { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.14); }.dock-delta > span { margin-right: 2px; color: #aab9ae; font-size: 9px; }.dock-delta b { font: 900 10px Arial, sans-serif; }.dock-delta .positive { color: var(--mint); }.dock-delta .negative { color: var(--orange); }.dock-delta .neutral { color: #aab9ae; }
 
 .pitch-shell { max-width: 630px; margin: 0 auto; padding: 9px; background: var(--green); box-shadow: var(--shadow); }
+.board-panel .pitch-shell { width: 100%; max-width: none; }
 .pitch {
   position: relative;
   width: 100%;
