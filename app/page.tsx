@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
 import { deriveLiveTacticalMetrics } from "@/lib/domain/live-tactical-metrics.js";
+import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
 type View = "match" | "review" | "manager" | "duel";
@@ -58,6 +59,18 @@ type PendingPassDraft = {
 
 type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
 
+type AiTacticalRecommendation = {
+  provider: "gemini" | "local";
+  recommendedTacticId: TacticId;
+  confidence: number;
+  summary: string;
+  reasons: string[];
+  caution: string;
+  teamInstructions: Pick<DetailedTacticInstructions, "aggression" | "takeOn" | "passingFrequency">;
+  playerInstructions: Array<Pick<PlayerTacticalInstruction, "playerId" | "aggression" | "takeOn" | "passingFrequency" | "forwardRuns" | "defensiveWorkRate" | "runDirection">>;
+  passLinks: Array<{ fromPlayerId: string; toPlayerId: string; intensity: number }>;
+};
+
 const relationshipLabels: Record<PlayerRelationshipType, string> = {
   COMBINATION: "짧은 연계",
   OVERLAP: "오버랩",
@@ -94,6 +107,39 @@ function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTactic
       passTargets: instruction.passTargets.map((pass) => ({ ...pass })),
     })),
   };
+}
+
+function mergeAiRecommendationIntoDetails(details: DetailedTacticInstructions, recommendation: AiTacticalRecommendation, lineup: Player[]): DetailedTacticInstructions {
+  const next = cloneTacticDetails(details);
+  const allowedPlayerIds = new Set(lineup.map((player) => player.id));
+  const byPlayerId = new Map(next.playerInstructions.map((instruction) => [instruction.playerId, instruction]));
+  const inheritedInstruction = (playerId: string): PlayerTacticalInstruction => ({
+    playerId,
+    aggression: next.aggression,
+    takeOn: next.takeOn,
+    passingFrequency: next.passingFrequency,
+    forwardRuns: 50,
+    defensiveWorkRate: 50,
+    runDirection: "HOLD",
+    passTargets: [],
+  });
+
+  for (const instruction of recommendation.playerInstructions) {
+    if (!allowedPlayerIds.has(instruction.playerId)) continue;
+    const current = byPlayerId.get(instruction.playerId) ?? inheritedInstruction(instruction.playerId);
+    byPlayerId.set(instruction.playerId, { ...current, ...instruction, passTargets: current.passTargets.map((pass) => ({ ...pass })) });
+  }
+  for (const link of recommendation.passLinks) {
+    if (!allowedPlayerIds.has(link.fromPlayerId) || !allowedPlayerIds.has(link.toPlayerId) || link.fromPlayerId === link.toPlayerId) continue;
+    const current = byPlayerId.get(link.fromPlayerId) ?? inheritedInstruction(link.fromPlayerId);
+    const withoutTarget = current.passTargets.filter((pass) => pass.toPlayerId !== link.toPlayerId);
+    byPlayerId.set(link.fromPlayerId, {
+      ...current,
+      passTargets: [...withoutTarget, { id: `ai-${link.fromPlayerId}-${link.toPlayerId}`, toPlayerId: link.toPlayerId, intensity: link.intensity }],
+    });
+  }
+
+  return { ...next, ...recommendation.teamInstructions, playerInstructions: Array.from(byPlayerId.values()) };
 }
 
 function cloneTacticSnapshot(snapshot: ConfirmedTacticSnapshot): ConfirmedTacticSnapshot {
@@ -303,7 +349,8 @@ export default function Home() {
   const [minute, setMinute] = useState(70);
   const [switchCount, setSwitchCount] = useState(0);
   const [coachInput, setCoachInput] = useState("후반 70분, 왼쪽 측면을 지키면서 빠르게 역습하고 싶어.");
-  const [recommendation, setRecommendation] = useState<TacticId | null>(null);
+  const [recommendation, setRecommendation] = useState<AiTacticalRecommendation | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [notice, setNotice] = useState("CONTROL 전술로 경기를 운영 중입니다.");
   const [simulated, setSimulated] = useState(false);
   const [duelResolved, setDuelResolved] = useState(false);
@@ -539,16 +586,55 @@ export default function Home() {
     setNotice(`${incoming.name} 선수를 투입했습니다.`);
   }
 
-  function generateRecommendation() {
+  function aiRecommendationContext(prompt: string) {
+    return {
+      prompt,
+      minute,
+      activeTacticId,
+      tactics: savedTactics.map((tactic) => ({ id: tactic.id, name: tactic.name, formation: tactic.formation, intent: tactic.intent })),
+      lineup: lineup.map((player) => ({ id: player.id, name: player.name, position: player.position, role: player.role, stamina: player.stamina })),
+      liveMetrics,
+    };
+  }
+
+  async function generateRecommendation() {
     const prompt = coachInput.replace(/\s+/g, " ").trim();
-    let next: TacticId = "control";
-    if (/지키|리드|수비|잠그/.test(prompt)) next = /역습|골|득점|빠르게/.test(prompt) ? "press" : "lock";
-    if (/골|득점|추격|전방|공격 숫자/.test(prompt)) next = "chase";
-    if (/압박|탈취|세컨드볼/.test(prompt)) next = "press";
-    if (/점유|안정|통제/.test(prompt)) next = "control";
-    setRecommendation(next);
-    const tactic = savedTactics.find((item) => item.id === next) ?? savedTactics[0];
-    setNotice(`AI 코치가 요청을 ${tactic.intent} 의도로 해석했습니다. 적용 전 이유와 위험을 확인하세요.`);
+    if (!prompt) return;
+    const context = aiRecommendationContext(prompt);
+    setAiLoading(true);
+    try {
+      const response = await fetch("/api/ai-tactical-recommendation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(context),
+      });
+      const payload = await response.json() as { recommendation?: AiTacticalRecommendation };
+      if (!response.ok || !payload.recommendation) throw new Error("Recommendation unavailable");
+      const result = payload.recommendation;
+      setRecommendation(result);
+      const tactic = savedTactics.find((item) => item.id === result.recommendedTacticId) ?? savedTactics[0];
+      setNotice(`${result.provider === "gemini" ? "AI" : "로컬 코치"}가 ${tactic.intent} 방향의 전술을 제안했습니다.`);
+    } catch {
+      const result = createLocalTacticalRecommendation(context) as AiTacticalRecommendation;
+      setRecommendation(result);
+      setNotice("AI 연결을 사용할 수 없어 로컬 전술 코치의 제안으로 전환했습니다.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function applyAiRecommendation(result: AiTacticalRecommendation) {
+    const target = savedTactics.find((tactic) => tactic.id === result.recommendedTacticId);
+    if (!target) return;
+    const details = mergeAiRecommendationIntoDetails(target.details, result, lineup);
+    setSavedTactics((current) => current.map((tactic) => tactic.id === target.id ? { ...tactic, details } : tactic));
+    setActiveTacticId(target.id);
+    setSlots(createFormationSlots(target.id, tacticLayouts));
+    setHoveredZone(null);
+    setSelectedPlayer(null);
+    setSimulated(false);
+    setRecommendation(null);
+    setNotice(`${target.name} 전술과 AI 제안 지침을 라이브 보드에 적용했습니다. 저장을 누르면 확정됩니다.`);
   }
 
   function simulateNextPhase() {
@@ -591,6 +677,7 @@ export default function Home() {
           selectedPlayer={selectedPlayer}
           coachInput={coachInput}
           recommendation={recommendation}
+          aiLoading={aiLoading}
           minute={minute}
           notice={notice}
           simulated={simulated}
@@ -611,6 +698,7 @@ export default function Home() {
           onBenchClick={clickBenchPlayer}
           onCoachInput={setCoachInput}
           onRecommend={generateRecommendation}
+          onApplyRecommendation={applyAiRecommendation}
           onSimulate={simulateNextPhase}
           onReview={() => setView("review")}
         />
@@ -650,7 +738,8 @@ type MatchRoomProps = {
   hoveredZone: ReturnType<typeof resolvePitchPosition> | null;
   selectedPlayer: number | null;
   coachInput: string;
-  recommendation: TacticId | null;
+  recommendation: AiTacticalRecommendation | null;
+  aiLoading: boolean;
   minute: number;
   notice: string;
   simulated: boolean;
@@ -671,6 +760,7 @@ type MatchRoomProps = {
   onBenchClick: (index: number) => void;
   onCoachInput: (value: string) => void;
   onRecommend: () => void;
+  onApplyRecommendation: (recommendation: AiTacticalRecommendation) => void;
   onSimulate: () => void;
   onReview: () => void;
 };
@@ -696,7 +786,9 @@ function MatchRoom(props: MatchRoomProps) {
   const pitchFieldRef = useRef<HTMLDivElement>(null);
   const passPopoverRef = useRef<HTMLDivElement>(null);
   const passPopoverDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
-  const recommended = props.savedTactics.find((tactic) => tactic.id === props.recommendation) ?? null;
+  const recommended = props.recommendation
+    ? props.savedTactics.find((tactic) => tactic.id === props.recommendation.recommendedTacticId) ?? null
+    : null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
   const selectedPlayerSlot = props.selectedPlayer === null ? null : props.slots[props.selectedPlayer];
@@ -1343,19 +1435,19 @@ function MatchRoom(props: MatchRoomProps) {
         </section>
 
         <aside className="coach-panel panel">
-          <SectionTitle number="03" eyebrow="LLM COACH" title="전술 요청" description="말로 요청하고, 이유를 확인한 뒤 직접 확정합니다." />
+          <SectionTitle number="03" eyebrow="AI TACTICAL COACH" title="전술 요청" description="말로 요청하고, 이유를 확인한 뒤 직접 적용합니다." />
           <label className="coach-input-label" htmlFor="coach-input">감독의 의도</label>
           <textarea id="coach-input" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} />
-          <button className="primary-button" onClick={props.onRecommend}><span>AI</span> 추천 전술 만들기</button>
+          <button className="primary-button" onClick={props.onRecommend} disabled={props.aiLoading}><span>AI</span>{props.aiLoading ? "전술 분석 중…" : "추천 전술 만들기"}</button>
 
-          {recommended ? (
+          {recommended && props.recommendation ? (
             <div className="recommendation-card">
-              <div className="recommendation-head"><span>추천 01</span><b>{recommended.name} {recommended.formation}</b><em>신뢰 86%</em></div>
-              <p>{recommended.summary}</p>
-              <div className="reason-block positive"><b>추천 이유</b><ul><li>현재 1-1 상황과 입력한 우선순위를 반영</li><li>이강인의 전진 패스와 손흥민의 채널 침투를 연결</li></ul></div>
-              <div className="reason-block warning"><b>적용 위험</b><p>{recommended.risk}</p></div>
-              <button className="confirm-button" onClick={() => props.onTactic(recommended.id, "coach")}>이 전술로 확정</button>
-              <small className="human-note">AI는 추천만 제공합니다. 최종 적용은 감독이 확정합니다.</small>
+              <div className="recommendation-head"><span>{props.recommendation.provider === "gemini" ? "GEMINI AI" : "LOCAL COACH"}</span><b>{recommended.name} {recommended.formation}</b><em>신뢰 {props.recommendation.confidence}%</em></div>
+              <p>{props.recommendation.summary}</p>
+              <div className="reason-block positive"><b>추천 이유</b><ul>{props.recommendation.reasons.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>
+              <div className="reason-block warning"><b>적용 유의사항</b><p>{props.recommendation.caution}</p></div>
+              <button className="confirm-button" onClick={() => props.onApplyRecommendation(props.recommendation)}>AI 제안 적용</button>
+              <small className="human-note">{props.recommendation.provider === "gemini" ? "AI가 제안한 팀·개인 지침과 패스 연결을 보드에 적용합니다. 최종 적용은 감독이 확정합니다." : "무료 AI 연결 전 또는 한도 초과 시 로컬 전술 코치가 대신 제안합니다. 최종 적용은 감독이 확정합니다."}</small>
             </div>
           ) : (
             <div className="coach-empty">

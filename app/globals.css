@@ -409,6 +409,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 }
 .primary-button { background: var(--lime); color: var(--ink); }
 .primary-button:hover { background: #d6ff52; transform: translateY(-1px); }
+.primary-button:disabled { cursor: wait; opacity: .58; transform: none; }
 .coach-panel > .primary-button { width: 100%; margin-top: 9px; background: var(--green); color: var(--white); }
 .coach-panel > .primary-button span { margin-right: 7px; color: var(--lime); font: 900 10px Arial, sans-serif; }
 .coach-empty { margin-top: 16px; padding: 18px; min-height: 148px; color: var(--white); background: var(--green); }
