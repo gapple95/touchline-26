@@ -67,7 +67,7 @@ test("keeps the core interaction contract in source", async () => {
   assert.doesNotMatch(page + css, /확정 전으로|revert-tactic-button|revertCurrentTactic/);
   assert.match(page + css, /save-tactic-button/);
   assert.match(page, /deriveLiveTacticalMetrics/);
-  assert.match(page + css, /LIVE PLAN INDEX/);
+  assert.match(page + css, /TACTICAL PLAN INDEX/);
   assert.match(page + css, /live-metric-dock/);
   assert.match(page, /function LiveMetricDock/);
   assert.doesNotMatch(page, /<div className="metric-card">/);

@@ -7,7 +7,7 @@ import { deriveLiveTacticalMetrics } from "@/lib/domain/live-tactical-metrics.js
 import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
-type View = "fixture" | "match" | "review" | "manager" | "duel";
+type View = "fixture" | "team" | "match" | "review" | "manager" | "duel";
 type TacticId = string;
 type Tone = "lime" | "orange" | "mint" | "yellow";
 
@@ -25,9 +25,9 @@ type MatchFixture = {
   tournament: string;
   stage: string;
   date: string;
-  home: { code: string; name: string; scoreAtDecision: number };
-  away: { code: string; name: string; scoreAtDecision: number };
-  decisionMinute: number;
+  home: { code: string; name: string };
+  away: { code: string; name: string };
+  availableManagerTeams: Array<"home" | "away">;
   availability: "READY" | "SOON";
   dataScope: string;
 };
@@ -242,9 +242,9 @@ const matchFixtures: MatchFixture[] = [
     tournament: "FIFA WORLD CUP QATAR 2022",
     stage: "GROUP H",
     date: "2022.12.02",
-    home: { code: "KOR", name: "대한민국", scoreAtDecision: 1 },
-    away: { code: "POR", name: "포르투갈", scoreAtDecision: 1 },
-    decisionMinute: 70,
+    home: { code: "KOR", name: "대한민국" },
+    away: { code: "POR", name: "포르투갈" },
+    availableManagerTeams: ["home"],
     availability: "READY",
     dataScope: "공식 경기 정보 · 선발 11명 · 교체 출전 선수",
   },
@@ -253,9 +253,9 @@ const matchFixtures: MatchFixture[] = [
     tournament: "FIFA WORLD CUP QATAR 2022",
     stage: "GROUP H",
     date: "2022.11.24",
-    home: { code: "URU", name: "우루과이", scoreAtDecision: 0 },
-    away: { code: "KOR", name: "대한민국", scoreAtDecision: 0 },
-    decisionMinute: 70,
+    home: { code: "URU", name: "우루과이" },
+    away: { code: "KOR", name: "대한민국" },
+    availableManagerTeams: ["away"],
     availability: "SOON",
     dataScope: "명단 데이터 연결 예정",
   },
@@ -264,9 +264,9 @@ const matchFixtures: MatchFixture[] = [
     tournament: "FIFA WORLD CUP QATAR 2022",
     stage: "GROUP H",
     date: "2022.11.28",
-    home: { code: "KOR", name: "대한민국", scoreAtDecision: 2 },
-    away: { code: "GHA", name: "가나", scoreAtDecision: 3 },
-    decisionMinute: 70,
+    home: { code: "KOR", name: "대한민국" },
+    away: { code: "GHA", name: "가나" },
+    availableManagerTeams: ["home"],
     availability: "SOON",
     dataScope: "명단 데이터 연결 예정",
   },
@@ -389,6 +389,7 @@ const navItems: Array<{ id: View; label: string; number: string }> = [
 export default function Home() {
   const [view, setView] = useState<View>("fixture");
   const [selectedFixture, setSelectedFixture] = useState<MatchFixture | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<"home" | "away" | null>(null);
   const [savedTactics, setSavedTactics] = useState<Tactic[]>(initialTactics);
   const [tacticLayouts, setTacticLayouts] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
   const [activeTacticId, setActiveTacticId] = useState<TacticId>("control");
@@ -399,7 +400,6 @@ export default function Home() {
   const [hoveredZone, setHoveredZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
   const [dragAnchor, setDragAnchor] = useState<DragAnchor | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
-  const [minute, setMinute] = useState(70);
   const [switchCount, setSwitchCount] = useState(0);
   const [coachInput, setCoachInput] = useState("");
   const [recommendation, setRecommendation] = useState<AiTacticalRecommendation | null>(null);
@@ -410,9 +410,16 @@ export default function Home() {
   function selectFixture(fixture: MatchFixture) {
     if (fixture.availability !== "READY") return;
     setSelectedFixture(fixture);
-    setMinute(fixture.decisionMinute);
+    setSelectedTeam(null);
+    setView("team");
+  }
+
+  function selectManagedTeam(team: "home" | "away") {
+    if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
+    const managedTeam = selectedFixture[team];
+    setSelectedTeam(team);
     setView("match");
-    setNotice(`${fixture.home.name} vs ${fixture.away.name}의 ${fixture.decisionMinute}분 전술 결정을 시작합니다.`);
+    setNotice(`${managedTeam.name}의 킥오프 전 전술을 설계하고 저장하세요.`);
   }
 
   const activeTactic = savedTactics.find((tactic) => tactic.id === activeTacticId) ?? savedTactics[0];
@@ -654,7 +661,7 @@ export default function Home() {
   function aiRecommendationContext(prompt: string) {
     return {
       prompt,
-      minute,
+      minute: 0,
       activeTacticId,
       tactics: savedTactics.map((tactic) => ({ id: tactic.id, name: tactic.name, formation: tactic.formation, intent: tactic.intent })),
       lineup: lineup.map((player) => ({ id: player.id, name: player.name, position: player.position, role: player.role, stamina: player.stamina })),
@@ -708,24 +715,25 @@ export default function Home() {
           <span className="wordmark-box">T</span>
           <span>TOUCHLINE <b>26</b></span>
         </button>
-        {selectedFixture && <button className={view === "fixture" ? "fixture-nav active" : "fixture-nav"} onClick={() => setView("fixture")}>경기 선택</button>}
-        {selectedFixture && <nav className="primary-nav" aria-label="서비스 화면">
+        {selectedFixture && selectedTeam && <button className={view === "fixture" ? "fixture-nav active" : "fixture-nav"} onClick={() => setView("fixture")}>경기 선택</button>}
+        {selectedFixture && selectedTeam && <nav className="primary-nav" aria-label="서비스 화면">
           {navItems.map((item) => (
             <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)} aria-current={view === item.id ? "page" : undefined}>
               <span>{item.number}</span>{item.label}
             </button>
           ))}
         </nav>}
-        {selectedFixture && view !== "fixture" && view !== "match" && (
+        {selectedFixture && selectedTeam && view !== "fixture" && view !== "team" && view !== "match" && (
           <div className="header-match">
-            <span className="live-dot" /> <b>{minute}&apos;</b> {selectedFixture.home.code} {selectedFixture.home.scoreAtDecision}-{selectedFixture.away.scoreAtDecision} {selectedFixture.away.code}
+            <span className="live-dot" /> <b>KICKOFF</b> {selectedFixture.home.code} vs {selectedFixture.away.code}
           </div>
         )}
       </header>
 
       {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} onSelect={selectFixture} />}
+      {view === "team" && selectedFixture && <TeamSelector fixture={selectedFixture} onBack={() => setView("fixture")} onSelect={selectManagedTeam} />}
 
-      {view === "match" && selectedFixture && (
+      {view === "match" && selectedFixture && selectedTeam && (
         <MatchRoom
           fixture={selectedFixture}
           savedTactics={savedTactics}
@@ -740,7 +748,6 @@ export default function Home() {
           coachInput={coachInput}
           recommendation={recommendation}
           aiLoading={aiLoading}
-          minute={minute}
           notice={notice}
           hasUnconfirmedChanges={hasUnconfirmedChanges}
           teamKit={defaultTeamKit}
@@ -775,7 +782,7 @@ export default function Home() {
         <DuelScreen activeTactic={activeTactic} resolved={duelResolved} onResolve={() => setDuelResolved(true)} onBack={() => setView("match")} />
       )}
 
-      {selectedFixture && view !== "fixture" && view !== "match" && (
+      {selectedFixture && selectedTeam && view !== "fixture" && view !== "team" && view !== "match" && (
         <footer className="app-footer">
           <div><b>DATA POLICY</b><span>FIFA 공식값과 TOUCHLINE 파생 지표를 분리 표시합니다.</span></div>
           <div><span className="source-dot official" /> OFFICIAL DATA <span className="source-dot derived" /> DERIVED SIMULATION</div>
@@ -800,7 +807,6 @@ type MatchRoomProps = {
   coachInput: string;
   recommendation: AiTacticalRecommendation | null;
   aiLoading: boolean;
-  minute: number;
   notice: string;
   hasUnconfirmedChanges: boolean;
   teamKit: TeamKit;
@@ -841,13 +847,36 @@ function FixtureSelector({ fixtures, selectedFixtureId, onSelect }: { fixtures: 
               <div className="fixture-teams"><strong>{fixture.home.code}</strong><i>VS</i><strong>{fixture.away.code}</strong></div>
               <div className="fixture-names"><span>{fixture.home.name}</span><span>{fixture.away.name}</span></div>
               <div className="fixture-card-bottom"><span>{fixture.stage} · {fixture.date}</span><b>{fixture.dataScope}</b></div>
-              {isReady && <em>{fixture.decisionMinute}&apos;부터 감독 결정 시작 →</em>}
+              {isReady && <em>내가 맡을 팀 선택 →</em>}
             </button>
           );
         })}
       </div>
 
       <div className="fixture-policy"><b>DATA BOUNDARY</b><span>경기·출전 명단은 공식 데이터, 피치 위 배치와 지침은 당신의 반사실적 전술입니다.</span></div>
+    </section>
+  );
+}
+
+function TeamSelector({ fixture, onBack, onSelect }: { fixture: MatchFixture; onBack: () => void; onSelect: (team: "home" | "away") => void }) {
+  return (
+    <section className="team-select-screen" aria-labelledby="team-select-title">
+      <button className="back-to-fixtures" onClick={onBack}>← 경기 다시 선택</button>
+      <span>STEP 02 · MANAGER TEAM</span>
+      <h1 id="team-select-title">어느 팀의 감독이<br />되시겠어요?</h1>
+      <p>{fixture.home.name} vs {fixture.away.name}. 선택한 팀의 공식 출전 명단으로 킥오프 전 전술을 저장합니다.</p>
+      <div className="team-select-grid">
+        {(["home", "away"] as const).map((side) => {
+          const team = fixture[side];
+          const playable = fixture.availableManagerTeams.includes(side);
+          return <button key={side} className={`team-select-card ${playable ? "ready" : "soon"}`} disabled={!playable} onClick={() => onSelect(side)}>
+            <span>{side === "home" ? "HOME TEAM" : "AWAY TEAM"}</span>
+            <strong>{team.code}</strong><b>{team.name}</b>
+            <small>{playable ? "이 팀으로 전술 설계 시작" : "출전 명단 데이터 연결 예정"}</small>
+            {playable && <em>선택 →</em>}
+          </button>;
+        })}
+      </div>
     </section>
   );
 }
@@ -1267,13 +1296,13 @@ function MatchRoom(props: MatchRoomProps) {
     <>
       <section className="match-status-bar" aria-label="현재 경기 상황">
         <div className="match-team home"><span>{props.fixture.home.code}</span><b>{props.fixture.home.name}</b></div>
-        <div className="match-live-score"><small><i />{props.minute}&apos; DECISION</small><strong>{props.fixture.home.scoreAtDecision} <i>-</i> {props.fixture.away.scoreAtDecision}</strong></div>
+        <div className="match-live-score"><small><i />KICKOFF</small><strong>PRE <i>·</i> MATCH</strong></div>
         <div className="match-team away"><span>{props.fixture.away.code}</span><b>{props.fixture.away.name}</b></div>
         <div className="match-clock"><span>{props.fixture.stage}</span><b>{props.fixture.dataScope}</b></div>
       </section>
 
       <section className="decision-banner" aria-live="polite">
-        <span>LIVE DECISION</span><p>{props.notice}</p><b>{props.activeTactic.name} · {props.activeTactic.formation}</b>
+        <span>PRE-MATCH PLAN</span><p>{props.notice}</p><b>{props.activeTactic.name} · {props.activeTactic.formation}</b>
       </section>
 
       <section className="match-workspace">
@@ -1573,7 +1602,7 @@ function MatchRoom(props: MatchRoomProps) {
           </button>
           <div className="coach-drawer-content">
           <SectionTitle title="AI 전술 요청" />
-          <textarea id="coach-input" aria-label="감독의 전술 요청" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} placeholder="후반 70분, 왼쪽 측면을 지키면서 빠르게 역습하고 싶어." />
+          <textarea id="coach-input" aria-label="감독의 전술 요청" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} placeholder="상대 윙을 막으면서 왼쪽 측면으로 빠르게 역습하고 싶어." />
           <button className="primary-button" onClick={props.onRecommend} disabled={props.aiLoading}><span>AI</span>{props.aiLoading ? "전술 분석 중…" : "추천 전술 만들기"}</button>
 
           {recommended && props.recommendation ? (
@@ -1606,7 +1635,7 @@ function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTactica
   return (
     <aside className="live-metric-dock" aria-label="라이브 전술 지표" aria-live="polite">
       <div className="live-metric-dock-inner">
-        <div className="dock-title"><small><i /> LIVE PLAN INDEX</small><b>라이브 전술 지표</b><span>{liveMetrics.phaseLabel}</span></div>
+        <div className="dock-title"><small><i /> TACTICAL PLAN INDEX</small><b>전술 지표</b><span>{liveMetrics.phaseLabel}</span></div>
         <div className="dock-score-grid">
           {scores.map((score) => (
             <div key={score.label} className={`dock-score ${score.tone}`}><span>{score.label}</span><b>{score.value}</b><i><em style={{ width: `${score.value}%` }} /></i></div>
@@ -1674,7 +1703,7 @@ function ManagerScreen({ switchCount, activeTactic }: { switchCount: number; act
           <div className="evidence-log">
             <b>성향 근거</b>
             <article><span>62&apos;</span><p>동점 상황에서 압박 강도를 52에서 82로 높임</p></article>
-            <article><span>70&apos;</span><p>AI 추천을 확인한 뒤 선수 역할을 수정하고 직접 확정</p></article>
+            <article><span>KO</span><p>킥오프 전 전술을 저장하고 선수 역할을 직접 확정</p></article>
             <article><span>79&apos;</span><p>득점 필요 상황에서 {activeTactic.name} 전술의 위험을 감수</p></article>
           </div>
         </div>
