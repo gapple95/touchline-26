@@ -348,7 +348,7 @@ export default function Home() {
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
   const [minute, setMinute] = useState(70);
   const [switchCount, setSwitchCount] = useState(0);
-  const [coachInput, setCoachInput] = useState("후반 70분, 왼쪽 측면을 지키면서 빠르게 역습하고 싶어.");
+  const [coachInput, setCoachInput] = useState("");
   const [recommendation, setRecommendation] = useState<AiTacticalRecommendation | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [notice, setNotice] = useState("CONTROL 전술로 경기를 운영 중입니다.");
@@ -1184,7 +1184,7 @@ function MatchRoom(props: MatchRoomProps) {
 
       <section className="match-workspace">
         <aside className="tactic-panel panel">
-          <SectionTitle number="01" eyebrow="MATCH PLAN" title="저장 전술" description="경기 중 즉시 전환할 수 있습니다." />
+          <SectionTitle title="저장 전술" />
           <div className="tactic-list">
             {props.savedTactics.map((tactic) => (
               <button key={tactic.id} className={`tactic-card ${tactic.tone} ${props.activeTactic.id === tactic.id ? "active" : ""}`} onClick={() => props.onTactic(tactic.id)} aria-pressed={props.activeTactic.id === tactic.id}>
@@ -1253,7 +1253,7 @@ function MatchRoom(props: MatchRoomProps) {
 
         <section className="board-panel panel">
           <div className="board-toolbar">
-            <SectionTitle number="02" eyebrow="DIRECT CONTROL" title="라이브 전술 보드" description="드래그해 배치하고, 선수를 클릭해 개인 지침을 설정하세요." />
+            <SectionTitle title="라이브 전술 보드" />
             <div className="board-toolbar-actions">
               <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
               <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
@@ -1435,9 +1435,8 @@ function MatchRoom(props: MatchRoomProps) {
         </section>
 
         <aside className="coach-panel panel">
-          <SectionTitle number="03" eyebrow="AI TACTICAL COACH" title="전술 요청" description="말로 요청하고, 이유를 확인한 뒤 직접 적용합니다." />
-          <label className="coach-input-label" htmlFor="coach-input">감독의 의도</label>
-          <textarea id="coach-input" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} />
+          <SectionTitle title="AI 전술 요청" />
+          <textarea id="coach-input" aria-label="감독의 전술 요청" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} placeholder="후반 70분, 왼쪽 측면을 지키면서 빠르게 역습하고 싶어." />
           <button className="primary-button" onClick={props.onRecommend} disabled={props.aiLoading}><span>AI</span>{props.aiLoading ? "전술 분석 중…" : "추천 전술 만들기"}</button>
 
           {recommended && props.recommendation ? (
@@ -1449,11 +1448,7 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="confirm-button" onClick={() => props.onApplyRecommendation(props.recommendation)}>AI 제안 적용</button>
               <small className="human-note">{props.recommendation.provider === "gemini" ? "AI가 제안한 팀·개인 지침과 패스 연결을 보드에 적용합니다. 최종 적용은 감독이 확정합니다." : "무료 AI 연결 전 또는 한도 초과 시 로컬 전술 코치가 대신 제안합니다. 최종 적용은 감독이 확정합니다."}</small>
             </div>
-          ) : (
-            <div className="coach-empty">
-              <span>TACTICAL INTENT</span><b>자연어를 전술 객체로 변환합니다.</b><p>경기 상태, 선호 구역, 핵심 선수, 최대 위험도를 구조화해 저장 전술 안에서 추천합니다.</p>
-            </div>
-          )}
+          ) : null}
 
           <button className="simulate-button" onClick={props.onSimulate}>다음 장면 시뮬레이션 <span>→</span></button>
           {props.simulated && (
@@ -1581,8 +1576,8 @@ function DuelScreen({ activeTactic, resolved, onResolve, onBack }: { activeTacti
   );
 }
 
-function SectionTitle({ number, eyebrow, title, description }: { number: string; eyebrow: string; title: string; description: string }) {
-  return <div className="section-title"><span>{number}</span><div><small>{eyebrow}</small><h2>{title}</h2><p>{description}</p></div></div>;
+function SectionTitle({ title }: { title: string }) {
+  return <div className="section-title section-title-compact"><h2>{title}</h2></div>;
 }
 
 function ScreenHeader({ eyebrow, title, description, dark = false }: { eyebrow: string; title: string; description: string; dark?: boolean }) {
