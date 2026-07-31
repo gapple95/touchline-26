@@ -15,21 +15,18 @@ async function render() {
   );
 }
 
-test("server-renders the TOUCHLINE 26 product shell", async () => {
+test("server-renders the TOUCHLINE 26 fixture selection", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /TOUCHLINE 26/);
-  assert.match(html, /class="match-status-bar"/);
+  assert.match(html, /class="fixture-screen"/);
+  assert.match(html, /어떤 실제 경기를/);
+  assert.match(html, /공식 경기 정보 · 선발 11명 · 교체 출전 선수/);
   assert.doesNotMatch(html, /class="header-match"/);
   assert.doesNotMatch(html, /WORLD CUP MATCH LAB/);
-  assert.doesNotMatch(html, /결정을 내리는 축구/);
-  assert.match(html, /라이브 전술 보드/);
-  assert.match(html, /새 전술/);
-  assert.match(html, /전술 요청/);
-  assert.match(html, /전술 대결/);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview/);
 });
 
