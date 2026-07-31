@@ -1434,6 +1434,8 @@ function MatchRoom(props: MatchRoomProps) {
           )}
         </section>
 
+        <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
+
         <aside className="coach-panel panel">
           <SectionTitle title="AI 전술 요청" />
           <textarea id="coach-input" aria-label="감독의 전술 요청" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} placeholder="후반 70분, 왼쪽 측면을 지키면서 빠르게 역습하고 싶어." />
@@ -1458,7 +1460,6 @@ function MatchRoom(props: MatchRoomProps) {
           )}
         </aside>
       </section>
-      <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
     </>
   );
 }

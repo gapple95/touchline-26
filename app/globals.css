@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-THIN.TTF") format("truetype"); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-EXTRALIGHT.TTF") format("truetype"); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-LIGHT.TTF") format("truetype"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-REGULAR.TTF") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-MEDIUM.TTF") format("truetype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-SEMIBOLD.TTF") format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-BOLD.TTF") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-EXTRABOLD.TTF") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pretendard"; src: url("/fonts/PRETENDARD-BLACK.TTF") format("truetype"); font-weight: 900; font-style: normal; font-display: swap; }
+
 :root {
   --ink: #0d1812;
   --paper: #f3f0e7;
@@ -28,6 +38,7 @@ body {
 button, textarea { font: inherit; }
 button { color: inherit; }
 button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+.app-shell, .app-shell button, .app-shell input, .app-shell textarea, .app-shell select { font-family: "Pretendard", sans-serif !important; }
 
 .app-shell { min-height: 100vh; overflow: hidden; }
 .app-header {
@@ -137,17 +148,17 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 
 .match-workspace {
   max-width: 1680px;
-  min-height: 790px;
+  min-height: 0;
   margin: 0 auto;
-  padding-bottom: 142px;
+  padding-bottom: 36px;
   display: grid;
-  grid-template-columns: 286px minmax(560px, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr);
   border-inline: 1px solid var(--line);
 }
-.panel { min-width: 0; padding: 30px 24px; }
+.panel { min-width: 0; padding: 28px clamp(20px, 3vw, 48px); }
 .tactic-panel, .coach-panel { background: #e9e5db; }
-.tactic-panel { border-right: 1px solid var(--line); }
-.coach-panel { border-left: 1px solid var(--line); }
+.tactic-panel { border-bottom: 1px solid var(--line); }
+.coach-panel { border-top: 1px solid var(--line); }
 .board-panel { background: #f9f7f0; padding-inline: clamp(22px, 3vw, 48px); }
 .section-title { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 24px; }
 .section-title > span {
@@ -164,7 +175,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .section-title h2 { margin: 4px 0 3px; font-size: 20px; letter-spacing: -.05em; }
 .section-title p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .section-title-compact { display: block; margin-bottom: 18px; }
-.section-title-compact h2 { margin: 0; font-size: 22px; }
+.section-title-compact h2 { margin: 0; font-size: 25px; }
 .board-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .board-toolbar-actions { min-width: 200px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
 .board-toolbar-actions > span { grid-column: 1 / -1; justify-self: end; padding: 4px 7px; border-radius: 20px; font: 900 7px Arial, sans-serif; letter-spacing: .04em; }.board-toolbar-actions > span.dirty { background: #ffe1d9; color: #b53520; }.board-toolbar-actions > span.saved { background: #dcebd7; color: #397233; }
@@ -173,7 +184,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .text-button { height: 34px; padding: 0 12px; border: 1px solid #b9b9af; background: transparent; cursor: pointer; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .text-button:hover { color: var(--white); background: var(--green); border-color: var(--green); }
 
-.tactic-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tactic-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
 .tactic-card {
   position: relative;
   min-width: 0;
@@ -255,7 +266,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .risk-note span { color: var(--orange); font: 900 8px Arial, sans-serif; }
 .risk-note p { margin: 0; font-size: 9px; line-height: 1.45; }
 
-.live-metric-dock { position: fixed; z-index: 25; right: 0; bottom: 0; left: 0; border-top: 1px solid #45584c; background: rgba(13,24,18,.96); color: var(--white); box-shadow: 0 -12px 32px rgba(8,20,13,.2); backdrop-filter: blur(16px); }
+.live-metric-dock { position: static; z-index: 1; width: 100%; border-top: 1px solid #45584c; background: rgba(13,24,18,.96); color: var(--white); box-shadow: 0 12px 32px rgba(8,20,13,.16); }
 .live-metric-dock-inner { max-width: 1680px; min-height: 122px; margin: 0 auto; padding: 14px clamp(18px, 3vw, 48px); display: grid; grid-template-columns: 178px minmax(430px,1fr) minmax(410px,.9fr); gap: 24px; align-items: center; }
 .dock-title { display: grid; gap: 5px; align-content: center; }
 .dock-title small { display: flex; align-items: center; gap: 7px; color: #a9baae; font: 800 9px Arial, sans-serif; letter-spacing: .08em; }
@@ -276,7 +287,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .dock-delta { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.14); }.dock-delta > span { margin-right: 2px; color: #aab9ae; font-size: 9px; }.dock-delta b { font: 900 10px Arial, sans-serif; }.dock-delta .positive { color: var(--mint); }.dock-delta .negative { color: var(--orange); }.dock-delta .neutral { color: #aab9ae; }
 
 .pitch-shell { max-width: 630px; margin: 0 auto; padding: 9px; background: var(--green); box-shadow: var(--shadow); }
-.board-panel .pitch-shell { width: 100%; max-width: none; }
+.board-panel .pitch-shell { width: 100%; max-width: 1180px; }
 .pitch {
   position: relative;
   width: 100%;
@@ -485,6 +496,18 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .match-workspace .coach-empty p, .match-workspace .reason-block, .match-workspace .reason-block b, .match-workspace .simulation-result p { font-size: 11px; }
 .match-workspace .recommendation-head b, .match-workspace .recommendation-card > p, .match-workspace .simulation-result b { font-size: 13px; }
 
+/* Keep the primary match controls readable at desktop distance. */
+.match-workspace .section-title-compact h2 { font-size: 26px; }
+.match-workspace .tactic-card b { font-size: 16px; }
+.match-workspace .tactic-card small { font-size: 12px !important; }
+.match-workspace .tactic-add-card b { font-size: 13px; }
+.match-workspace .board-toolbar-actions > span { font-size: 12px; }
+.match-workspace .board-toolbar-actions button, .match-workspace .text-button { font-size: 13px; }
+.match-workspace .instruction-panel-head h3 { font-size: 20px; }
+.match-workspace .team-instruction-sliders b, .match-workspace .player-instruction-sliders b, .match-workspace .pass-assignment-list label > span { font-size: 13px; }
+.match-workspace .bench-label span, .match-workspace .bench-row b { font-size: 13px; }
+.match-workspace .recommendation-head b, .match-workspace .recommendation-card > p, .match-workspace .simulation-result b { font-size: 15px; }
+
 .screen { min-height: calc(100vh - 72px); }
 .page-screen { padding: 56px clamp(24px, 5vw, 80px) 70px; }
 .screen-header { max-width: 1180px; margin: 0 auto 38px; }
@@ -538,21 +561,18 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 
 @media (max-width: 1240px) {
   .app-header { grid-template-columns: 220px 1fr; }.header-match { display: none; }
-  .match-workspace { grid-template-columns: 260px minmax(520px, 1fr); }
-  .coach-panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 240px minmax(300px, 1fr) minmax(300px, 1fr); gap: 18px; align-items: start; }
-  .coach-panel .section-title { grid-row: 1 / 4; }.coach-panel > .primary-button { margin-top: 0; }.coach-panel .recommendation-card, .coach-panel .coach-empty { grid-column: 3; grid-row: 1 / 5; margin-top: 0; }.coach-panel .simulate-button { grid-column: 2; }.coach-panel .simulation-result { grid-column: 2; }
+  .match-workspace { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 1100px) {
-  .live-metric-dock-inner { grid-template-columns: 160px minmax(0,1fr); gap: 14px; }.dock-details { display: none; }.match-workspace { padding-bottom: 126px; }
+  .live-metric-dock-inner { grid-template-columns: 160px minmax(0,1fr); gap: 14px; }.dock-details { display: none; }.match-workspace { padding-bottom: 28px; }
 }
 
 @media (max-width: 900px) {
   .app-header { grid-template-columns: 1fr auto; min-height: 64px; }.primary-nav { height: 64px; }.primary-nav button { min-width: auto; padding: 0 12px; font-size: 11px; }.primary-nav button span { display: none; }
   .match-status-bar { grid-template-columns: 1fr auto 1fr; }.match-clock { display: none; }
   .decision-banner { grid-template-columns: auto 1fr; }.decision-banner b { display: none; }
-  .match-workspace { display: block; }.tactic-panel { border-right: 0; }.tactic-list { grid-template-columns: repeat(4, 1fr); }.tactic-card { grid-template-columns: 34px 1fr; }.tactic-card em { display: none; }.metric-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }.metric-heading, .live-index-grid, .live-phase, .metric-disclaimer { grid-column: 1 / -1; }
-  .coach-panel { display: block; }.coach-panel .section-title { margin-bottom: 20px; }.coach-panel .recommendation-card, .coach-panel .coach-empty { margin-top: 16px; }
+  .match-workspace { display: block; }.tactic-panel { border-right: 0; }.tactic-list { grid-template-columns: repeat(3, 1fr); }.tactic-card { grid-template-columns: 34px 1fr; }.tactic-card em { display: none; }.metric-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }.metric-heading, .live-index-grid, .live-phase, .metric-disclaimer { grid-column: 1 / -1; }
   .review-grid, .manager-layout { grid-template-columns: 1fr; }.score-card { max-width: none; }.identity-card { min-height: 480px; }
   .duel-stage { grid-template-columns: 1fr; gap: 28px; }.versus-orb { width: 110px; height: 110px; }.versus-orb::before, .versus-orb::after { top: auto; left: 50%; width: 0; height: 40px; border: 0; border-left: 2px solid var(--lime); }.versus-orb::before { bottom: 100%; }.versus-orb::after { top: 100%; border-color: var(--orange); }.versus-orb span { top: 43%; left: calc(100% + 16px); }.duel-result { grid-template-columns: 1fr; }
   .app-footer { grid-template-columns: 1fr auto; }.app-footer > div:nth-child(2) { display: none; }
@@ -565,7 +585,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   .panel { padding: 24px 16px; }.tactic-list { grid-template-columns: 1fr 1fr; }.tactic-card, .tactic-add-card { min-height: 68px; }.board-toolbar { align-items: stretch; flex-direction: column; }.board-toolbar-actions { width: 100%; min-width: 0; }.board-toolbar-actions > span { justify-self: start; }.board-toolbar .section-title { margin-bottom: 4px; }.pitch-shell { padding: 6px; }.pitch { padding: 10px; }.player-token { --token-anchor-x: -15px; grid-template-columns: 31px auto; }.player-token > span { width: 30px; height: 30px; }.player-token > b { min-width: 40px; font-size: 7px; }
   .team-instruction-sliders, .player-instruction-sliders { grid-template-columns: 1fr; }.pass-assignment-builder { align-items: stretch; flex-direction: column; }.pass-assignment-builder button { width: 100%; }.player-instruction-empty { align-items: flex-start; flex-direction: column; }
   .bench-row { grid-template-columns: 1fr; }.bench-label { margin: 8px 0 3px; }
-  .live-metric-dock-inner { min-height: 86px; padding: 10px 14px; grid-template-columns: 104px minmax(0,1fr); gap: 10px; }.dock-title small, .dock-title span { display: none; }.dock-title b { font-size: 13px; }.dock-score-grid { gap: 4px; }.dock-score { padding: 5px; }.dock-score span { font-size: 8px; }.dock-score b { font-size: 15px; }.dock-score > i { margin-top: 4px; }.match-workspace { padding-bottom: 98px; }
+  .live-metric-dock-inner { min-height: 86px; padding: 10px 14px; grid-template-columns: 104px minmax(0,1fr); gap: 10px; }.dock-title small, .dock-title span { display: none; }.dock-title b { font-size: 13px; }.dock-score-grid { gap: 4px; }.dock-score { padding: 5px; }.dock-score span { font-size: 8px; }.dock-score b { font-size: 15px; }.dock-score > i { margin-top: 4px; }.match-workspace { padding-bottom: 24px; }
   .page-screen, .duel-screen { padding: 38px 18px 50px; }.screen-header { margin-bottom: 28px; }.screen-header h1 { font-size: 36px; }
   .decision-card { grid-template-columns: 44px 1fr; padding: 17px; }.decision-card > span { width: 42px; height: 42px; }.timeline-line { gap: 4px; }.timeline-line button { font-size: 8px; }
   .manager-layout { gap: 16px; }.identity-card, .trait-panel { padding: 24px; }.identity-card h2 { font-size: 40px; }.trait-bars { grid-template-columns: 1fr; gap: 10px; }.badge-grid { grid-template-columns: 1fr 1fr; }.share-strip { align-items: stretch; flex-direction: column; }
