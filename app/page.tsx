@@ -778,6 +778,7 @@ type MatchRoomProps = {
 function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [detailEditorOpen, setDetailEditorOpen] = useState(false);
+  const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [newTacticNameError, setNewTacticNameError] = useState("");
   const [baseTacticId, setBaseTacticId] = useState<TacticId>(props.activeTactic.id);
@@ -1268,6 +1269,44 @@ function MatchRoom(props: MatchRoomProps) {
           )}
         </aside>
 
+        <aside className="tactic-follow-rail" aria-label="세부 전술과 라이브 전술 지표">
+          <div className="tactic-detail-summary">
+            <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 세부 전술</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계·측면 설정</button></div>
+            <p><b>팀 전체 지침:</b> 라이브 전술 보드 아래에서 즉시 조절 <i /> <b>개인 지침:</b> 선수 클릭</p>
+            <p><b>측면:</b> {wideActionLabels[props.activeTactic.details.wideFinalAction]} <i /> <b>관계:</b> {props.activeTactic.details.relationships.length}개</p>
+          </div>
+          {detailEditorOpen && (
+            <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
+              <div className="detail-editor-head"><div><span>RELATIONS &amp; WIDE PLAY</span><b>관계·측면 행동 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
+              <fieldset className="wide-action-field">
+                <legend>측면에서 코너 부근까지 전진했을 때</legend>
+                <div>
+                  {(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => (
+                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setDetailDraft((current) => ({ ...current, wideFinalAction: value }))} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset className="relationship-field">
+                <legend>선수 관계 설정</legend>
+                <div className="relationship-builder">
+                  <select aria-label="관계를 시작할 선수" value={relationFrom} onChange={(event) => setRelationFrom(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
+                  <select aria-label="관계 유형" value={relationType} onChange={(event) => setRelationType(event.target.value as PlayerRelationshipType)}>{(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                  <select aria-label="관계를 받을 선수" value={relationTo} onChange={(event) => setRelationTo(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
+                  <button type="button" onClick={addRelationship} disabled={relationFrom === relationTo}>+ 관계 추가</button>
+                </div>
+                <div className="relationship-list">
+                  {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
+                  {detailDraft.relationships.map((relationship) => (
+                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => setDetailDraft((current) => ({ ...current, relationships: current.relationships.filter((item) => item.id !== relationship.id) }))} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
+                  ))}
+                </div>
+              </fieldset>
+              <button className="save-detail-button" type="submit">세부 전술 저장</button>
+            </form>
+          )}
+          <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
+        </aside>
+
         <section className="board-panel panel">
           <div className="board-toolbar">
             <SectionTitle title="라이브 전술 보드" />
@@ -1451,9 +1490,11 @@ function MatchRoom(props: MatchRoomProps) {
           )}
         </section>
 
-        <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
-
-        <aside className="coach-panel panel">
+        <aside className={`coach-panel panel ${coachDrawerOpen ? "open" : "collapsed"}`} aria-expanded={coachDrawerOpen}>
+          <button className="coach-drawer-toggle" type="button" onClick={() => setCoachDrawerOpen((open) => !open)} aria-expanded={coachDrawerOpen}>
+            <span>AI 전술 요청</span><b>{coachDrawerOpen ? "전술 요청 창 접기" : "전술 요청 열기"}</b><i>{coachDrawerOpen ? "↓" : "↑"}</i>
+          </button>
+          <div className="coach-drawer-content">
           <SectionTitle title="AI 전술 요청" />
           <textarea id="coach-input" aria-label="감독의 전술 요청" value={props.coachInput} onChange={(event) => props.onCoachInput(event.target.value)} rows={4} placeholder="후반 70분, 왼쪽 측면을 지키면서 빠르게 역습하고 싶어." />
           <button className="primary-button" onClick={props.onRecommend} disabled={props.aiLoading}><span>AI</span>{props.aiLoading ? "전술 분석 중…" : "추천 전술 만들기"}</button>
@@ -1475,6 +1516,7 @@ function MatchRoom(props: MatchRoomProps) {
               <small>79&apos; SIMULATION RESULT</small><b>박스 진입 +3 · 역습 허용 +1</b><p>선택한 전술의 공격 효과가 위험 증가보다 컸습니다.</p><button onClick={props.onReview}>경기 리뷰 보기</button>
             </div>
           )}
+          </div>
         </aside>
       </section>
     </>
