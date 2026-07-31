@@ -892,7 +892,6 @@ function TeamSelector({ fixture, onBack, onSelect }: { fixture: MatchFixture; on
 
 function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
-  const [detailEditorOpen, setDetailEditorOpen] = useState(false);
   const [widePlayPickerOpen, setWidePlayPickerOpen] = useState(false);
   const [widePlayPickerSide, setWidePlayPickerSide] = useState<"left" | "right">("left");
   const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
@@ -926,7 +925,6 @@ function MatchRoom(props: MatchRoomProps) {
 
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
-    setDetailEditorOpen(false);
     setWidePlayPickerOpen(false);
     setPassLinking(false);
     setPassPointer(null);
@@ -1034,14 +1032,7 @@ function MatchRoom(props: MatchRoomProps) {
   function openTacticCreator() {
     setBaseTacticId(props.activeTactic.id);
     setNewTacticName("");
-    setDetailEditorOpen(false);
     setCreatorOpen(true);
-  }
-
-  function openDetailEditor() {
-    setCreatorOpen(false);
-    setDetailDraft(cloneTacticDetails(props.activeTactic.details));
-    setDetailEditorOpen(true);
   }
 
   function adjustQuickInstruction(key: "aggression" | "takeOn" | "passingFrequency", value: number) {
@@ -1312,7 +1303,6 @@ function MatchRoom(props: MatchRoomProps) {
   function saveTacticDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     props.onUpdateTacticDetails(props.activeTactic.id, detailDraft);
-    setDetailEditorOpen(false);
   }
 
   function playerName(playerId: string) {
@@ -1365,14 +1355,8 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="create-tactic-button" type="submit" disabled={hasDuplicateTacticName}>전술 생성하고 적용</button>
             </form>
           )}
-          <div className="tactic-detail-summary">
-            <div className="tactic-detail-summary-head"><div><span>PLAYER RELATIONS</span><b>{props.activeTactic.name} 선수 관계</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계 설정</button></div>
-            <p><b>팀 전체 지침:</b> 라이브 전술 보드 아래에서 즉시 조절 <i /> <b>개인 지침:</b> 선수 클릭</p>
-            <p><b>관계:</b> {props.activeTactic.details.relationships.length}개 <i /> 보드의 번호·색과 목록이 연결됩니다.</p>
-          </div>
-          {detailEditorOpen && (
-            <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
+          <form className="tactic-detail-editor relationship-editor" onSubmit={saveTacticDetails}>
+              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div></div>
               <fieldset className="relationship-field">
                 <legend>선수 관계 설정</legend>
                 <div className="relationship-builder">
@@ -1389,19 +1373,12 @@ function MatchRoom(props: MatchRoomProps) {
                 </div>
               </fieldset>
               <button className="save-detail-button" type="submit">세부 전술 저장</button>
-            </form>
-          )}
+          </form>
         </aside>
 
         <aside className="tactic-follow-rail" aria-label="세부 전술과 라이브 전술 지표">
-          <div className="tactic-detail-summary">
-            <div className="tactic-detail-summary-head"><div><span>PLAYER RELATIONS</span><b>{props.activeTactic.name} 선수 관계</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계 설정</button></div>
-            <p><b>팀 전체 지침:</b> 라이브 전술 보드 아래에서 즉시 조절 <i /> <b>개인 지침:</b> 선수 클릭</p>
-            <p><b>관계:</b> {props.activeTactic.details.relationships.length}개 <i /> 보드의 번호·색과 목록이 연결됩니다.</p>
-          </div>
-          {detailEditorOpen && (
-            <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
+          <form className="tactic-detail-editor relationship-editor" onSubmit={saveTacticDetails}>
+              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div></div>
               <fieldset className="relationship-field">
                 <legend>선수 관계 설정</legend>
                 <div className="relationship-builder">
@@ -1418,8 +1395,7 @@ function MatchRoom(props: MatchRoomProps) {
                 </div>
               </fieldset>
               <button className="save-detail-button" type="submit">세부 전술 저장</button>
-            </form>
-          )}
+          </form>
           <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
         </aside>
 
