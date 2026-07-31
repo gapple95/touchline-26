@@ -892,6 +892,7 @@ function TeamSelector({ fixture, onBack, onSelect }: { fixture: MatchFixture; on
 function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [detailEditorOpen, setDetailEditorOpen] = useState(false);
+  const [widePlayPickerOpen, setWidePlayPickerOpen] = useState(false);
   const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [newTacticNameError, setNewTacticNameError] = useState("");
@@ -924,6 +925,7 @@ function MatchRoom(props: MatchRoomProps) {
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
     setDetailEditorOpen(false);
+    setWidePlayPickerOpen(false);
     setPassLinking(false);
     setPassPointer(null);
     setPendingPass(null);
@@ -1218,6 +1220,7 @@ function MatchRoom(props: MatchRoomProps) {
   function handlePitchGroundClick() {
     if (passLinking || pendingPass) cancelPassAssignment();
     if (playerMenuOpen) setPlayerMenuOpen(false);
+    if (widePlayPickerOpen) setWidePlayPickerOpen(false);
   }
 
   function handlePitchPlayerClick(targetIndex: number) {
@@ -1361,21 +1364,13 @@ function MatchRoom(props: MatchRoomProps) {
             </form>
           )}
           <div className="tactic-detail-summary">
-            <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 세부 전술</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계·측면 설정</button></div>
+            <div className="tactic-detail-summary-head"><div><span>PLAYER RELATIONS</span><b>{props.activeTactic.name} 선수 관계</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계 설정</button></div>
             <p><b>팀 전체 지침:</b> 라이브 전술 보드 아래에서 즉시 조절 <i /> <b>개인 지침:</b> 선수 클릭</p>
-            <p><b>측면:</b> {wideActionLabels[props.activeTactic.details.wideFinalAction]} <i /> <b>관계:</b> {props.activeTactic.details.relationships.length}개</p>
+            <p><b>관계:</b> {props.activeTactic.details.relationships.length}개 <i /> 보드의 번호·색과 목록이 연결됩니다.</p>
           </div>
           {detailEditorOpen && (
             <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>RELATIONS &amp; WIDE PLAY</span><b>관계·측면 행동 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
-              <fieldset className="wide-action-field">
-                <legend>측면에서 코너 부근까지 전진했을 때</legend>
-                <div>
-                  {(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => (
-                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setWideAction(value)} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
-                  ))}
-                </div>
-              </fieldset>
+              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
               <fieldset className="relationship-field">
                 <legend>선수 관계 설정</legend>
                 <div className="relationship-builder">
@@ -1386,8 +1381,8 @@ function MatchRoom(props: MatchRoomProps) {
                 </div>
                 <div className="relationship-list">
                   {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
-                  {detailDraft.relationships.map((relationship) => (
-                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
+                  {detailDraft.relationships.map((relationship, index) => (
+                    <div key={relationship.id} className={`type-${relationship.type.toLowerCase()}`}><span><i className="relationship-index">{index + 1}</i><b>{playerName(relationship.fromPlayerId)}</b><em>{relationshipLabels[relationship.type]}</em><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
                   ))}
                 </div>
               </fieldset>
@@ -1398,21 +1393,13 @@ function MatchRoom(props: MatchRoomProps) {
 
         <aside className="tactic-follow-rail" aria-label="세부 전술과 라이브 전술 지표">
           <div className="tactic-detail-summary">
-            <div className="tactic-detail-summary-head"><div><span>DETAIL INSTRUCTIONS</span><b>{props.activeTactic.name} 세부 전술</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계·측면 설정</button></div>
+            <div className="tactic-detail-summary-head"><div><span>PLAYER RELATIONS</span><b>{props.activeTactic.name} 선수 관계</b></div><button type="button" onClick={openDetailEditor} aria-expanded={detailEditorOpen}>관계 설정</button></div>
             <p><b>팀 전체 지침:</b> 라이브 전술 보드 아래에서 즉시 조절 <i /> <b>개인 지침:</b> 선수 클릭</p>
-            <p><b>측면:</b> {wideActionLabels[props.activeTactic.details.wideFinalAction]} <i /> <b>관계:</b> {props.activeTactic.details.relationships.length}개</p>
+            <p><b>관계:</b> {props.activeTactic.details.relationships.length}개 <i /> 보드의 번호·색과 목록이 연결됩니다.</p>
           </div>
           {detailEditorOpen && (
             <form className="tactic-detail-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>RELATIONS &amp; WIDE PLAY</span><b>관계·측면 행동 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
-              <fieldset className="wide-action-field">
-                <legend>측면에서 코너 부근까지 전진했을 때</legend>
-                <div>
-                  {(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => (
-                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setWideAction(value)} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
-                  ))}
-                </div>
-              </fieldset>
+              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div><button type="button" onClick={() => setDetailEditorOpen(false)} aria-label="세부 전술 닫기">×</button></div>
               <fieldset className="relationship-field">
                 <legend>선수 관계 설정</legend>
                 <div className="relationship-builder">
@@ -1423,8 +1410,8 @@ function MatchRoom(props: MatchRoomProps) {
                 </div>
                 <div className="relationship-list">
                   {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
-                  {detailDraft.relationships.map((relationship) => (
-                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
+                  {detailDraft.relationships.map((relationship, index) => (
+                    <div key={relationship.id} className={`type-${relationship.type.toLowerCase()}`}><span><i className="relationship-index">{index + 1}</i><b>{playerName(relationship.fromPlayerId)}</b><em>{relationshipLabels[relationship.type]}</em><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
                   ))}
                 </div>
               </fieldset>
@@ -1478,7 +1465,7 @@ function MatchRoom(props: MatchRoomProps) {
                   <i className="corner-arc top-left" /><i className="corner-arc top-right" /><i className="corner-arc bottom-left" /><i className="corner-arc bottom-right" />
                   <i className="goal own" /><i className="goal opponent" />
                 </div>
-                <div className="tactical-overlay-key" aria-hidden="true"><b>REL {props.activeTactic.details.relationships.length}</b><span>WIDE · {wideActionLabels[props.activeTactic.details.wideFinalAction]}</span></div>
+                <div className="tactical-overlay-key" aria-hidden="true"><b>REL {props.activeTactic.details.relationships.length}</b></div>
                 <div className="position-zones" aria-hidden="true">
                   {PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}
                   {PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}
@@ -1498,10 +1485,15 @@ function MatchRoom(props: MatchRoomProps) {
                   )}
                   {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
                 </div>
-                <div className={`wide-play-layer action-${props.activeTactic.details.wideFinalAction.toLowerCase()}`} aria-hidden="true">
-                  <i className="wide-play-zone top"><span>WIDE PLAY</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></i>
-                  <i className="wide-play-zone bottom"><span>WIDE PLAY</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></i>
+                <div className={`wide-play-layer action-${props.activeTactic.details.wideFinalAction.toLowerCase()}`}>
+                  <button type="button" className="wide-play-zone top" onClick={(event) => { event.stopPropagation(); setWidePlayPickerOpen(true); }} aria-label="상단 코너 측면 행동 설정" aria-expanded={widePlayPickerOpen}><span>코너 채널</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></button>
+                  <button type="button" className="wide-play-zone bottom" onClick={(event) => { event.stopPropagation(); setWidePlayPickerOpen(true); }} aria-label="하단 코너 측면 행동 설정" aria-expanded={widePlayPickerOpen}><span>코너 채널</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></button>
                 </div>
+                {widePlayPickerOpen && <div className="wide-play-picker" role="dialog" aria-label="측면 행동 설정" onClick={(event) => event.stopPropagation()}>
+                  <div><span>WIDE PLAY</span><b>코너 채널 행동</b><button type="button" onClick={() => setWidePlayPickerOpen(false)} aria-label="측면 행동 설정 닫기">×</button></div>
+                  <p>상대 진영의 상단 또는 하단 코너 채널을 클릭해 이 전술의 측면 행동을 정합니다.</p>
+                  <section>{(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => <button key={value} type="button" className={props.activeTactic.details.wideFinalAction === value ? "active" : ""} onClick={() => setWideAction(value)} aria-pressed={props.activeTactic.details.wideFinalAction === value}>{label}</button>)}</section>
+                </div>}
                 <div className="relationship-layer" aria-hidden="true">
                   {props.activeTactic.details.relationships.map((relationship, index) => {
                     const fromIndex = props.lineup.findIndex((player) => player.id === relationship.fromPlayerId);
@@ -1600,8 +1592,7 @@ function MatchRoom(props: MatchRoomProps) {
                 )}
               </div>
             </div>
-            <div className="relationship-legend" aria-label="선수 관계와 측면 행동 범례">
-              <div className="wide-play-summary"><span>측면 행동</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></div>
+            <div className="relationship-legend" aria-label="선수 관계 범례">
               <div className="relationship-summary"><span>선수 관계</span>{props.activeTactic.details.relationships.length === 0 ? <b>지정 없음</b> : props.activeTactic.details.relationships.map((relationship, index) => <b key={relationship.id} className={`type-${relationship.type.toLowerCase()}`}><i>{index + 1}</i>{playerName(relationship.fromPlayerId)} <em>{relationshipLabels[relationship.type]}</em> {playerName(relationship.toPlayerId)}</b>)}</div>
             </div>
           </div>

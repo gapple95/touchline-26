@@ -48,7 +48,9 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /player-instruction-sliders/);
   assert.match(page, /aria-label=\{`팀 \$\{instruction\.label\} 조절`\}/);
   assert.match(page, /label: "적극성"/);
-  assert.match(page, /관계·측면 설정/);
+  assert.match(page, /선수 관계 설정/);
+  assert.match(page, /wide-play-picker/);
+  assert.match(page, /relationship-index/);
   assert.match(page, /1대1 돌파/);
   assert.match(page, /선수 관계 설정/);
   assert.match(page, /wideFinalAction/);
