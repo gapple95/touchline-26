@@ -899,10 +899,8 @@ function MatchRoom(props: MatchRoomProps) {
   const [newTacticNameError, setNewTacticNameError] = useState("");
   const [baseTacticId, setBaseTacticId] = useState<TacticId>(props.activeTactic.id);
   const [detailDraft, setDetailDraft] = useState<DetailedTacticInstructions>(() => cloneTacticDetails(props.activeTactic.details));
-  const [relationFrom, setRelationFrom] = useState(props.lineup[8]?.id ?? props.lineup[0]?.id ?? "");
-  const [relationTo, setRelationTo] = useState(props.lineup[10]?.id ?? props.lineup[1]?.id ?? "");
-  const [relationType, setRelationType] = useState<PlayerRelationshipType>("COMBINATION");
   const [passLinking, setPassLinking] = useState(false);
+  const [relationshipLinking, setRelationshipLinking] = useState<PlayerRelationshipType | null>(null);
   const [passPointer, setPassPointer] = useState<FormationSlot | null>(null);
   const [pendingPass, setPendingPass] = useState<PendingPassDraft | null>(null);
   const [passPopoverPosition, setPassPopoverPosition] = useState<{ x: number; y: number } | null>(null);
@@ -927,6 +925,7 @@ function MatchRoom(props: MatchRoomProps) {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
     setWidePlayPickerOpen(false);
     setPassLinking(false);
+    setRelationshipLinking(null);
     setPassPointer(null);
     setPendingPass(null);
     setActivePassId(null);
@@ -935,6 +934,7 @@ function MatchRoom(props: MatchRoomProps) {
 
   useEffect(() => {
     setPassLinking(false);
+    setRelationshipLinking(null);
     setPassPointer(null);
     setPendingPass(null);
     setActivePassId(null);
@@ -989,16 +989,17 @@ function MatchRoom(props: MatchRoomProps) {
   }, [playerMenuOpen]);
 
   useEffect(() => {
-    if (!passLinking && !pendingPass) return;
+    if (!passLinking && !pendingPass && !relationshipLinking) return;
     function cancelPassWithEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setPassLinking(false);
+      setRelationshipLinking(null);
       setPassPointer(null);
       setPendingPass(null);
     }
     document.addEventListener("keydown", cancelPassWithEscape);
     return () => document.removeEventListener("keydown", cancelPassWithEscape);
-  }, [passLinking, pendingPass]);
+  }, [passLinking, pendingPass, relationshipLinking]);
 
   useEffect(() => {
     if (!pendingPass) {
@@ -1076,6 +1077,7 @@ function MatchRoom(props: MatchRoomProps) {
       cancelPassAssignment();
       return;
     }
+    setRelationshipLinking(null);
     setPassLinking(true);
     setPassPointer({ x: selectedPlayerSlot.x, y: selectedPlayerSlot.y });
     setPendingPass(null);
@@ -1091,8 +1093,24 @@ function MatchRoom(props: MatchRoomProps) {
     setActivePassId(null);
   }
 
+  function startRelationshipAssignment(type: PlayerRelationshipType) {
+    if (!selectedPlayerSlot || !selectedPlayerData) return;
+    setPassLinking(false);
+    setPendingPass(null);
+    setActivePassId(null);
+    setRelationshipLinking(type);
+    setPassPointer({ x: selectedPlayerSlot.x, y: selectedPlayerSlot.y });
+    setPlayerMenuOpen(false);
+  }
+
+  function cancelRelationshipAssignment() {
+    setRelationshipLinking(null);
+    setPassPointer(null);
+  }
+
   function handleBoardReset() {
     cancelPassAssignment();
+    cancelRelationshipAssignment();
     setPlayerMenuOpen(false);
     props.onReset();
   }
@@ -1202,7 +1220,7 @@ function MatchRoom(props: MatchRoomProps) {
   }
 
   function trackPassPointer(event: ReactMouseEvent<HTMLDivElement>) {
-    if (!passLinking) return;
+    if (!passLinking && !relationshipLinking) return;
     const rect = event.currentTarget.getBoundingClientRect();
     setPassPointer({
       x: Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100)),
@@ -1212,11 +1230,31 @@ function MatchRoom(props: MatchRoomProps) {
 
   function handlePitchGroundClick() {
     if (passLinking || pendingPass) cancelPassAssignment();
+    if (relationshipLinking) cancelRelationshipAssignment();
     if (playerMenuOpen) setPlayerMenuOpen(false);
     if (widePlayPickerOpen) setWidePlayPickerOpen(false);
   }
 
   function handlePitchPlayerClick(targetIndex: number) {
+    if (relationshipLinking && props.selectedPlayer !== null && selectedPlayerData) {
+      if (targetIndex === props.selectedPlayer) {
+        cancelRelationshipAssignment();
+        return;
+      }
+      const target = props.lineup[targetIndex];
+      const id = `${selectedPlayerData.id}-${target.id}-${relationshipLinking}`;
+      const existing = detailDraft.relationships.some((relationship) => relationship.id === id);
+      const next = {
+        ...detailDraft,
+        relationships: existing
+          ? detailDraft.relationships.filter((relationship) => relationship.id !== id)
+          : [...detailDraft.relationships, { id, fromPlayerId: selectedPlayerData.id, toPlayerId: target.id, type: relationshipLinking }],
+      };
+      setDetailDraft(next);
+      props.onUpdateTacticDetails(props.activeTactic.id, next, false);
+      cancelRelationshipAssignment();
+      return;
+    }
     if (!passLinking || props.selectedPlayer === null || !selectedPlayerData) {
       if (props.selectedPlayer === targetIndex) {
         setPlayerMenuOpen((current) => !current);
@@ -1279,30 +1317,10 @@ function MatchRoom(props: MatchRoomProps) {
     setNewTacticNameError("");
   }
 
-  function addRelationship() {
-    if (!relationFrom || !relationTo || relationFrom === relationTo) return;
-    const id = `${relationFrom}-${relationTo}-${relationType}`;
-    if (detailDraft.relationships.some((relationship) => relationship.id === id)) return;
-    const next = { ...detailDraft, relationships: [...detailDraft.relationships, { id, fromPlayerId: relationFrom, toPlayerId: relationTo, type: relationType }] };
-    setDetailDraft(next);
-    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
-  }
-
   function setWideAction(side: "left" | "right", value: WideFinalAction) {
     const next = { ...detailDraft, wideFinalAction: value, wideActions: { ...detailDraft.wideActions, [side]: value } };
     setDetailDraft(next);
     props.onUpdateTacticDetails(props.activeTactic.id, next, false);
-  }
-
-  function removeRelationship(id: string) {
-    const next = { ...detailDraft, relationships: detailDraft.relationships.filter((relationship) => relationship.id !== id) };
-    setDetailDraft(next);
-    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
-  }
-
-  function saveTacticDetails(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    props.onUpdateTacticDetails(props.activeTactic.id, detailDraft);
   }
 
   function playerName(playerId: string) {
@@ -1355,48 +1373,6 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="create-tactic-button" type="submit" disabled={hasDuplicateTacticName}>전술 생성하고 적용</button>
             </form>
           )}
-          <form className="tactic-detail-editor relationship-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div></div>
-              <fieldset className="relationship-field">
-                <legend>선수 관계 설정</legend>
-                <div className="relationship-builder">
-                  <select aria-label="관계를 시작할 선수" value={relationFrom} onChange={(event) => setRelationFrom(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
-                  <select aria-label="관계 유형" value={relationType} onChange={(event) => setRelationType(event.target.value as PlayerRelationshipType)}>{(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-                  <select aria-label="관계를 받을 선수" value={relationTo} onChange={(event) => setRelationTo(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
-                  <button type="button" onClick={addRelationship} disabled={relationFrom === relationTo}>+ 관계 추가</button>
-                </div>
-                <div className="relationship-list">
-                  {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
-                  {detailDraft.relationships.map((relationship, index) => (
-                    <div key={relationship.id} className={`type-${relationship.type.toLowerCase()}`}><span><i className="relationship-index">{index + 1}</i><b>{playerName(relationship.fromPlayerId)}</b><em>{relationshipLabels[relationship.type]}</em><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
-                  ))}
-                </div>
-              </fieldset>
-              <button className="save-detail-button" type="submit">세부 전술 저장</button>
-          </form>
-        </aside>
-
-        <aside className="tactic-follow-rail" aria-label="세부 전술과 라이브 전술 지표">
-          <form className="tactic-detail-editor relationship-editor" onSubmit={saveTacticDetails}>
-              <div className="detail-editor-head"><div><span>PLAYER RELATIONS</span><b>선수 관계 설정</b></div></div>
-              <fieldset className="relationship-field">
-                <legend>선수 관계 설정</legend>
-                <div className="relationship-builder">
-                  <select aria-label="관계를 시작할 선수" value={relationFrom} onChange={(event) => setRelationFrom(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
-                  <select aria-label="관계 유형" value={relationType} onChange={(event) => setRelationType(event.target.value as PlayerRelationshipType)}>{(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-                  <select aria-label="관계를 받을 선수" value={relationTo} onChange={(event) => setRelationTo(event.target.value)}>{props.lineup.map((player) => <option key={player.id} value={player.id}>{player.name} · {player.position}</option>)}</select>
-                  <button type="button" onClick={addRelationship} disabled={relationFrom === relationTo}>+ 관계 추가</button>
-                </div>
-                <div className="relationship-list">
-                  {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
-                  {detailDraft.relationships.map((relationship, index) => (
-                    <div key={relationship.id} className={`type-${relationship.type.toLowerCase()}`}><span><i className="relationship-index">{index + 1}</i><b>{playerName(relationship.fromPlayerId)}</b><em>{relationshipLabels[relationship.type]}</em><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
-                  ))}
-                </div>
-              </fieldset>
-              <button className="save-detail-button" type="submit">세부 전술 저장</button>
-          </form>
-          <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
         </aside>
 
         <section className="board-panel panel">
@@ -1407,6 +1383,14 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
               <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
             </div>
+          </div>
+          <div className="bench-row">
+            <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
+            {props.bench.map((player, index) => (
+              <button key={player.id} style={kitCssVariables(player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield)} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
+                <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
+              </button>
+            ))}
           </div>
           <section className="team-instruction-panel" aria-labelledby="team-instruction-title">
             <div className="instruction-panel-head">
@@ -1423,17 +1407,9 @@ function MatchRoom(props: MatchRoomProps) {
               ))}
             </div>
           </section>
-          <div className="bench-row">
-            <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
-            {props.bench.map((player, index) => (
-              <button key={player.id} style={kitCssVariables(player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield)} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
-                <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
-              </button>
-            ))}
-          </div>
           <div className="pitch-shell">
             <div className="pitch">
-              <div ref={pitchFieldRef} className={`pitch-field ${passLinking ? "pass-linking" : ""}`} onClick={handlePitchGroundClick} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
+              <div ref={pitchFieldRef} className={`pitch-field ${passLinking ? "pass-linking" : ""} ${relationshipLinking ? "relationship-linking" : ""}`} onClick={handlePitchGroundClick} onMouseMove={trackPassPointer} onDragOver={props.onDragOverPitch} onDragLeave={props.onDragLeavePitch} onDrop={props.onDropPitch} aria-label="선수 배치 전술 보드, FIFA 권장 105미터 곱하기 68미터 비율, 왼쪽은 우리 골대, 오른쪽은 상대 골대">
                 <div className="pitch-markings" aria-hidden="true">
                   <i className="halfway" /><i className="centre-circle" /><i className="centre-mark" />
                   <i className="penalty-area own" /><i className="penalty-area opponent" />
@@ -1484,6 +1460,7 @@ function MatchRoom(props: MatchRoomProps) {
                       <span className="relationship-label" style={{ left: `${(from.x + to.x) / 2}%`, top: `${(from.y + to.y) / 2}%`, "--relationship-label-offset": `${((index % 4) - 1.5) * 18}px` } as CSSProperties}>{index + 1}</span>
                     </div>;
                   })}
+                  {relationshipLinking && selectedPlayerSlot && passPointer && <div className={`relationship-connection type-${relationshipLinking.toLowerCase()}`}><i className="relationship-line pending" style={connectionStyle(selectedPlayerSlot, passPointer)} /></div>}
                 </div>
                 <div className="individual-pass-layer" aria-hidden="true">
                   {props.activeTactic.details.playerInstructions.map((instruction) => {
@@ -1518,7 +1495,7 @@ function MatchRoom(props: MatchRoomProps) {
                     return (
                       <button
                         key={player.id}
-                        className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""} ${passLinking && props.selectedPlayer !== index ? "pass-target" : ""}`}
+                        className={`player-token ${player.position === "GK" ? "goalkeeper" : ""} ${props.selectedPlayer === index ? "selected" : ""} ${passLinking && props.selectedPlayer !== index ? "pass-target" : ""} ${relationshipLinking && props.selectedPlayer !== index ? "relationship-target" : ""}`}
                         style={{ left: `${slot.x}%`, top: `${slot.y}%`, ...kitCssVariables(kitPalette) }}
                         draggable
                         onDragStart={(event) => props.onStartDrag(event, "pitch", index)}
@@ -1552,7 +1529,7 @@ function MatchRoom(props: MatchRoomProps) {
                     </div>
                   );
                 })()}
-                {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && !pendingPass && (
+                {selectedPlayerData && selectedPlayerSlot && selectedInstruction && playerMenuOpen && !passLinking && !relationshipLinking && !pendingPass && (
                   <div
                     ref={playerMenuRef}
                     className="player-action-menu"
@@ -1563,6 +1540,7 @@ function MatchRoom(props: MatchRoomProps) {
                   >
                     <div className="player-action-header" onPointerDown={startPlayerMenuDrag} onPointerMove={dragPlayerMenu} onPointerUp={finishPlayerMenuDrag} onPointerCancel={finishPlayerMenuDrag} title="드래그하여 창 이동"><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요 · DRAG</small><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
                     <button type="button" onClick={startPassAssignment}><i>→</i>패스 지정</button>
+                    {(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([type, label]) => <button key={type} type="button" className={`relationship-action type-${type.toLowerCase()}`} onClick={() => startRelationshipAssignment(type)}><i>↔</i>{label}</button>)}
                     <button type="button" onClick={focusPlayerInstructions}><i>≡</i>개인 지침</button>
                     <button type="button" className={selectedInstruction.runDirection === "FORWARD" ? "active" : ""} onClick={() => chooseRunDirection("FORWARD")} aria-pressed={selectedInstruction.runDirection === "FORWARD"}><i>↗</i>공격 가담</button>
                     <button type="button" className={selectedInstruction.runDirection === "BACKWARD" ? "active" : ""} onClick={() => chooseRunDirection("BACKWARD")} aria-pressed={selectedInstruction.runDirection === "BACKWARD"}><i>↙</i>수비 가담</button>
@@ -1606,6 +1584,7 @@ function MatchRoom(props: MatchRoomProps) {
           ) : (
             <div className="player-instruction-empty"><b>선수 개인 지침</b><span>전술 보드의 선수를 클릭하면 0–100 지침과 패스 연결 옵션이 열립니다.</span></div>
           )}
+          <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
         </section>
 
         <aside className={`coach-panel panel ${coachDrawerOpen ? "open" : "collapsed"}`} aria-expanded={coachDrawerOpen}>

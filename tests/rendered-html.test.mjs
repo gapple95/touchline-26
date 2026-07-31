@@ -48,11 +48,11 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /player-instruction-sliders/);
   assert.match(page, /aria-label=\{`팀 \$\{instruction\.label\} 조절`\}/);
   assert.match(page, /label: "적극성"/);
-  assert.match(page, /선수 관계 설정/);
+  assert.match(page, /startRelationshipAssignment/);
   assert.match(page, /wide-play-picker/);
-  assert.match(page, /relationship-index/);
+  assert.match(page, /relationshipLinking/);
   assert.match(page, /1대1 돌파/);
-  assert.match(page, /선수 관계 설정/);
+  assert.match(page, /relationshipLinking/);
   assert.match(page, /wideFinalAction/);
   assert.match(page, /onUpdateTacticDetails/);
   assert.doesNotMatch(page + css, /player-relationship-layer/);
@@ -79,7 +79,7 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /function LiveMetricDock/);
   assert.doesNotMatch(page, /<div className="metric-card">/);
   assert.match(page, /마지막 확정 대비/);
-  assert.ok(page.indexOf('<section className="team-instruction-panel"') < page.indexOf('<div className="bench-row">'));
+  assert.ok(page.indexOf('<div className="bench-row">') < page.indexOf('<section className="team-instruction-panel"'));
   assert.ok(page.indexOf('<div className="bench-row">') < page.indexOf('<div className="pitch-shell">'));
   assert.match(css, /\.bench-row \{[^}]*grid-template-columns: repeat\(3/);
   assert.match(css, /\.bench-label \{[^}]*grid-column: 1 \/ -1/);
