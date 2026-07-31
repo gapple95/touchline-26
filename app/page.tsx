@@ -1286,9 +1286,22 @@ function MatchRoom(props: MatchRoomProps) {
   function addRelationship() {
     if (!relationFrom || !relationTo || relationFrom === relationTo) return;
     const id = `${relationFrom}-${relationTo}-${relationType}`;
-    setDetailDraft((current) => current.relationships.some((relationship) => relationship.id === id)
-      ? current
-      : { ...current, relationships: [...current.relationships, { id, fromPlayerId: relationFrom, toPlayerId: relationTo, type: relationType }] });
+    if (detailDraft.relationships.some((relationship) => relationship.id === id)) return;
+    const next = { ...detailDraft, relationships: [...detailDraft.relationships, { id, fromPlayerId: relationFrom, toPlayerId: relationTo, type: relationType }] };
+    setDetailDraft(next);
+    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
+  }
+
+  function setWideAction(value: WideFinalAction) {
+    const next = { ...detailDraft, wideFinalAction: value };
+    setDetailDraft(next);
+    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
+  }
+
+  function removeRelationship(id: string) {
+    const next = { ...detailDraft, relationships: detailDraft.relationships.filter((relationship) => relationship.id !== id) };
+    setDetailDraft(next);
+    props.onUpdateTacticDetails(props.activeTactic.id, next, false);
   }
 
   function saveTacticDetails(event: FormEvent<HTMLFormElement>) {
@@ -1359,7 +1372,7 @@ function MatchRoom(props: MatchRoomProps) {
                 <legend>측면에서 코너 부근까지 전진했을 때</legend>
                 <div>
                   {(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => (
-                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setDetailDraft((current) => ({ ...current, wideFinalAction: value }))} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
+                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setWideAction(value)} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
                   ))}
                 </div>
               </fieldset>
@@ -1374,7 +1387,7 @@ function MatchRoom(props: MatchRoomProps) {
                 <div className="relationship-list">
                   {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
                   {detailDraft.relationships.map((relationship) => (
-                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => setDetailDraft((current) => ({ ...current, relationships: current.relationships.filter((item) => item.id !== relationship.id) }))} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
+                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
                   ))}
                 </div>
               </fieldset>
@@ -1396,7 +1409,7 @@ function MatchRoom(props: MatchRoomProps) {
                 <legend>측면에서 코너 부근까지 전진했을 때</legend>
                 <div>
                   {(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => (
-                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setDetailDraft((current) => ({ ...current, wideFinalAction: value }))} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
+                    <button key={value} type="button" className={detailDraft.wideFinalAction === value ? "active" : ""} onClick={() => setWideAction(value)} aria-pressed={detailDraft.wideFinalAction === value}>{label}</button>
                   ))}
                 </div>
               </fieldset>
@@ -1411,7 +1424,7 @@ function MatchRoom(props: MatchRoomProps) {
                 <div className="relationship-list">
                   {detailDraft.relationships.length === 0 && <p>아직 정의된 선수 관계가 없습니다.</p>}
                   {detailDraft.relationships.map((relationship) => (
-                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => setDetailDraft((current) => ({ ...current, relationships: current.relationships.filter((item) => item.id !== relationship.id) }))} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
+                    <div key={relationship.id}><span><b>{playerName(relationship.fromPlayerId)}</b><i>{relationshipLabels[relationship.type]}</i><b>{playerName(relationship.toPlayerId)}</b></span><button type="button" onClick={() => removeRelationship(relationship.id)} aria-label={`${playerName(relationship.fromPlayerId)}와 ${playerName(relationship.toPlayerId)} 관계 삭제`}>×</button></div>
                   ))}
                 </div>
               </fieldset>
@@ -1465,6 +1478,7 @@ function MatchRoom(props: MatchRoomProps) {
                   <i className="corner-arc top-left" /><i className="corner-arc top-right" /><i className="corner-arc bottom-left" /><i className="corner-arc bottom-right" />
                   <i className="goal own" /><i className="goal opponent" />
                 </div>
+                <div className="tactical-overlay-key" aria-hidden="true"><b>REL {props.activeTactic.details.relationships.length}</b><span>WIDE · {wideActionLabels[props.activeTactic.details.wideFinalAction]}</span></div>
                 <div className="position-zones" aria-hidden="true">
                   {PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}
                   {PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}
