@@ -436,7 +436,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .coach-drawer-toggle { width: 100%; min-height: 66px; padding: 11px 16px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; border: 0; border-bottom: 1px solid transparent; background: #e9e5db; color: var(--ink); cursor: pointer; text-align: left; }
 .coach-drawer-toggle span { padding: 5px 7px; background: var(--green); color: var(--lime); font-size: 11px; font-weight: 800; }.coach-drawer-toggle b { font-size: 15px; }.coach-drawer-toggle i { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--ink); border-radius: 50%; font-size: 17px; font-style: normal; }
 .coach-panel.open .coach-drawer-toggle { border-bottom-color: var(--line); }.coach-panel.open .coach-drawer-content { max-height: calc(min(78vh, 720px) - 66px); padding: 22px 24px 24px; overflow-y: auto; }.coach-panel.collapsed .coach-drawer-content { display: none; }
-.primary-button, .confirm-button, .simulate-button, .duel-button, .secondary-button {
+.primary-button, .confirm-button, .duel-button, .secondary-button {
   min-height: 42px;
   padding: 0 16px;
   border: 0;
@@ -463,11 +463,6 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .reason-block.positive { background: #e1eed1; }.reason-block.warning { background: #ffe1d9; color: #713326; }
 .confirm-button { width: 100%; margin-top: 10px; background: var(--orange); color: var(--white); }
 .human-note { display: block; margin-top: 8px; color: var(--muted); font-size: 8px; line-height: 1.4; }
-.simulate-button { width: 100%; margin-top: 15px; display: flex; justify-content: space-between; align-items: center; background: var(--ink); color: var(--white); }
-.simulate-button span { color: var(--lime); font-size: 18px; }
-.simulation-result { margin-top: 10px; padding: 14px; background: var(--lime); animation: reveal .25s ease-out; }
-.simulation-result small { font: 800 8px Arial, sans-serif; letter-spacing: .09em; }.simulation-result b { display: block; margin-top: 7px; font-size: 12px; }.simulation-result p { margin: 5px 0 10px; font-size: 9px; }
-.simulation-result button { padding: 5px 8px; border: 1px solid var(--ink); background: transparent; cursor: pointer; font-size: 9px; font-weight: 900; }
 @keyframes reveal { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 
 /* Simulator readability: keep dense controls legible on a desktop monitor. */
@@ -512,10 +507,10 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .match-workspace .bench-row b { font-size: 11px; }
 .match-workspace .bench-row em { font-size: 10px; }
 .match-workspace .coach-input-label { font-size: 11px; }
-.match-workspace .coach-empty span, .match-workspace .recommendation-head span, .match-workspace .recommendation-head em, .match-workspace .human-note, .match-workspace .simulation-result small { font-size: 10px; }
+.match-workspace .coach-empty span, .match-workspace .recommendation-head span, .match-workspace .recommendation-head em, .match-workspace .human-note { font-size: 10px; }
 .match-workspace .coach-empty b { font-size: 18px; }
-.match-workspace .coach-empty p, .match-workspace .reason-block, .match-workspace .reason-block b, .match-workspace .simulation-result p { font-size: 11px; }
-.match-workspace .recommendation-head b, .match-workspace .recommendation-card > p, .match-workspace .simulation-result b { font-size: 13px; }
+.match-workspace .coach-empty p, .match-workspace .reason-block, .match-workspace .reason-block b { font-size: 11px; }
+.match-workspace .recommendation-head b, .match-workspace .recommendation-card > p { font-size: 13px; }
 
 /* Keep the primary match controls readable at desktop distance. */
 .match-workspace .section-title-compact h2 { font-size: 26px; }
@@ -527,7 +522,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .match-workspace .instruction-panel-head h3 { font-size: 20px; }
 .match-workspace .team-instruction-sliders b, .match-workspace .player-instruction-sliders b, .match-workspace .pass-assignment-list label > span { font-size: 13px; }
 .match-workspace .bench-label span, .match-workspace .bench-row b { font-size: 13px; }
-.match-workspace .recommendation-head b, .match-workspace .recommendation-card > p, .match-workspace .simulation-result b { font-size: 15px; }
+.match-workspace .recommendation-head b, .match-workspace .recommendation-card > p { font-size: 15px; }
 
 .screen { min-height: calc(100vh - 72px); }
 .page-screen { padding: 56px clamp(24px, 5vw, 80px) 70px; }

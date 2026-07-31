@@ -356,7 +356,6 @@ export default function Home() {
   const [recommendation, setRecommendation] = useState<AiTacticalRecommendation | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [notice, setNotice] = useState("CONTROL 전술로 경기를 운영 중입니다.");
-  const [simulated, setSimulated] = useState(false);
   const [duelResolved, setDuelResolved] = useState(false);
 
   const activeTactic = savedTactics.find((tactic) => tactic.id === activeTacticId) ?? savedTactics[0];
@@ -384,7 +383,6 @@ export default function Home() {
     setHoveredZone(null);
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
-    setSimulated(false);
     setNotice(`${next.name} ${next.formation} 전술을 ${source === "coach" ? "AI 추천에서" : "직접"} 적용했습니다.`);
   }
 
@@ -642,15 +640,8 @@ export default function Home() {
     setSlots(createFormationSlots(target.id, tacticLayouts));
     setHoveredZone(null);
     setSelectedPlayer(null);
-    setSimulated(false);
     setRecommendation(null);
     setNotice(`${target.name} 전술과 AI 제안 지침을 라이브 보드에 적용했습니다. 저장을 누르면 확정됩니다.`);
-  }
-
-  function simulateNextPhase() {
-    setMinute(79);
-    setSimulated(true);
-    setNotice("79분: 전술 선택의 결과가 반영되었습니다. 경기 리뷰에서 판단 근거를 확인할 수 있습니다.");
   }
 
   return (
@@ -690,7 +681,6 @@ export default function Home() {
           aiLoading={aiLoading}
           minute={minute}
           notice={notice}
-          simulated={simulated}
           hasUnconfirmedChanges={hasUnconfirmedChanges}
           teamKit={defaultTeamKit}
           onTactic={applyTactic}
@@ -709,8 +699,6 @@ export default function Home() {
           onCoachInput={setCoachInput}
           onRecommend={generateRecommendation}
           onApplyRecommendation={applyAiRecommendation}
-          onSimulate={simulateNextPhase}
-          onReview={() => setView("review")}
         />
       )}
 
@@ -752,7 +740,6 @@ type MatchRoomProps = {
   aiLoading: boolean;
   minute: number;
   notice: string;
-  simulated: boolean;
   hasUnconfirmedChanges: boolean;
   teamKit: TeamKit;
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
@@ -771,8 +758,6 @@ type MatchRoomProps = {
   onCoachInput: (value: string) => void;
   onRecommend: () => void;
   onApplyRecommendation: (recommendation: AiTacticalRecommendation) => void;
-  onSimulate: () => void;
-  onReview: () => void;
 };
 
 function MatchRoom(props: MatchRoomProps) {
@@ -1192,7 +1177,7 @@ function MatchRoom(props: MatchRoomProps) {
         <div className="match-team home"><span>KOR</span><b>대한민국</b></div>
         <div className="match-live-score"><small><i />{props.minute}&apos; LIVE</small><strong>1 <i>-</i> 1</strong></div>
         <div className="match-team away"><span>POR</span><b>포르투갈</b></div>
-        <div className="match-clock"><span>GROUP H</span><b>다음 장면 03:18</b></div>
+        <div className="match-clock"><span>GROUP H</span><b>공식 경기 데이터</b></div>
       </section>
 
       <section className="decision-banner" aria-live="polite">
@@ -1510,12 +1495,6 @@ function MatchRoom(props: MatchRoomProps) {
             </div>
           ) : null}
 
-          <button className="simulate-button" onClick={props.onSimulate}>다음 장면 시뮬레이션 <span>→</span></button>
-          {props.simulated && (
-            <div className="simulation-result" role="status">
-              <small>79&apos; SIMULATION RESULT</small><b>박스 진입 +3 · 역습 허용 +1</b><p>선택한 전술의 공격 효과가 위험 증가보다 컸습니다.</p><button onClick={props.onReview}>경기 리뷰 보기</button>
-            </div>
-          )}
           </div>
         </aside>
       </section>
