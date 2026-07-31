@@ -113,6 +113,7 @@ const playerInstructionSliders: Array<{ key: "aggression" | "takeOn" | "passingF
 function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTacticInstructions {
   return {
     ...details,
+    wideActions: { ...details.wideActions },
     relationships: details.relationships.map((relationship) => ({ ...relationship })),
     playerInstructions: details.playerInstructions.map((instruction) => ({
       ...instruction,
@@ -291,7 +292,7 @@ const initialTactics: Tactic[] = [
     summary: "중앙 수적 우위와 안정적인 3+2 빌드업",
     risk: "낮은 템포로 박스 진입 횟수가 줄어들 수 있음",
     details: {
-      aggression: 52, takeOn: 38, passingFrequency: 84, wideFinalAction: "CUTBACK",
+      aggression: 52, takeOn: 38, passingFrequency: 84, wideFinalAction: "CUTBACK", wideActions: { left: "CUTBACK", right: "CUTBACK" },
       relationships: [{ id: "control-supply", fromPlayerId: "lee-kangin", toPlayerId: "cho-guesung", type: "SUPPLY" }],
       playerInstructions: [],
     },
@@ -306,7 +307,7 @@ const initialTactics: Tactic[] = [
     summary: "센터백을 압박하고 첫 패스를 측면으로 유도",
     risk: "압박이 풀리면 수비 라인 뒤 공간이 커짐",
     details: {
-      aggression: 86, takeOn: 61, passingFrequency: 58, wideFinalAction: "EARLY_CROSS",
+      aggression: 86, takeOn: 61, passingFrequency: 58, wideFinalAction: "EARLY_CROSS", wideActions: { left: "EARLY_CROSS", right: "EARLY_CROSS" },
       relationships: [{ id: "press-cover", fromPlayerId: "jung-wooyoung", toPlayerId: "kim-jinsu", type: "COVER" }],
       playerInstructions: [],
     },
@@ -321,7 +322,7 @@ const initialTactics: Tactic[] = [
     summary: "전방 5명을 확보하고 반대편 채널을 즉시 공략",
     risk: "양쪽 윙백 전진 시 전환 수비가 크게 약화됨",
     details: {
-      aggression: 92, takeOn: 82, passingFrequency: 49, wideFinalAction: "BYLINE_DRIBBLE",
+      aggression: 92, takeOn: 82, passingFrequency: 49, wideFinalAction: "BYLINE_DRIBBLE", wideActions: { left: "BYLINE_DRIBBLE", right: "BYLINE_DRIBBLE" },
       relationships: [{ id: "chase-overlap", fromPlayerId: "kim-jinsu", toPlayerId: "son-heungmin", type: "OVERLAP" }],
       playerInstructions: [],
     },
@@ -336,7 +337,7 @@ const initialTactics: Tactic[] = [
     summary: "하프스페이스를 닫고 한 명의 역습 출구를 유지",
     risk: "상대 진영에서 공을 소유하기 어려움",
     details: {
-      aggression: 34, takeOn: 28, passingFrequency: 76, wideFinalAction: "RECYCLE",
+      aggression: 34, takeOn: 28, passingFrequency: 76, wideFinalAction: "RECYCLE", wideActions: { left: "RECYCLE", right: "RECYCLE" },
       relationships: [{ id: "lock-cover", fromPlayerId: "kim-younggwon", toPlayerId: "kim-jinsu", type: "COVER" }],
       playerInstructions: [],
     },
@@ -893,6 +894,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [detailEditorOpen, setDetailEditorOpen] = useState(false);
   const [widePlayPickerOpen, setWidePlayPickerOpen] = useState(false);
+  const [widePlayPickerSide, setWidePlayPickerSide] = useState<"left" | "right">("left");
   const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [newTacticNameError, setNewTacticNameError] = useState("");
@@ -1295,8 +1297,8 @@ function MatchRoom(props: MatchRoomProps) {
     props.onUpdateTacticDetails(props.activeTactic.id, next, false);
   }
 
-  function setWideAction(value: WideFinalAction) {
-    const next = { ...detailDraft, wideFinalAction: value };
+  function setWideAction(side: "left" | "right", value: WideFinalAction) {
+    const next = { ...detailDraft, wideFinalAction: value, wideActions: { ...detailDraft.wideActions, [side]: value } };
     setDetailDraft(next);
     props.onUpdateTacticDetails(props.activeTactic.id, next, false);
   }
@@ -1485,14 +1487,14 @@ function MatchRoom(props: MatchRoomProps) {
                   )}
                   {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
                 </div>
-                <div className={`wide-play-layer action-${props.activeTactic.details.wideFinalAction.toLowerCase()}`}>
-                  <button type="button" className="wide-play-zone top" onClick={(event) => { event.stopPropagation(); setWidePlayPickerOpen(true); }} aria-label="상단 코너 측면 행동 설정" aria-expanded={widePlayPickerOpen}><span>코너 채널</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></button>
-                  <button type="button" className="wide-play-zone bottom" onClick={(event) => { event.stopPropagation(); setWidePlayPickerOpen(true); }} aria-label="하단 코너 측면 행동 설정" aria-expanded={widePlayPickerOpen}><span>코너 채널</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></button>
+                <div className="wide-play-layer">
+                  <button type="button" className={`wide-play-zone top action-${props.activeTactic.details.wideActions.left.toLowerCase()}`} onClick={(event) => { event.stopPropagation(); setWidePlayPickerSide("left"); setWidePlayPickerOpen(true); }} aria-label="왼쪽 코너 측면 행동 설정" aria-expanded={widePlayPickerOpen && widePlayPickerSide === "left"}><span>LEFT WING</span><b>{wideActionLabels[props.activeTactic.details.wideActions.left]}</b></button>
+                  <button type="button" className={`wide-play-zone bottom action-${props.activeTactic.details.wideActions.right.toLowerCase()}`} onClick={(event) => { event.stopPropagation(); setWidePlayPickerSide("right"); setWidePlayPickerOpen(true); }} aria-label="오른쪽 코너 측면 행동 설정" aria-expanded={widePlayPickerOpen && widePlayPickerSide === "right"}><span>RIGHT WING</span><b>{wideActionLabels[props.activeTactic.details.wideActions.right]}</b></button>
                 </div>
                 {widePlayPickerOpen && <div className="wide-play-picker" role="dialog" aria-label="측면 행동 설정" onClick={(event) => event.stopPropagation()}>
-                  <div><span>WIDE PLAY</span><b>코너 채널 행동</b><button type="button" onClick={() => setWidePlayPickerOpen(false)} aria-label="측면 행동 설정 닫기">×</button></div>
-                  <p>상대 진영의 상단 또는 하단 코너 채널을 클릭해 이 전술의 측면 행동을 정합니다.</p>
-                  <section>{(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => <button key={value} type="button" className={props.activeTactic.details.wideFinalAction === value ? "active" : ""} onClick={() => setWideAction(value)} aria-pressed={props.activeTactic.details.wideFinalAction === value}>{label}</button>)}</section>
+                  <div><span>{widePlayPickerSide === "left" ? "LEFT WING" : "RIGHT WING"}</span><b>{widePlayPickerSide === "left" ? "왼쪽 코너 채널 행동" : "오른쪽 코너 채널 행동"}</b><button type="button" onClick={() => setWidePlayPickerOpen(false)} aria-label="측면 행동 설정 닫기">×</button></div>
+                  <p>양쪽 코너 채널은 독립적으로 설정됩니다.</p>
+                  <section>{(Object.entries(wideActionLabels) as Array<[WideFinalAction, string]>).map(([value, label]) => <button key={value} type="button" className={props.activeTactic.details.wideActions[widePlayPickerSide] === value ? "active" : ""} onClick={() => setWideAction(widePlayPickerSide, value)} aria-pressed={props.activeTactic.details.wideActions[widePlayPickerSide] === value}>{label}</button>)}</section>
                 </div>}
                 <div className="relationship-layer" aria-hidden="true">
                   {props.activeTactic.details.relationships.map((relationship, index) => {

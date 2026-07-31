@@ -167,6 +167,8 @@ test("models detailed instructions and player relationships per tactic", async (
     assert.equal(typeof tactic.instructions.takeOn, "number");
     assert.equal(typeof tactic.instructions.passingFrequency, "number");
     assert.match(tactic.instructions.wideFinalAction, /^(BYLINE_DRIBBLE|EARLY_CROSS|CUTBACK|RECYCLE)$/);
+    assert.match(tactic.instructions.wideActions.left, /^(BYLINE_DRIBBLE|EARLY_CROSS|CUTBACK|RECYCLE)$/);
+    assert.match(tactic.instructions.wideActions.right, /^(BYLINE_DRIBBLE|EARLY_CROSS|CUTBACK|RECYCLE)$/);
     assert.ok(Array.isArray(tactic.relationships));
     assert.ok(tactic.relationships.every((relationship) => relationship.fromPlayerId !== relationship.toPlayerId));
     assert.ok(Array.isArray(tactic.playerInstructions));

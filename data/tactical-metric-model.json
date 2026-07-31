@@ -130,7 +130,7 @@
       "id": "fifa-wide-areas-2022",
       "title": "Use of wide areas to create goal-scoring opportunities",
       "url": "https://www.fifatrainingcentre.com/en/fwc2022/technical-and-tactical-analysis/use-of-wide-areas.php",
-      "usedFor": ["widthThreat", "wideFinalAction"]
+      "usedFor": ["widthThreat", "wideActions"]
     },
     {
       "id": "fifa-high-press-2025",

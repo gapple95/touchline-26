@@ -2,6 +2,7 @@ export type MetricSource = "FIFA_OFFICIAL" | "STATSBOMB_OPEN_DATA" | "TOUCHLINE_
 export type PositionCode = "GK" | "CB" | "FB" | "WB" | "DM" | "CM" | "AM" | "W" | "ST";
 export type MatchPhase = "IN_POSSESSION" | "OUT_OF_POSSESSION" | "ATTACK_TRANSITION" | "DEFENCE_TRANSITION" | "SET_PIECE";
 export type WideFinalAction = "BYLINE_DRIBBLE" | "EARLY_CROSS" | "CUTBACK" | "RECYCLE";
+export type WideFinalActions = { left: WideFinalAction; right: WideFinalAction };
 export type PlayerRelationshipType = "COMBINATION" | "OVERLAP" | "COVER" | "SUPPLY" | "SWITCH";
 
 export interface TacticalPlayerRelationship {
@@ -33,6 +34,7 @@ export interface DetailedTacticInstructions {
   takeOn: number;
   passingFrequency: number;
   wideFinalAction: WideFinalAction;
+  wideActions: WideFinalActions;
   relationships: TacticalPlayerRelationship[];
   playerInstructions: PlayerTacticalInstruction[];
 }
@@ -207,6 +209,7 @@ export interface TacticPreset {
     takeOn: number;
     passingFrequency: number;
     wideFinalAction: WideFinalAction;
+    wideActions: WideFinalActions;
   };
   relationships: TacticalPlayerRelationship[];
   playerInstructions: PlayerTacticalInstruction[];

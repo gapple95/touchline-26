@@ -17,6 +17,7 @@ const baseDetails = {
   takeOn: 38,
   passingFrequency: 84,
   wideFinalAction: "CUTBACK",
+  wideActions: { left: "CUTBACK", right: "CUTBACK" },
   relationships: [],
   playerInstructions: [],
 };
