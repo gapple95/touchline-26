@@ -109,6 +109,10 @@ function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTactic
   };
 }
 
+function tacticNameKey(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+}
+
 function mergeAiRecommendationIntoDetails(details: DetailedTacticInstructions, recommendation: AiTacticalRecommendation, lineup: Player[]): DetailedTacticInstructions {
   const next = cloneTacticDetails(details);
   const allowedPlayerIds = new Set(lineup.map((player) => player.id));
@@ -405,13 +409,18 @@ export default function Home() {
   function createTactic(name: string, baseTacticId: TacticId) {
     const base = savedTactics.find((tactic) => tactic.id === baseTacticId) ?? activeTactic;
     const customNumber = savedTactics.filter((tactic) => tactic.id.startsWith("custom-")).length + 1;
+    const requestedName = name.trim().replace(/\s+/g, " ") || `MY TACTIC ${customNumber}`;
+    if (savedTactics.some((tactic) => tacticNameKey(tactic.name) === tacticNameKey(requestedName))) {
+      setNotice(`"${requestedName}" 이름의 전술이 이미 있습니다. 다른 이름을 입력하세요.`);
+      return false;
+    }
     const id = `custom-${customNumber}`;
     const layout = (tacticLayouts[base.id] ?? formationSlots.control).map((slot) => ({ ...slot }));
     const tones: Tone[] = ["orange", "mint", "yellow", "lime"];
     const nextTactic: Tactic = {
       ...base,
       id,
-      name: name.trim() || `MY TACTIC ${customNumber}`,
+      name: requestedName,
       intent: `${base.name} 기반`,
       tone: tones[(customNumber - 1) % tones.length],
       metrics: { ...base.metrics },
@@ -441,6 +450,7 @@ export default function Home() {
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
     setNotice(`${nextTactic.name} 전술을 ${base.name} 기준으로 만들고 적용했습니다.`);
+    return true;
   }
 
   function updateTacticDetails(id: TacticId, details: DetailedTacticInstructions, announce = true) {
@@ -747,7 +757,7 @@ type MatchRoomProps = {
   teamKit: TeamKit;
   onTactic: (id: TacticId, source?: "direct" | "coach") => void;
   onReset: () => void;
-  onCreateTactic: (name: string, baseTacticId: TacticId) => void;
+  onCreateTactic: (name: string, baseTacticId: TacticId) => boolean;
   onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
   onConfirmTactic: () => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
@@ -769,6 +779,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [detailEditorOpen, setDetailEditorOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
+  const [newTacticNameError, setNewTacticNameError] = useState("");
   const [baseTacticId, setBaseTacticId] = useState<TacticId>(props.activeTactic.id);
   const [detailDraft, setDetailDraft] = useState<DetailedTacticInstructions>(() => cloneTacticDetails(props.activeTactic.details));
   const [relationFrom, setRelationFrom] = useState(props.lineup[8]?.id ?? props.lineup[0]?.id ?? "");
@@ -790,6 +801,7 @@ function MatchRoom(props: MatchRoomProps) {
     ? props.savedTactics.find((tactic) => tactic.id === props.recommendation.recommendedTacticId) ?? null
     : null;
   const baseTactic = props.savedTactics.find((tactic) => tactic.id === baseTacticId) ?? props.activeTactic;
+  const hasDuplicateTacticName = Boolean(tacticNameKey(newTacticName)) && props.savedTactics.some((tactic) => tacticNameKey(tactic.name) === tacticNameKey(newTacticName));
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
   const selectedPlayerSlot = props.selectedPlayer === null ? null : props.slots[props.selectedPlayer];
   const selectedInstruction = selectedPlayerData ? playerInstructionFor(selectedPlayerData.id) : null;
@@ -1147,9 +1159,13 @@ function MatchRoom(props: MatchRoomProps) {
 
   function submitTactic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    props.onCreateTactic(newTacticName, baseTacticId);
+    if (hasDuplicateTacticName || !props.onCreateTactic(newTacticName, baseTacticId)) {
+      setNewTacticNameError("같은 이름의 전술이 이미 있습니다.");
+      return;
+    }
     setCreatorOpen(false);
     setNewTacticName("");
+    setNewTacticNameError("");
   }
 
   function addRelationship() {
@@ -1200,7 +1216,8 @@ function MatchRoom(props: MatchRoomProps) {
           {creatorOpen && (
             <form className="tactic-creator" onSubmit={submitTactic}>
               <div className="tactic-creator-head"><div><span>NEW PLAN</span><b>새 전술 만들기</b></div><button type="button" onClick={() => setCreatorOpen(false)} aria-label="전술 만들기 닫기">×</button></div>
-              <label className="tactic-name-field">전술 이름<input autoFocus maxLength={18} value={newTacticName} onChange={(event) => setNewTacticName(event.target.value)} placeholder={`MY TACTIC ${props.savedTactics.length - initialTactics.length + 1}`} /></label>
+              <label className="tactic-name-field">전술 이름<input autoFocus maxLength={18} value={newTacticName} onChange={(event) => { setNewTacticName(event.target.value); setNewTacticNameError(""); }} aria-invalid={hasDuplicateTacticName} placeholder={`MY TACTIC ${props.savedTactics.length - initialTactics.length + 1}`} /></label>
+              {(hasDuplicateTacticName || newTacticNameError) && <p className="tactic-name-error" role="status">{newTacticNameError || "같은 이름의 전술이 이미 있습니다."}</p>}
               <fieldset>
                 <legend>어떤 전술을 기준으로 만들까요?</legend>
                 <div className="base-tactic-grid">
@@ -1212,7 +1229,7 @@ function MatchRoom(props: MatchRoomProps) {
                 </div>
               </fieldset>
               <div className="base-tactic-preview"><span>BASE</span><div><b>{baseTactic.name}</b><small>{baseTactic.formation} · {baseTactic.intent}</small></div></div>
-              <button className="create-tactic-button" type="submit">전술 생성하고 적용</button>
+              <button className="create-tactic-button" type="submit" disabled={hasDuplicateTacticName}>전술 생성하고 적용</button>
             </form>
           )}
           <div className="tactic-detail-summary">
