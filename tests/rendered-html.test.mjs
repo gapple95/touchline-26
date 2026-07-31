@@ -54,6 +54,9 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /wideFinalAction/);
   assert.match(page, /onUpdateTacticDetails/);
   assert.doesNotMatch(page + css, /player-relationship-layer/);
+  assert.match(page + css, /relationship-layer/);
+  assert.match(page + css, /wide-play-layer/);
+  assert.match(page, /relationshipConnectionStyle/);
   assert.match(page + css, /individual-pass-layer/);
   assert.doesNotMatch(page + css, /pass-direction-chip/);
   assert.match(page, /arrowConnectionStyle/);

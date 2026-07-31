@@ -196,6 +196,14 @@ function arrowConnectionStyle(from: FormationSlot, to: FormationSlot): CSSProper
   );
 }
 
+function relationshipConnectionStyle(from: FormationSlot, to: FormationSlot): CSSProperties {
+  const dx = to.x - from.x;
+  const projectedDy = (to.y - from.y) / (105 / 68);
+  const length = Math.hypot(dx, projectedDy);
+  const angle = Math.atan2(projectedDy, dx) * 180 / Math.PI;
+  return { left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `translateY(-7px) rotate(${angle}deg)` };
+}
+
 type KitCssVariables = CSSProperties & {
   "--kit-shirt": string;
   "--kit-number": string;
@@ -1475,6 +1483,23 @@ function MatchRoom(props: MatchRoomProps) {
                     </div>
                   )}
                   {PITCH_PHASES.map((phase) => <span key={phase.id} className="position-phase-label" style={{ left: `${(phase.min + phase.max) / 2}%` }}>{phase.label}</span>)}
+                </div>
+                <div className={`wide-play-layer action-${props.activeTactic.details.wideFinalAction.toLowerCase()}`} aria-hidden="true">
+                  <i className="wide-play-zone top"><span>WIDE PLAY</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></i>
+                  <i className="wide-play-zone bottom"><span>WIDE PLAY</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></i>
+                </div>
+                <div className="relationship-layer" aria-hidden="true">
+                  {props.activeTactic.details.relationships.map((relationship) => {
+                    const fromIndex = props.lineup.findIndex((player) => player.id === relationship.fromPlayerId);
+                    const toIndex = props.lineup.findIndex((player) => player.id === relationship.toPlayerId);
+                    if (fromIndex < 0 || toIndex < 0) return null;
+                    const from = props.slots[fromIndex];
+                    const to = props.slots[toIndex];
+                    return <div key={relationship.id} className={`relationship-connection type-${relationship.type.toLowerCase()}`}>
+                      <i className="relationship-line" style={relationshipConnectionStyle(from, to)} />
+                      <span className="relationship-label" style={{ left: `${(from.x + to.x) / 2}%`, top: `${(from.y + to.y) / 2}%` }}>{relationshipLabels[relationship.type]}</span>
+                    </div>;
+                  })}
                 </div>
                 <div className="individual-pass-layer" aria-hidden="true">
                   {props.activeTactic.details.playerInstructions.map((instruction) => {
