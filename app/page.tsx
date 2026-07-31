@@ -1339,7 +1339,7 @@ function MatchRoom(props: MatchRoomProps) {
         <span>PRE-MATCH PLAN</span><p>{props.notice}</p><b>{props.activeTactic.name} · {props.activeTactic.formation}</b>
       </section>
 
-      <section className="match-workspace">
+      <section className={`match-workspace ${coachDrawerOpen ? "coach-open" : "coach-collapsed"}`}>
         <aside className="tactic-panel panel">
           <SectionTitle title="저장 전술" />
           <div className="tactic-list">

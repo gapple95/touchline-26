@@ -215,13 +215,14 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   max-width: 1680px;
   min-height: 0;
   margin: 0 auto;
-  padding-bottom: 36px;
+  padding-bottom: 118px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   align-items: start;
   border-inline: 1px solid var(--line);
 }
+.match-workspace.coach-open { padding-bottom: calc(min(78vh, 720px) + 32px); }
 .panel { min-width: 0; padding: 28px clamp(20px, 3vw, 48px); }
 .tactic-panel, .coach-panel { background: #e9e5db; }
 .tactic-panel { grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
