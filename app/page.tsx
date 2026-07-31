@@ -196,12 +196,12 @@ function arrowConnectionStyle(from: FormationSlot, to: FormationSlot): CSSProper
   );
 }
 
-function relationshipConnectionStyle(from: FormationSlot, to: FormationSlot): CSSProperties {
+function relationshipConnectionStyle(from: FormationSlot, to: FormationSlot, verticalOffset = -7): CSSProperties {
   const dx = to.x - from.x;
   const projectedDy = (to.y - from.y) / (105 / 68);
   const length = Math.hypot(dx, projectedDy);
   const angle = Math.atan2(projectedDy, dx) * 180 / Math.PI;
-  return { left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `translateY(-7px) rotate(${angle}deg)` };
+  return { left: `${from.x}%`, top: `${from.y}%`, width: `${length}%`, transform: `translateY(${verticalOffset}px) rotate(${angle}deg)` };
 }
 
 type KitCssVariables = CSSProperties & {
@@ -1503,15 +1503,15 @@ function MatchRoom(props: MatchRoomProps) {
                   <i className="wide-play-zone bottom"><span>WIDE PLAY</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></i>
                 </div>
                 <div className="relationship-layer" aria-hidden="true">
-                  {props.activeTactic.details.relationships.map((relationship) => {
+                  {props.activeTactic.details.relationships.map((relationship, index) => {
                     const fromIndex = props.lineup.findIndex((player) => player.id === relationship.fromPlayerId);
                     const toIndex = props.lineup.findIndex((player) => player.id === relationship.toPlayerId);
                     if (fromIndex < 0 || toIndex < 0) return null;
                     const from = props.slots[fromIndex];
                     const to = props.slots[toIndex];
                     return <div key={relationship.id} className={`relationship-connection type-${relationship.type.toLowerCase()}`}>
-                      <i className="relationship-line" style={relationshipConnectionStyle(from, to)} />
-                      <span className="relationship-label" style={{ left: `${(from.x + to.x) / 2}%`, top: `${(from.y + to.y) / 2}%` }}>{relationshipLabels[relationship.type]}</span>
+                      <i className="relationship-line" style={relationshipConnectionStyle(from, to, -12 + (index % 4) * 8)} />
+                      <span className="relationship-label" style={{ left: `${(from.x + to.x) / 2}%`, top: `${(from.y + to.y) / 2}%`, "--relationship-label-offset": `${((index % 4) - 1.5) * 18}px` } as CSSProperties}>{index + 1}</span>
                     </div>;
                   })}
                 </div>
@@ -1599,6 +1599,10 @@ function MatchRoom(props: MatchRoomProps) {
                   </div>
                 )}
               </div>
+            </div>
+            <div className="relationship-legend" aria-label="선수 관계와 측면 행동 범례">
+              <div className="wide-play-summary"><span>측면 행동</span><b>{wideActionLabels[props.activeTactic.details.wideFinalAction]}</b></div>
+              <div className="relationship-summary"><span>선수 관계</span>{props.activeTactic.details.relationships.length === 0 ? <b>지정 없음</b> : props.activeTactic.details.relationships.map((relationship, index) => <b key={relationship.id} className={`type-${relationship.type.toLowerCase()}`}><i>{index + 1}</i>{playerName(relationship.fromPlayerId)} <em>{relationshipLabels[relationship.type]}</em> {playerName(relationship.toPlayerId)}</b>)}</div>
             </div>
           </div>
           {selectedPlayerData && selectedInstruction ? (
