@@ -1377,7 +1377,6 @@ function MatchRoom(props: MatchRoomProps) {
 
         <section className="board-panel panel">
           <div className="board-toolbar">
-            <SectionTitle title="라이브 전술 보드" />
             <div className="board-toolbar-actions">
               <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
               <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
