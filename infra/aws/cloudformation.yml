@@ -1,0 +1,271 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: TOUCHLINE 26 single-instance EC2, ECR, SSM, and GitHub OIDC deployment
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Default: gapple95
+    Description: GitHub user or organization name
+  GitHubRepository:
+    Type: String
+    Default: touchline-26
+  GitHubOwnerId:
+    Type: String
+    Default: '50596733'
+    Description: Numeric owner ID for repositories using GitHub immutable OIDC subjects
+  GitHubRepositoryId:
+    Type: String
+    Default: '1313306220'
+    Description: Numeric repository ID for repositories using GitHub immutable OIDC subjects
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.micro, t3.small]
+  EcrRepositoryName:
+    Type: String
+    Default: touchline-26
+  GeminiParameterName:
+    Type: String
+    Default: /touchline-26/prod/gemini-api-key
+  CreateGitHubOidcProvider:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  ExistingGitHubOidcProviderArn:
+    Type: String
+    Default: ''
+    Description: Required only when the account already has the GitHub Actions OIDC provider
+  ComposeVersion:
+    Type: String
+    Default: v5.1.4
+  BillingAlertEmail:
+    Type: String
+    Description: Email address that receives AWS cost alerts
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 10
+    MinValue: 1
+
+Conditions:
+  ShouldCreateGitHubOidcProvider: !Equals [!Ref CreateGitHubOidcProvider, 'true']
+  HasImmutableGitHubIds: !And
+    - !Not [!Equals [!Ref GitHubOwnerId, '']]
+    - !Not [!Equals [!Ref GitHubRepositoryId, '']]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: ShouldCreateGitHubOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      Tags:
+        - Key: Name
+          Value: github-actions
+
+  ContainerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref EcrRepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [{
+              "rulePriority": 1,
+              "description": "Keep the newest 10 images",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "imageCountMoreThan",
+                "countNumber": 10
+              },
+              "action": { "type": "expire" }
+            }]
+          }
+
+  MonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: touchline-26-monthly
+        BudgetLimit:
+          Amount: !Ref MonthlyBudgetUsd
+          Unit: USD
+        BudgetType: COST
+        TimeUnit: MONTHLY
+      NotificationsWithSubscribers:
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref BillingAlertEmail
+              SubscriptionType: EMAIL
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: FORECASTED
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref BillingAlertEmail
+              SubscriptionType: EMAIL
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow public HTTP traffic to TOUCHLINE 26
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: touchline-26-web
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: TouchlineRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: !GetAtt ContainerRepository.Arn
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${GeminiParameterName}
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  WebInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetId
+          GroupSet:
+            - !Ref WebSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -Eeuo pipefail
+          dnf install -y docker curl
+          systemctl enable --now docker
+          systemctl enable --now amazon-ssm-agent
+          install -d -m 0755 /usr/local/lib/docker/cli-plugins /opt/touchline-26/nginx/conf.d /opt/touchline-26/scripts
+          COMPOSE_VERSION='${ComposeVersion}'
+          ARCH="$(uname -m)"
+          ASSET="docker-compose-linux-$ARCH"
+          BASE_URL="https://github.com/docker/compose/releases/download/$COMPOSE_VERSION"
+          curl --fail --silent --show-error --location "$BASE_URL/$ASSET" --output "/tmp/$ASSET"
+          curl --fail --silent --show-error --location "$BASE_URL/$ASSET.sha256" --output "/tmp/$ASSET.sha256"
+          cd /tmp
+          sha256sum --check "$ASSET.sha256"
+          install -m 0755 "/tmp/$ASSET" /usr/local/lib/docker/cli-plugins/docker-compose
+          docker compose version
+      Tags:
+        - Key: Name
+          Value: touchline-26
+        - Key: Application
+          Value: touchline-26
+
+  GitHubDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - ShouldCreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Ref ExistingGitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !If
+                  - HasImmutableGitHubIds
+                  - !Sub repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepository}@${GitHubRepositoryId}:environment:production
+                  - !Sub repo:${GitHubOwner}/${GitHubRepository}:environment:production
+      Policies:
+        - PolicyName: TouchlineDeployment
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: !GetAtt ContainerRepository.Arn
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
+                  - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${WebInstance}
+              - Effect: Allow
+                Action:
+                  - ssm:GetCommandInvocation
+                  - ssm:ListCommandInvocations
+                Resource: '*'
+
+Outputs:
+  PublicUrl:
+    Value: !Sub http://${WebInstance.PublicDnsName}
+  InstanceId:
+    Value: !Ref WebInstance
+  EcrRepositoryName:
+    Value: !Ref ContainerRepository
+  EcrRepositoryUri:
+    Value: !GetAtt ContainerRepository.RepositoryUri
+  GitHubRoleArn:
+    Value: !GetAtt GitHubDeploymentRole.Arn
