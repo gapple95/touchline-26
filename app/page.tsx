@@ -1790,7 +1790,7 @@ function MatchRoom(props: MatchRoomProps) {
                     aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴`}
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <div className="player-action-header" onPointerDown={startPlayerMenuDrag} onPointerMove={dragPlayerMenu} onPointerUp={finishPlayerMenuDrag} onPointerCancel={finishPlayerMenuDrag} title="드래그하여 창 이동"><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요 · DRAG</small><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
+                    <div className="player-action-header" onPointerDown={startPlayerMenuDrag} onPointerMove={dragPlayerMenu} onPointerUp={finishPlayerMenuDrag} onPointerCancel={finishPlayerMenuDrag} title="드래그하여 창 이동"><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요 · DRAG</small><em className="player-action-stamina" style={{ "--stamina-hue": String(Math.round(selectedPlayerData.stamina * 1.2)) } as CSSProperties}>체력 {Number(selectedPlayerData.stamina.toFixed(1))}%</em><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
                     <button type="button" onClick={startPassAssignment}><i>→</i>패스 지정</button>
                     {(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([type, label]) => <button key={type} type="button" className={`relationship-action type-${type.toLowerCase()}`} onClick={() => startRelationshipAssignment(type)}><i>↔</i>{label}</button>)}
                     <button type="button" onClick={focusPlayerInstructions}><i>≡</i>개인 지침</button>
@@ -1807,7 +1807,7 @@ function MatchRoom(props: MatchRoomProps) {
           {selectedPlayerData && selectedInstruction ? (
             <section id="player-instruction-panel" className="player-instruction-panel" aria-labelledby="player-instruction-title" tabIndex={-1}>
               <div className="instruction-panel-head player">
-                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "공격 가담" : selectedInstruction.runDirection === "BACKWARD" ? "수비 가담" : "위치 유지"}</p></div>
+                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "공격 가담" : selectedInstruction.runDirection === "BACKWARD" ? "수비 가담" : "위치 유지"} <em className="player-instruction-stamina" style={{ "--stamina-hue": String(Math.round(selectedPlayerData.stamina * 1.2)) } as CSSProperties}>체력 {Number(selectedPlayerData.stamina.toFixed(1))}%</em></p></div>
                 <button type="button" onClick={() => props.onPlayerClick(props.selectedPlayer ?? 0)} aria-label={`${selectedPlayerData.name} 개인 지침 닫기`}>×</button>
               </div>
               <div className="player-instruction-sliders">

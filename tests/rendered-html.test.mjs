@@ -87,6 +87,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /function createConfirmedTacticsForSquad\(/);
   assert.match(page, /setConfirmedTactics\(createConfirmedTacticsForSquad\(savedTactics, tacticLayouts, nextLineup, nextBench\)\)/);
   assert.match(page + css, /player-stamina/);
+  assert.match(page + css, /player-action-stamina/);
+  assert.match(page + css, /player-instruction-stamina/);
   assert.match(page + css, /SUBSTITUTION WATCH/);
   assert.match(page + css, /TACTICAL PLAN INDEX/);
   assert.match(page + css, /live-metric-dock/);
