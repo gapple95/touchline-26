@@ -66,6 +66,14 @@ function displayOfficialPlayerName(teamCode: string, name: string) {
   return teamCode === "KOR" ? (koreanPlayerNames[name] ?? name) : name;
 }
 
+function playerNumberLabel(number: number) {
+  return number > 0 ? String(number) : "—";
+}
+
+function playerNumberPrefix(number: number) {
+  return number > 0 ? `#${number}` : "등번호 미제공";
+}
+
 type Slot = { x: number; y: number; role: string };
 type FormationSlot = Pick<Slot, "x" | "y">;
 type DragPayload = { origin: "pitch" | "bench"; index: number; anchorOffsetX: number; anchorOffsetY: number };
@@ -626,10 +634,10 @@ function createModelTacticTimeline(variationKey: string): FormationModelTactic[]
 function officialSquadPlayers(fixture: MatchFixture, side: "home" | "away") {
   const squad = fixture.official?.[side].lineup ?? [];
   const ordered = [...squad].sort((left, right) => Number(right.starter) - Number(left.starter) || right.minutes - left.minutes || left.name.localeCompare(right.name));
-  return ordered.map((member, index) => ({
+  return ordered.map((member) => ({
     id: `fifa-wc-2026-${fixture.official?.id}-${side}-${member.playerId}`,
     name: displayOfficialPlayerName(fixture.official?.[side].team.code ?? "", member.name),
-    number: index + 1,
+    number: 0,
     position: canonicalPosition(member.tacticalPosition || member.position),
     role: canonicalPosition(member.tacticalPosition || member.position),
     stamina: officialTournamentStamina(fixture, side, member.playerId),
@@ -1560,7 +1568,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         })}
       </div>
 
-      <div className="fixture-policy"><b>DATA NOTICE</b><span>외부 공개 데이터셋 기반으로 실제 공식 데이터와 다를 수 있습니다. 2026 월드컵 {worldCupData.metadata.counts.matches}경기 · {worldCupData.metadata.counts.teams}개국 · 선수 {worldCupData.metadata.counts.players}명 · 선발/출전 {worldCupData.metadata.counts.lineupRows}건 · 이벤트 {worldCupData.metadata.counts.events}건을 저장했습니다. 피치 위치는 추적 데이터가 아닌 전술 포메이션 모델입니다.</span></div>
+      <div className="fixture-policy"><b>DATA NOTICE</b><span>외부 공개 데이터셋 기반으로 실제 공식 데이터와 다를 수 있습니다. 원본에 등번호가 없어 임의 번호를 쓰지 않으며, 보드에는 —로 표시합니다. 2026 월드컵 {worldCupData.metadata.counts.matches}경기 · {worldCupData.metadata.counts.teams}개국 · 선수 {worldCupData.metadata.counts.players}명 · 선발/출전 {worldCupData.metadata.counts.lineupRows}건 · 이벤트 {worldCupData.metadata.counts.events}건을 저장했습니다. 피치 위치는 추적 데이터가 아닌 전술 포메이션 모델입니다.</span></div>
     </section>
   );
 }
@@ -1769,7 +1777,7 @@ function TeamSelector({ fixture, nickname, accessMode, onBack, onSelect }: { fix
       <span>STEP 02 · MANAGER TEAM</span>
       <h1 id="team-select-title">어느 팀의 감독이 되시겠어요?</h1>
       <p>{fixture.home.name} vs {fixture.away.name}. 선택한 팀의 실제 선발·교체 출전 명단으로 킥오프 전 전술을 저장합니다.</p>
-      {fixture.official && <p className="official-fixture-note">외부 공개 데이터셋 기반이라 실제 공식 데이터와 다를 수 있습니다. 선발·교체 출전·이벤트·팀 스탯을 활용하며, 전술보드 위치는 공개 추적 좌표가 없어 기존 전술 레이아웃을 섞은 포메이션 모델입니다. 연속 출전 선수는 이전 경기 출전 시간을 반영한 체력으로 시작합니다.</p>}
+      {fixture.official && <p className="official-fixture-note">외부 공개 데이터셋 기반이라 실제 공식 데이터와 다를 수 있습니다. 원본에 공식 등번호가 없어 임의 번호를 쓰지 않으며 —로 표시합니다. 선발·교체 출전·이벤트·팀 스탯을 활용하고, 전술보드 위치는 공개 추적 좌표가 없어 기존 전술 레이아웃을 섞은 포메이션 모델입니다. 연속 출전 선수는 이전 경기 출전 시간을 반영한 체력으로 시작합니다.</p>}
       <div className="team-select-grid">
         {(["home", "away"] as const).map((side) => {
           const team = fixture[side];
@@ -2354,7 +2362,7 @@ function MatchRoom(props: MatchRoomProps) {
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
               <button key={player.id} style={kitCssVariables(player.position === "GK" ? props.teamKit.goalkeeper : props.teamKit.outfield)} draggable onDragStart={(event) => props.onStartDrag(event, "bench", index)} onDragEnd={props.onDragEnd} onClick={() => props.onBenchClick(index)}>
-                <span>{player.number}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
+                <span>{playerNumberLabel(player.number)}</span><div><b>{player.name}</b><small>{player.position} · {player.role}</small></div><em>{player.stamina}%</em>
               </button>
             ))}
           </div>
@@ -2477,7 +2485,7 @@ function MatchRoom(props: MatchRoomProps) {
                         data-player-id={player.id}
                         data-kit-source={props.teamKit.source}
                       >
-                        <span>{player.number}</span><b>{player.name}</b><small><i>{slot.role}</i><em className="player-stamina" style={{ "--stamina-level": `${player.stamina}%`, "--stamina-hue": String(Math.round(player.stamina * 1.2)) } as CSSProperties} title={`체력 ${Math.round(player.stamina)}%`}><u /></em></small>
+                        <span>{playerNumberLabel(player.number)}</span><b>{player.name}</b><small><i>{slot.role}</i><em className="player-stamina" style={{ "--stamina-level": `${player.stamina}%`, "--stamina-hue": String(Math.round(player.stamina * 1.2)) } as CSSProperties} title={`체력 ${Math.round(player.stamina)}%`}><u /></em></small>
                       </button>
                     );
                   })}
@@ -2505,7 +2513,7 @@ function MatchRoom(props: MatchRoomProps) {
                     aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴`}
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <div className="player-action-header" onPointerDown={startPlayerMenuDrag} onPointerMove={dragPlayerMenu} onPointerUp={finishPlayerMenuDrag} onPointerCancel={finishPlayerMenuDrag} title="드래그하여 창 이동"><span>#{selectedPlayerData.number}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요 · DRAG</small><em className="player-action-stamina" style={{ "--stamina-hue": String(Math.round(selectedPlayerData.stamina * 1.2)) } as CSSProperties}>체력 {Number(selectedPlayerData.stamina.toFixed(1))}%</em><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
+                    <div className="player-action-header" onPointerDown={startPlayerMenuDrag} onPointerMove={dragPlayerMenu} onPointerUp={finishPlayerMenuDrag} onPointerCancel={finishPlayerMenuDrag} title="드래그하여 창 이동"><span>{playerNumberPrefix(selectedPlayerData.number)}</span><b>{selectedPlayerData.name}</b><small>행동을 선택하세요 · DRAG</small><em className="player-action-stamina" style={{ "--stamina-hue": String(Math.round(selectedPlayerData.stamina * 1.2)) } as CSSProperties}>체력 {Number(selectedPlayerData.stamina.toFixed(1))}%</em><button className="player-action-close" type="button" onClick={() => setPlayerMenuOpen(false)} aria-label={`${selectedPlayerData.name} 빠른 전술 메뉴 닫기`}>×</button></div>
                     <button type="button" onClick={startPassAssignment}><i>→</i>패스 지정</button>
                     {(Object.entries(relationshipLabels) as Array<[PlayerRelationshipType, string]>).map(([type, label]) => <button key={type} type="button" className={`relationship-action type-${type.toLowerCase()}`} onClick={() => startRelationshipAssignment(type)}><i>↔</i>{label}</button>)}
                     <button type="button" onClick={focusPlayerInstructions}><i>≡</i>개인 지침</button>
@@ -2522,7 +2530,7 @@ function MatchRoom(props: MatchRoomProps) {
           {selectedPlayerData && selectedInstruction ? (
             <section id="player-instruction-panel" className="player-instruction-panel" aria-labelledby="player-instruction-title" tabIndex={-1}>
               <div className="instruction-panel-head player">
-                <div><span>PLAYER INSTRUCTIONS · #{selectedPlayerData.number}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "공격 가담" : selectedInstruction.runDirection === "BACKWARD" ? "수비 가담" : "위치 유지"} <em className="player-instruction-stamina" style={{ "--stamina-hue": String(Math.round(selectedPlayerData.stamina * 1.2)) } as CSSProperties}>체력 {Number(selectedPlayerData.stamina.toFixed(1))}%</em></p></div>
+                <div><span>PLAYER INSTRUCTIONS · {playerNumberPrefix(selectedPlayerData.number)}</span><h3 id="player-instruction-title">{selectedPlayerData.name} 개인 지침</h3><p>{props.slots[props.selectedPlayer ?? 0]?.role} · {selectedPlayerData.role} · 움직임 {selectedInstruction.runDirection === "FORWARD" ? "공격 가담" : selectedInstruction.runDirection === "BACKWARD" ? "수비 가담" : "위치 유지"} <em className="player-instruction-stamina" style={{ "--stamina-hue": String(Math.round(selectedPlayerData.stamina * 1.2)) } as CSSProperties}>체력 {Number(selectedPlayerData.stamina.toFixed(1))}%</em></p></div>
                 <button type="button" onClick={() => props.onPlayerClick(props.selectedPlayer ?? 0)} aria-label={`${selectedPlayerData.name} 개인 지침 닫기`}>×</button>
               </div>
               <div className="player-instruction-sliders">
