@@ -92,6 +92,7 @@ type AiTacticalRecommendation = {
   reasons: string[];
   caution: string;
   teamInstructions: Pick<DetailedTacticInstructions, "aggression" | "takeOn" | "passingFrequency">;
+  playerPositions: Array<{ playerId: string; x: number; y: number }>;
   playerInstructions: Array<Pick<PlayerTacticalInstruction, "playerId" | "aggression" | "takeOn" | "passingFrequency" | "forwardRuns" | "defensiveWorkRate" | "runDirection">>;
   passLinks: Array<{ fromPlayerId: string; toPlayerId: string; intensity: number }>;
 };
@@ -719,7 +720,7 @@ export default function Home() {
       minute: 0,
       activeTacticId,
       tactics: savedTactics.map((tactic) => ({ id: tactic.id, name: tactic.name, formation: tactic.formation, intent: tactic.intent })),
-      lineup: lineup.map((player) => ({ id: player.id, name: player.name, position: player.position, role: player.role, stamina: player.stamina })),
+      lineup: lineup.map((player, index) => ({ id: player.id, name: player.name, position: player.position, role: player.role, stamina: player.stamina, slot: slots[index] })),
       liveMetrics,
     };
   }
@@ -739,12 +740,11 @@ export default function Home() {
       if (!response.ok || !payload.recommendation) throw new Error("Recommendation unavailable");
       const result = payload.recommendation;
       setRecommendation(result);
-      const tactic = savedTactics.find((item) => item.id === result.recommendedTacticId) ?? savedTactics[0];
-      setNotice(`${result.provider === "gemini" ? "AI" : "로컬 코치"}가 ${tactic.intent} 방향의 전술을 제안했습니다.`);
+      applyAiRecommendation(result);
     } catch {
       const result = createLocalTacticalRecommendation(context) as AiTacticalRecommendation;
       setRecommendation(result);
-      setNotice("AI 연결을 사용할 수 없어 로컬 전술 코치의 제안으로 전환했습니다.");
+      applyAiRecommendation(result);
     } finally {
       setAiLoading(false);
     }
@@ -754,13 +754,19 @@ export default function Home() {
     const target = savedTactics.find((tactic) => tactic.id === result.recommendedTacticId);
     if (!target) return;
     const details = mergeAiRecommendationIntoDetails(target.details, result, lineup);
+    const baseSlots = createFormationSlots(target.id, tacticLayouts);
+    const positions = new Map(result.playerPositions.map((position) => [position.playerId, position]));
+    const nextSlots = baseSlots.map((slot, index) => {
+      const position = positions.get(lineup[index]?.id);
+      return position ? { ...slot, x: position.x, y: position.y, role: resolvePitchPosition(position.x, position.y).code } : slot;
+    });
     setSavedTactics((current) => current.map((tactic) => tactic.id === target.id ? { ...tactic, details } : tactic));
     setActiveTacticId(target.id);
-    setSlots(createFormationSlots(target.id, tacticLayouts));
+    setSlots(nextSlots);
+    setTacticLayouts((current) => ({ ...current, [target.id]: nextSlots.map(({ x, y }) => ({ x, y })) }));
     setHoveredZone(null);
     setSelectedPlayer(null);
-    setRecommendation(null);
-    setNotice(`${target.name} 전술과 AI 제안 지침을 라이브 보드에 적용했습니다. 저장을 누르면 확정됩니다.`);
+    setNotice(`${target.name} 전술, ${result.playerPositions.length}개 선수 위치, 팀·개인 지침을 라이브 보드에 적용했습니다. 저장을 누르면 확정됩니다.`);
   }
 
   return (
@@ -1671,8 +1677,8 @@ function MatchRoom(props: MatchRoomProps) {
               <p>{props.recommendation.summary}</p>
               <div className="reason-block positive"><b>추천 이유</b><ul>{props.recommendation.reasons.map((reason, index) => <li key={`${reason}-${index}`}>{reason}</li>)}</ul></div>
               <div className="reason-block warning"><b>적용 유의사항</b><p>{props.recommendation.caution}</p></div>
-              <button className="confirm-button" onClick={() => props.onApplyRecommendation(props.recommendation)}>AI 제안 적용</button>
-              <small className="human-note">{props.recommendation.provider === "gemini" ? "AI가 제안한 팀·개인 지침과 패스 연결을 보드에 적용합니다. 최종 적용은 감독이 확정합니다." : "무료 AI 연결 전 또는 한도 초과 시 로컬 전술 코치가 대신 제안합니다. 최종 적용은 감독이 확정합니다."}</small>
+              <button className="confirm-button" onClick={() => props.onApplyRecommendation(props.recommendation)}>AI 제안 다시 적용</button>
+              <small className="human-note">AI 요청 결과는 선수 위치·팀 지침·개인 지침·패스 연결까지 라이브 보드에 즉시 반영됩니다. 최종 적용은 감독이 확정합니다.</small>
             </div>
           ) : null}
 

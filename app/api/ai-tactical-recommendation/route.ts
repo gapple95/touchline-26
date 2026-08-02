@@ -21,7 +21,8 @@ function readContext(value: unknown) {
     }).filter((tactic) => tactic.id),
     lineup: lineup.map((player) => {
       const item = player as Record<string, unknown>;
-      return { id: String(item.id ?? "").slice(0, 60), name: String(item.name ?? "").slice(0, 48), position: String(item.position ?? "").slice(0, 12), role: String(item.role ?? "").slice(0, 48), stamina: Number(item.stamina) || 50 };
+      const slot = item.slot && typeof item.slot === "object" ? item.slot as Record<string, unknown> : {};
+      return { id: String(item.id ?? "").slice(0, 60), name: String(item.name ?? "").slice(0, 48), position: String(item.position ?? "").slice(0, 12), role: String(item.role ?? "").slice(0, 48), stamina: Number(item.stamina) || 50, slot: { x: Math.max(3, Math.min(97, Number(slot.x) || 50)), y: Math.max(3, Math.min(97, Number(slot.y) || 50)) } };
     }).filter((player) => player.id),
     liveMetrics: context.liveMetrics && typeof context.liveMetrics === "object" ? context.liveMetrics : {},
   };
@@ -36,15 +37,21 @@ function recommendationSchema(context: NonNullable<ReturnType<typeof readContext
     properties: { playerId: { type: "STRING", enum: playerIds }, aggression: score, takeOn: score, passingFrequency: score, forwardRuns: score, defensiveWorkRate: score, runDirection: { type: "STRING", enum: ["FORWARD", "BACKWARD", "HOLD"] } },
     required: ["playerId", "aggression", "takeOn", "passingFrequency", "forwardRuns", "defensiveWorkRate", "runDirection"],
   };
+  const playerPosition = {
+    type: "OBJECT",
+    properties: { playerId: { type: "STRING", enum: playerIds }, x: score, y: score },
+    required: ["playerId", "x", "y"],
+  };
   return {
     type: "OBJECT",
     properties: {
       recommendedTacticId: { type: "STRING", enum: tacticIds }, confidence: score, summary: { type: "STRING" }, reasons: { type: "ARRAY", items: { type: "STRING" }, minItems: 2, maxItems: 3 }, caution: { type: "STRING" },
       teamInstructions: { type: "OBJECT", properties: { aggression: score, takeOn: score, passingFrequency: score }, required: ["aggression", "takeOn", "passingFrequency"] },
+      playerPositions: { type: "ARRAY", items: playerPosition, maxItems: 6 },
       playerInstructions: { type: "ARRAY", items: playerInstruction, maxItems: 4 },
       passLinks: { type: "ARRAY", items: { type: "OBJECT", properties: { fromPlayerId: { type: "STRING", enum: playerIds }, toPlayerId: { type: "STRING", enum: playerIds }, intensity: score }, required: ["fromPlayerId", "toPlayerId", "intensity"] }, maxItems: 4 },
     },
-    required: ["recommendedTacticId", "confidence", "summary", "reasons", "caution", "teamInstructions", "playerInstructions", "passLinks"],
+    required: ["recommendedTacticId", "confidence", "summary", "reasons", "caution", "teamInstructions", "playerPositions", "playerInstructions", "passLinks"],
   };
 }
 
@@ -70,7 +77,7 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return NextResponse.json({ recommendation: fallback, fallbackReason: "AI 키가 설정되지 않아 로컬 전술 코치를 사용했습니다." });
 
-  const systemInstruction = "You are TOUCHLINE 26's Korean football tactical coach. Return only a tactical recommendation matching the JSON schema. Use only supplied tactics and players. Do not invent players, match events, statistics, injuries, or scores. Keep Korean summary, reasons, and caution concise. The recommendation is advisory: optimize for the user's stated intent and the supplied live metrics.";
+  const systemInstruction = "You are TOUCHLINE 26's Korean football tactical coach. Return only a tactical recommendation matching the JSON schema. Use only supplied tactics and players. Do not invent players, match events, statistics, injuries, or scores. Keep Korean summary, reasons, and caution concise. Translate the user's stated tactical intent into concrete team instructions, individual instructions, pass links, and 2-6 playerPositions. Pitch coordinates use x=0 for the user's own goal and x=100 for the opponent goal; y=0 is the upper touchline and y=100 is the lower touchline. The recommendation is advisory: optimize for the user's stated intent and the supplied live metrics.";
   const userPrompt = JSON.stringify({ request: context.prompt, minute: context.minute, activeTacticId: context.activeTacticId, tactics: context.tactics, lineup: context.lineup, liveMetrics: context.liveMetrics });
 
   try {

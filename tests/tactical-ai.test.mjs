@@ -13,6 +13,7 @@ test("creates a deterministic local tactical fallback", () => {
   assert.equal(recommendation.provider, "local");
   assert.equal(recommendation.recommendedTacticId, "press");
   assert.ok(recommendation.passLinks.every((link) => link.fromPlayerId !== link.toPlayerId));
+  assert.ok(recommendation.playerPositions.every((position) => position.x >= 3 && position.x <= 97 && position.y >= 3 && position.y <= 97));
 });
 
 test("normalizes AI output to permitted tactics, players, and score bounds", () => {
@@ -26,5 +27,6 @@ test("normalizes AI output to permitted tactics, players, and score bounds", () 
   assert.equal(recommendation.recommendedTacticId, "press");
   assert.deepEqual(recommendation.teamInstructions, { aggression: 0, takeOn: 55, passingFrequency: 100 });
   assert.equal(recommendation.playerInstructions.length, 1);
+  assert.deepEqual(recommendation.playerPositions, []);
   assert.deepEqual(recommendation.passLinks, [{ fromPlayerId: "lee-kangin", toPlayerId: "cho-guesung", intensity: 100 }]);
 });
