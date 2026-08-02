@@ -133,6 +133,23 @@ const opponentTacticalSnapshots: OpponentTacticalSnapshot[] = [
   { minute: 90, formation: "5-4-1", phase: "막판 대응", block: "LOW BLOCK", headline: "한 번의 전환만 남긴 채 박스 보호", observation: "수비 블록은 낮게 유지하고, 공격 전환은 최전방 한 명과 넓은 윙 채널로 제한합니다.", responseTacticId: "chase", responseInstruction: "후방 리스크를 감수하되, 두 번째 볼을 공격 진영에서 회수하도록 적극성을 높입니다.", shape: [{ x: 91, y: 50, role: "GK" }, { x: 80, y: 88, role: "RWB" }, { x: 78, y: 68, role: "RCB" }, { x: 78, y: 50, role: "CB" }, { x: 78, y: 32, role: "LCB" }, { x: 80, y: 12, role: "LWB" }, { x: 61, y: 82, role: "RM" }, { x: 61, y: 61, role: "CM" }, { x: 61, y: 39, role: "CM" }, { x: 61, y: 18, role: "LM" }, { x: 41, y: 50, role: "ST" }] },
 ];
 
+function modelOpponentShape(formation: string, block: string, phase: string): OpponentShapePoint[] {
+  const lines = block === "HIGH BUILD" ? { goalkeeper: 94, defence: 74, midfield: 49, attack: 19 }
+    : block === "HIGH PRESS" ? { goalkeeper: 94, defence: 72, midfield: 47, attack: 20 }
+      : block === "LOW BLOCK" ? { goalkeeper: 94, defence: 82, midfield: 65, attack: 38 }
+        : { goalkeeper: 94, defence: 78, midfield: 55, attack: 27 };
+  const point = (x: number, y: number, role: string): OpponentShapePoint => ({ x, y, role });
+  const backFour = [point(lines.defence, 84, "RB"), point(lines.defence - 2, 63, "RCB"), point(lines.defence - 2, 37, "LCB"), point(lines.defence, 16, "LB")];
+  const goalkeeper = point(lines.goalkeeper, 50, "GK");
+
+  if (formation === "4-3-3" && phase === "우측 과부하") return [goalkeeper, point(70, 89, "RB"), point(73, 65, "RCB"), point(74, 37, "LCB"), point(77, 15, "LB"), point(54, 58, "DM"), point(40, 80, "RCM"), point(51, 31, "LCM"), point(17, 91, "RW"), point(21, 55, "ST"), point(32, 14, "LW")];
+  if (formation === "4-1-4-1") return [goalkeeper, ...backFour, point(lines.midfield + 9, 50, "DM"), point(lines.midfield, 84, "RM"), point(lines.midfield - 2, 62, "RCM"), point(lines.midfield - 2, 38, "LCM"), point(lines.midfield, 16, "LM"), point(lines.attack, 50, "ST")];
+  if (formation === "4-2-3-1") return [goalkeeper, ...backFour, point(lines.midfield + 8, 63, "DM"), point(lines.midfield + 8, 37, "DM"), point(lines.midfield - 5, 84, "RW"), point(lines.midfield - 8, 50, "AM"), point(lines.midfield - 5, 16, "LW"), point(lines.attack, 50, "ST")];
+  if (formation === "4-4-2") return [goalkeeper, ...backFour, point(lines.midfield, 84, "RM"), point(lines.midfield - 2, 62, "CM"), point(lines.midfield - 2, 38, "CM"), point(lines.midfield, 16, "LM"), point(lines.attack, 63, "ST"), point(lines.attack, 37, "ST")];
+  if (formation === "5-4-1") return [goalkeeper, point(lines.defence, 88, "RWB"), point(lines.defence - 2, 68, "RCB"), point(lines.defence - 3, 50, "CB"), point(lines.defence - 2, 32, "LCB"), point(lines.defence, 12, "LWB"), point(lines.midfield, 84, "RM"), point(lines.midfield - 2, 62, "CM"), point(lines.midfield - 2, 38, "CM"), point(lines.midfield, 16, "LM"), point(lines.attack, 50, "ST")];
+  return [goalkeeper, ...backFour, point(lines.midfield + 8, 50, "DM"), point(lines.midfield, 70, "RCM"), point(lines.midfield, 30, "LCM"), point(lines.attack + 4, 84, "RW"), point(lines.attack, 50, "ST"), point(lines.attack + 4, 16, "LW")];
+}
+
 function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTacticInstructions {
   return {
     ...details,
@@ -1420,7 +1437,7 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? `${opponentSnapshot.minute}′ 전술 확정${nextOpponentMinute === null ? "" : ` → ${nextOpponentMinute}′`}` : "전술 확정"}</button>
             </div>
           </div>
-          <OpponentTacticalTimeline snapshot={opponentSnapshot} activeTactic={props.activeTactic} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} onApply={(tacticId) => props.onTactic(tacticId)} />
+          <OpponentTacticalTimeline snapshot={opponentSnapshot} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} />
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
@@ -1651,13 +1668,13 @@ function MatchRoom(props: MatchRoomProps) {
   );
 }
 
-function OpponentTacticalTimeline({ snapshot, activeTactic, unlockedIndex, onMinute, onApply }: { snapshot: OpponentTacticalSnapshot; activeTactic: Tactic; unlockedIndex: number; onMinute: (minute: number) => void; onApply: (tacticId: TacticId) => void }) {
-  const responseIsActive = activeTactic.id === snapshot.responseTacticId;
+function OpponentTacticalTimeline({ snapshot, unlockedIndex, onMinute }: { snapshot: OpponentTacticalSnapshot; unlockedIndex: number; onMinute: (minute: number) => void }) {
+  const shape = modelOpponentShape(snapshot.formation, snapshot.block, snapshot.phase);
 
   return (
     <section className="opponent-timeline-panel" aria-label="15분 단위 상대 전술 분석">
       <header className="opponent-timeline-head">
-        <div><span>OPPONENT TACTICAL SNAPSHOT</span><h3>포르투갈 {snapshot.minute}&apos; · {snapshot.formation}</h3><p>공개 이벤트·360 프레임을 압축한 전술 추정 배치</p></div>
+        <div><span>OPPONENT TACTICAL SNAPSHOT</span><h3>포르투갈 {snapshot.minute}&apos; · {snapshot.formation}</h3><p>포메이션·압박 블록을 반영한 11인 라인 모델</p></div>
         <div><b>{snapshot.block}</b><small>{snapshot.phase}</small></div>
       </header>
       <div className="opponent-timeline-tabs" role="tablist" aria-label="상대 전술 시간대 선택">
@@ -1672,10 +1689,9 @@ function OpponentTacticalTimeline({ snapshot, activeTactic, unlockedIndex, onMin
           <i className="opponent-six-yard-box left" /><i className="opponent-six-yard-box right" />
           <i className="opponent-goal left" /><i className="opponent-goal right" />
           <i className="opponent-penalty-spot left" /><i className="opponent-penalty-spot right" />
-          {snapshot.shape.map((point, index) => <b key={`${snapshot.minute}-${point.role}-${index}`} className="opponent-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
+          {shape.map((point, index) => <b key={`${snapshot.minute}-${point.role}-${index}`} className="opponent-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
         </div>
         <div className="opponent-observation"><span>상대 관찰</span><b>{snapshot.headline}</b><p>{snapshot.observation}</p></div>
-        <div className={`opponent-response ${responseIsActive ? "active" : ""}`}><span>우리 대응 전술</span><b>{responseIsActive ? `${activeTactic.name} 적용 중` : "이 시간대 추천"}</b><p>{snapshot.responseInstruction}</p><button type="button" onClick={() => onApply(snapshot.responseTacticId)}>{responseIsActive ? "적용된 전술" : "이 대응 전술 적용"}</button></div>
       </div>
     </section>
   );
