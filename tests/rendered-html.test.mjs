@@ -23,7 +23,7 @@ test("server-renders the TOUCHLINE 26 entry screen", async () => {
   const html = await response.text();
   assert.match(html, /TOUCHLINE 26/);
   assert.match(html, /class="landing-screen"/);
-  assert.match(html, /touchline-26-hero-cover\.png/);
+  assert.match(html, /touchline-26-hero-central\.png/);
   assert.match(html, /\ub2c9\ub124\uc784\uc73c\ub85c \uc785\uc7a5/);
   assert.match(html, /\ube44\uacf5\uac1c\ub85c \uc785\uc7a5/);
   if (html.includes("fixture-screen")) {
@@ -171,7 +171,7 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.match(page, /accessMode/);
   assert.match(page, /PRIVATE SESSION/);
   assert.match(page + css, /landing-screen/);
-  assert.match(page + css, /object-fit: contain/);
+  assert.match(page + css, /object-fit: cover/);
   assert.match(page, /MY NICKNAME/);
   assert.match(page, /MY MATCH RECORD/);
   assert.match(page, /PUBLIC RANKING/);
