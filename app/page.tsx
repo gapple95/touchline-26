@@ -918,6 +918,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [widePlayPickerOpen, setWidePlayPickerOpen] = useState(false);
   const [widePlayPickerSide, setWidePlayPickerSide] = useState<"left" | "right">("left");
   const [opponentSnapshotMinute, setOpponentSnapshotMinute] = useState(0);
+  const [confirmedOpponentIndex, setConfirmedOpponentIndex] = useState(-1);
   const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [newTacticNameError, setNewTacticNameError] = useState("");
@@ -945,6 +946,10 @@ function MatchRoom(props: MatchRoomProps) {
   const selectedPlayerSlot = props.selectedPlayer === null ? null : props.slots[props.selectedPlayer];
   const selectedInstruction = selectedPlayerData ? playerInstructionFor(selectedPlayerData.id) : null;
   const opponentSnapshot = opponentTacticalSnapshots.find((snapshot) => snapshot.minute === opponentSnapshotMinute) ?? opponentTacticalSnapshots[0];
+  const opponentSnapshotIndex = opponentTacticalSnapshots.findIndex((snapshot) => snapshot.minute === opponentSnapshot.minute);
+  const unlockedOpponentIndex = Math.min(confirmedOpponentIndex + 1, opponentTacticalSnapshots.length - 1);
+  const awaitingOpponentDecision = opponentSnapshotIndex === unlockedOpponentIndex && confirmedOpponentIndex < opponentTacticalSnapshots.length - 1;
+  const nextOpponentMinute = opponentTacticalSnapshots[opponentSnapshotIndex + 1]?.minute ?? null;
 
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
@@ -1138,6 +1143,13 @@ function MatchRoom(props: MatchRoomProps) {
     cancelRelationshipAssignment();
     setPlayerMenuOpen(false);
     props.onReset();
+  }
+
+  function confirmOpponentDecision() {
+    props.onConfirmTactic();
+    if (!awaitingOpponentDecision) return;
+    setConfirmedOpponentIndex(opponentSnapshotIndex);
+    if (nextOpponentMinute !== null) setOpponentSnapshotMinute(nextOpponentMinute);
   }
 
   function clampPassPopoverPosition(x: number, y: number) {
@@ -1403,12 +1415,12 @@ function MatchRoom(props: MatchRoomProps) {
         <section className="board-panel panel">
           <div className="board-toolbar">
             <div className="board-toolbar-actions">
-              <span className={props.hasUnconfirmedChanges ? "dirty" : "saved"}>{props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
+              <span className={props.hasUnconfirmedChanges || awaitingOpponentDecision ? "dirty" : "saved"}>{awaitingOpponentDecision ? `${opponentSnapshot.minute}′ 대응 결정 대기` : props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
               <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
-              <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
+              <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? `${opponentSnapshot.minute}′ 전술 확정${nextOpponentMinute === null ? "" : ` → ${nextOpponentMinute}′`}` : "전술 확정"}</button>
             </div>
           </div>
-          <OpponentTacticalTimeline snapshot={opponentSnapshot} activeTactic={props.activeTactic} onMinute={setOpponentSnapshotMinute} onApply={(tacticId) => props.onTactic(tacticId)} />
+          <OpponentTacticalTimeline snapshot={opponentSnapshot} activeTactic={props.activeTactic} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} onApply={(tacticId) => props.onTactic(tacticId)} />
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
@@ -1639,7 +1651,7 @@ function MatchRoom(props: MatchRoomProps) {
   );
 }
 
-function OpponentTacticalTimeline({ snapshot, activeTactic, onMinute, onApply }: { snapshot: OpponentTacticalSnapshot; activeTactic: Tactic; onMinute: (minute: number) => void; onApply: (tacticId: TacticId) => void }) {
+function OpponentTacticalTimeline({ snapshot, activeTactic, unlockedIndex, onMinute, onApply }: { snapshot: OpponentTacticalSnapshot; activeTactic: Tactic; unlockedIndex: number; onMinute: (minute: number) => void; onApply: (tacticId: TacticId) => void }) {
   const responseIsActive = activeTactic.id === snapshot.responseTacticId;
 
   return (
@@ -1649,12 +1661,17 @@ function OpponentTacticalTimeline({ snapshot, activeTactic, onMinute, onApply }:
         <div><b>{snapshot.block}</b><small>{snapshot.phase}</small></div>
       </header>
       <div className="opponent-timeline-tabs" role="tablist" aria-label="상대 전술 시간대 선택">
-        {opponentTacticalSnapshots.map((item) => <button key={item.minute} type="button" className={item.minute === snapshot.minute ? "active" : ""} onClick={() => onMinute(item.minute)} aria-pressed={item.minute === snapshot.minute}>{item.minute}&apos;</button>)}
+        {opponentTacticalSnapshots.map((item, index) => <button key={item.minute} type="button" className={item.minute === snapshot.minute ? "active" : ""} onClick={() => onMinute(item.minute)} aria-pressed={item.minute === snapshot.minute} disabled={index > unlockedIndex} title={index > unlockedIndex ? "이전 시간대의 우리 전술을 확정하면 열립니다." : undefined}>{item.minute}&apos;</button>)}
       </div>
       <div className="opponent-timeline-content">
         <div className="opponent-mini-pitch" aria-label={`포르투갈 ${snapshot.minute}분 추정 배치`}>
           <span>POR FORWARD ←</span>
           <i className="opponent-halfway" />
+          <i className="opponent-centre-circle" />
+          <i className="opponent-penalty-box left" /><i className="opponent-penalty-box right" />
+          <i className="opponent-six-yard-box left" /><i className="opponent-six-yard-box right" />
+          <i className="opponent-goal left" /><i className="opponent-goal right" />
+          <i className="opponent-penalty-spot left" /><i className="opponent-penalty-spot right" />
           {snapshot.shape.map((point, index) => <b key={`${snapshot.minute}-${point.role}-${index}`} className="opponent-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
         </div>
         <div className="opponent-observation"><span>상대 관찰</span><b>{snapshot.headline}</b><p>{snapshot.observation}</p></div>
