@@ -6,3 +6,5 @@
 - License: CC0-1.0
 
 The pack retains tournament teams, players, venues, stages, referees, player statistics, matches, starting line-ups, appearances, events, and team statistics. The source does not provide 15-minute player tracking coordinates. Any positions shown on TOUCHLINE 26's tactical pitch are therefore clearly marked as a formation-derived tactical model, not tracking data.
+
+This is an external public dataset and may differ from the official FIFA match record. TOUCHLINE 26 displays this notice in the fixture and team-selection screens.
