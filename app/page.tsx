@@ -58,6 +58,16 @@ const koreanPlayerNames: Record<string, string> = {
   "Jisung Eom": "엄지성", "Donggyeong Lee": "이동경",
 };
 
+// FIFA World Cup 2026™ Squad List, Version 1 (19 July 2026): Korea Republic (KOR).
+const koreaWorldCup2026Numbers: Record<string, number> = {
+  "Seunggyu Kim": 1, "Hanbeom Lee": 2, "Gihyuk Lee": 3, "Minjae Kim": 4, "Taehyeon Kim": 5,
+  "Inbeom Hwang": 6, "Heung Min Son": 7, "Seungho Paik": 8, "Guesung Cho": 9, "Jae Sung Lee": 10,
+  "Hee Chan Hwang": 11, "Bumkeun Song": 12, "Taeseok Lee": 13, "Wije Cho": 14, "Moonhwan Kim": 15,
+  "Jinseob Park": 16, "Junho Bae": 17, "Hyeongyu Oh": 18, "Kangin Lee": 19, "Hyunjun Yang": 20,
+  "Hyeonwoo Jo": 21, "Youngwoo Seol": 22, "Jens Castrop": 23, "Jingyu Kim": 24, "Jisung Eom": 25,
+  "Donggyeong Lee": 26,
+};
+
 function displayTeamName(team: Pick<OfficialTeam, "code" | "name">) {
   return team.code === "KOR" ? "대한민국" : team.name;
 }
@@ -637,7 +647,7 @@ function officialSquadPlayers(fixture: MatchFixture, side: "home" | "away") {
   return ordered.map((member) => ({
     id: `fifa-wc-2026-${fixture.official?.id}-${side}-${member.playerId}`,
     name: displayOfficialPlayerName(fixture.official?.[side].team.code ?? "", member.name),
-    number: 0,
+    number: fixture.official?.[side].team.code === "KOR" ? (koreaWorldCup2026Numbers[member.name] ?? 0) : 0,
     position: canonicalPosition(member.tacticalPosition || member.position),
     role: canonicalPosition(member.tacticalPosition || member.position),
     stamina: officialTournamentStamina(fixture, side, member.playerId),
@@ -1568,7 +1578,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         })}
       </div>
 
-      <div className="fixture-policy"><b>DATA NOTICE</b><span>외부 공개 데이터셋 기반으로 실제 공식 데이터와 다를 수 있습니다. 원본에 등번호가 없어 임의 번호를 쓰지 않으며, 보드에는 —로 표시합니다. 2026 월드컵 {worldCupData.metadata.counts.matches}경기 · {worldCupData.metadata.counts.teams}개국 · 선수 {worldCupData.metadata.counts.players}명 · 선발/출전 {worldCupData.metadata.counts.lineupRows}건 · 이벤트 {worldCupData.metadata.counts.events}건을 저장했습니다. 피치 위치는 추적 데이터가 아닌 전술 포메이션 모델입니다.</span></div>
+      <div className="fixture-policy"><b>DATA NOTICE</b><span>외부 공개 데이터셋 기반으로 실제 공식 데이터와 다를 수 있습니다. 대한민국은 FIFA 최종 명단의 공식 등번호를 반영했고, 원본에 번호가 없는 다른 나라 선수는 임의 번호 대신 —로 표시합니다. 2026 월드컵 {worldCupData.metadata.counts.matches}경기 · {worldCupData.metadata.counts.teams}개국 · 선수 {worldCupData.metadata.counts.players}명 · 선발/출전 {worldCupData.metadata.counts.lineupRows}건 · 이벤트 {worldCupData.metadata.counts.events}건을 저장했습니다. 피치 위치는 추적 데이터가 아닌 전술 포메이션 모델입니다.</span></div>
     </section>
   );
 }
@@ -1777,7 +1787,7 @@ function TeamSelector({ fixture, nickname, accessMode, onBack, onSelect }: { fix
       <span>STEP 02 · MANAGER TEAM</span>
       <h1 id="team-select-title">어느 팀의 감독이 되시겠어요?</h1>
       <p>{fixture.home.name} vs {fixture.away.name}. 선택한 팀의 실제 선발·교체 출전 명단으로 킥오프 전 전술을 저장합니다.</p>
-      {fixture.official && <p className="official-fixture-note">외부 공개 데이터셋 기반이라 실제 공식 데이터와 다를 수 있습니다. 원본에 공식 등번호가 없어 임의 번호를 쓰지 않으며 —로 표시합니다. 선발·교체 출전·이벤트·팀 스탯을 활용하고, 전술보드 위치는 공개 추적 좌표가 없어 기존 전술 레이아웃을 섞은 포메이션 모델입니다. 연속 출전 선수는 이전 경기 출전 시간을 반영한 체력으로 시작합니다.</p>}
+      {fixture.official && <p className="official-fixture-note">외부 공개 데이터셋 기반이라 실제 공식 데이터와 다를 수 있습니다. 대한민국은 FIFA 최종 명단의 공식 등번호를 반영했습니다. 원본에 번호가 없는 다른 나라 선수는 임의 번호 대신 —로 표시합니다. 선발·교체 출전·이벤트·팀 스탯을 활용하고, 전술보드 위치는 공개 추적 좌표가 없어 기존 전술 레이아웃을 섞은 포메이션 모델입니다. 연속 출전 선수는 이전 경기 출전 시간을 반영한 체력으로 시작합니다.</p>}
       <div className="team-select-grid">
         {(["home", "away"] as const).map((side) => {
           const team = fixture[side];

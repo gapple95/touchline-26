@@ -7,4 +7,6 @@
 
 The pack retains tournament teams, players, venues, stages, referees, player statistics, matches, starting line-ups, appearances, events, and team statistics. The source does not provide official jersey numbers or 15-minute player tracking coordinates. TOUCHLINE 26 therefore does not invent jersey numbers and marks them as unavailable; pitch positions are clearly marked as formation-derived tactical models, not tracking data.
 
+For Korea Republic only, the application overlays the official FIFA numbers from the [FIFA World Cup 2026 Squad List (Version 1, 19 July 2026)](https://fdp.fifa.org/assetspublic/ce281/pdf/SquadLists-English.pdf?gsid=ac9859f6-ef0d-4316-be2b-e40a53db8fa2). Other nations remain unnumbered until an equally authoritative number source is imported.
+
 This is an external public dataset and may differ from the official FIFA match record. TOUCHLINE 26 displays this notice in the fixture and team-selection screens.
