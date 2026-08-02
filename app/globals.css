@@ -161,11 +161,12 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .team-select-card.ready { cursor: pointer; }.team-select-card.ready:hover { border-color: var(--green); box-shadow: var(--shadow); transform: translateY(-4px); }.team-select-card.soon { opacity: .55; cursor: not-allowed; }
 .team-select-card > span { color: var(--muted); font: 900 10px Arial, sans-serif; letter-spacing: .12em; }.team-select-card strong { margin-top: auto; color: var(--green); font: 950 64px Arial, sans-serif; letter-spacing: -.08em; }.team-select-card b { margin-top: -5px; font-size: 18px; }.team-select-card small { margin-top: 28px; color: var(--muted); font-size: 12px; font-weight: 700; }.team-select-card em { margin-top: 14px; color: var(--orange); font-size: 13px; font-style: normal; font-weight: 900; }
 
+.match-command-header { position: sticky; top: 0; z-index: 60; box-shadow: 0 8px 16px rgba(13,24,18,.12); }
 .match-status-bar {
   min-height: 86px;
   padding: 12px clamp(24px, 4.5vw, 72px);
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr) auto;
+  grid-template-columns: minmax(140px, 1fr) auto minmax(140px, 1fr) auto auto;
   align-items: center;
   gap: clamp(18px, 3vw, 46px);
   border-bottom: 1px solid var(--line);
@@ -184,6 +185,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .match-clock span, .match-clock b { display: block; white-space: nowrap; }
 .match-clock span { color: var(--orange); font: 900 10px Arial, sans-serif; letter-spacing: .1em; }
 .match-clock b { margin-top: 5px; font-size: 12px; }
+.match-command-actions { min-width: 260px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; align-items: end; }.match-command-actions > span { grid-column: 1 / -1; justify-self: end; padding: 5px 8px; border-radius: 20px; font: 900 10px Arial, sans-serif; letter-spacing: .04em; }.match-command-actions > span.dirty { background: #ffe1d9; color: #b53520; }.match-command-actions > span.saved { background: #dcebd7; color: #397233; }.match-command-actions button { min-height: 42px; padding: 0 10px; cursor: pointer; font-size: 13px; font-weight: 900; white-space: nowrap; }.match-command-actions .text-button { height: auto; }
 
 .decision-banner {
   min-height: 46px;
@@ -217,8 +219,8 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .coach-panel { border-top: 1px solid var(--line); }
 .tactic-follow-rail { grid-column: 1; position: sticky; top: 90px; z-index: 12; display: grid; gap: 14px; align-self: start; }
 .tactic-panel > .tactic-detail-summary, .tactic-panel > .tactic-detail-editor { display: none; }
-.board-panel { grid-column: 1 / -1; order: 1; display: grid; grid-template-columns: minmax(250px, .76fr) minmax(480px, 1.55fr) minmax(250px, .76fr); grid-template-areas: "toolbar toolbar toolbar" "timeline timeline timeline" "team pitch metrics" "player pitch metrics" ". bench ."; gap: 16px 22px; align-items: start; background: #f9f7f0; padding-inline: clamp(22px, 3vw, 48px); }
-.board-toolbar { grid-area: toolbar; }
+.board-panel { grid-column: 1 / -1; order: 1; display: grid; grid-template-columns: minmax(250px, .76fr) minmax(480px, 1.55fr) minmax(250px, .76fr); grid-template-areas: "timeline timeline timeline" "team pitch metrics" "player pitch metrics" ". bench ."; gap: 16px 22px; align-items: start; background: #f9f7f0; padding-inline: clamp(22px, 3vw, 48px); }
+.board-toolbar { display: none; }
 .opponent-timeline-panel { grid-area: timeline; }
 .board-panel > .pitch-shell { grid-area: pitch; }
 .board-panel > .team-instruction-panel { grid-area: team; }
@@ -242,7 +244,6 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .section-title p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .section-title-compact { display: block; margin-bottom: 18px; }
 .section-title-compact h2 { margin: 0; font-size: 25px; }
-.board-toolbar { display: flex; justify-content: flex-end; align-items: flex-start; gap: 16px; }
 .board-toolbar-actions { min-width: 200px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
 .board-toolbar-actions > span { grid-column: 1 / -1; justify-self: end; padding: 4px 7px; border-radius: 20px; font: 900 7px Arial, sans-serif; letter-spacing: .04em; }.board-toolbar-actions > span.dirty { background: #ffe1d9; color: #b53520; }.board-toolbar-actions > span.saved { background: #dcebd7; color: #397233; }
 .board-toolbar-actions button { min-height: 34px; padding: 0 8px; cursor: pointer; font-size: 8px; font-weight: 900; white-space: nowrap; }.board-toolbar-actions button:disabled { opacity: .38; cursor: not-allowed; }
@@ -680,15 +681,15 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 }
 
 @media (max-width: 1100px) {
-  .match-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }.tactic-panel, .tactic-follow-rail, .board-panel { grid-column: 1; }.tactic-follow-rail { position: static; margin: 20px clamp(20px, 3vw, 48px) 0; }.tactic-follow-rail .live-metric-dock-inner { grid-template-columns: 160px minmax(0,1fr); gap: 14px; }.tactic-follow-rail .dock-details { display: none; }.board-panel { grid-template-columns: minmax(220px, .78fr) minmax(0, 1.5fr); grid-template-areas: "toolbar toolbar" "timeline timeline" "team pitch" "player pitch" ". bench" "metrics metrics"; }.opponent-timeline-content { grid-template-columns: minmax(220px, .8fr) 1fr; }.opponent-response { grid-column: 1 / -1; }.board-panel > .live-metric-dock { position: static; }.match-workspace { padding-bottom: 28px; }
+  .match-workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }.tactic-panel, .tactic-follow-rail, .board-panel { grid-column: 1; }.tactic-follow-rail { position: static; margin: 20px clamp(20px, 3vw, 48px) 0; }.tactic-follow-rail .live-metric-dock-inner { grid-template-columns: 160px minmax(0,1fr); gap: 14px; }.tactic-follow-rail .dock-details { display: none; }.board-panel { grid-template-columns: minmax(220px, .78fr) minmax(0, 1.5fr); grid-template-areas: "timeline timeline" "team pitch" "player pitch" ". bench" "metrics metrics"; }.opponent-timeline-content { grid-template-columns: minmax(220px, .8fr) 1fr; }.opponent-response { grid-column: 1 / -1; }.board-panel > .live-metric-dock { position: static; }.match-workspace { padding-bottom: 28px; }
 }
 
 @media (max-width: 900px) {
   .app-header { grid-template-columns: 1fr auto; min-height: 64px; }.primary-nav { height: 64px; }.primary-nav button { min-width: auto; padding: 0 12px; font-size: 11px; }.primary-nav button span { display: none; }
   .fixture-list { grid-template-columns: 1fr; max-width: 560px; }.fixture-card { min-height: 230px; }.team-select-grid { max-width: 560px; }
-  .match-status-bar { grid-template-columns: 1fr auto 1fr; }.match-clock { display: none; }
+  .match-status-bar { grid-template-columns: 1fr auto 1fr; }.match-clock { display: none; }.match-command-actions { grid-column: 1 / -1; width: min(100%, 420px); justify-self: end; }
   .decision-banner { grid-template-columns: auto 1fr; }.decision-banner b { display: none; }
-  .match-workspace { display: flex; flex-direction: column; }.tactic-panel { border-right: 0; }.tactic-list { grid-template-columns: repeat(3, 1fr); }.board-panel { display: flex; flex-direction: column; }.board-panel > .board-toolbar { order: 0; }.board-panel > .opponent-timeline-panel { order: 1; }.board-panel > .team-instruction-panel { order: 2; }.board-panel > .pitch-shell { order: 3; }.board-panel > .bench-row { order: 4; }.board-panel > .player-instruction-panel, .board-panel > .player-instruction-empty { order: 5; }.board-panel > .live-metric-dock { order: 6; }.board-panel > .team-instruction-panel, .board-panel > .bench-row, .board-panel > .player-instruction-panel, .board-panel > .player-instruction-empty { margin: 14px auto 0; }.opponent-timeline-content { grid-template-columns: 1fr; }.tactic-follow-rail { margin: 16px; }.tactic-card { grid-template-columns: 34px 1fr; }.tactic-card em { display: none; }.metric-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }.metric-heading, .live-index-grid, .live-phase, .metric-disclaimer { grid-column: 1 / -1; }
+  .match-workspace { display: flex; flex-direction: column; }.tactic-panel { border-right: 0; }.tactic-list { grid-template-columns: repeat(3, 1fr); }.board-panel { display: flex; flex-direction: column; }.board-panel > .opponent-timeline-panel { order: 1; }.board-panel > .team-instruction-panel { order: 2; }.board-panel > .pitch-shell { order: 3; }.board-panel > .bench-row { order: 4; }.board-panel > .player-instruction-panel, .board-panel > .player-instruction-empty { order: 5; }.board-panel > .live-metric-dock { order: 6; }.board-panel > .team-instruction-panel, .board-panel > .bench-row, .board-panel > .player-instruction-panel, .board-panel > .player-instruction-empty { margin: 14px auto 0; }.opponent-timeline-content { grid-template-columns: 1fr; }.tactic-follow-rail { margin: 16px; }.tactic-card { grid-template-columns: 34px 1fr; }.tactic-card em { display: none; }.metric-card { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }.metric-heading, .live-index-grid, .live-phase, .metric-disclaimer { grid-column: 1 / -1; }
   .review-grid, .manager-layout, .record-panel, .leaderboard-panel, .private-record-panel { grid-template-columns: 1fr; }.score-card { max-width: none; }.identity-card { min-height: 480px; }
   .duel-stage { grid-template-columns: 1fr; gap: 28px; }.versus-orb { width: 110px; height: 110px; }.versus-orb::before, .versus-orb::after { top: auto; left: 50%; width: 0; height: 40px; border: 0; border-left: 2px solid var(--lime); }.versus-orb::before { bottom: 100%; }.versus-orb::after { top: 100%; border-color: var(--orange); }.versus-orb span { top: 43%; left: calc(100% + 16px); }.duel-result { grid-template-columns: 1fr; }
   .app-footer { grid-template-columns: 1fr auto; }.app-footer > div:nth-child(2) { display: none; }
@@ -698,7 +699,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   .landing-entry { right: 16px; bottom: 16px; width: calc(100vw - 32px); padding: 18px; }.landing-entry > p { font-size: 12px; }
   .app-header { padding: 0 14px; }.wordmark > span:last-child { display: none; }.wordmark-box { width: 29px; height: 29px; }.primary-nav button { padding: 0 8px; font-size: 10px; }
   .fixture-nav { padding: 7px 9px; font-size: 10px; }.fixture-screen, .team-select-screen { width: min(100% - 32px, 560px); padding-top: 52px; }.fixture-intro h1, .team-select-screen h1 { font-size: 43px; }.fixture-intro p, .team-select-screen > p { font-size: 14px; }.fixture-list { margin-top: 42px; }.fixture-card { min-height: 220px; padding: 18px; }.fixture-policy { align-items: flex-start; flex-direction: column; gap: 6px; }.team-select-screen > span { margin-top: 42px; }.team-select-grid { grid-template-columns: 1fr; margin-top: 42px; }.team-select-card { min-height: 220px; }
-  .match-status-bar { min-height: 72px; padding: 9px 18px; gap: 10px; }.match-team { display: grid; gap: 1px; }.match-team.away { justify-content: end; }.match-team span { font-size: 18px; }.match-team b { font-size: 10px; }.match-live-score { min-width: 112px; padding: 8px 12px; gap: 8px; }.match-live-score small { font-size: 8px; }.match-live-score strong { font-size: 24px; }
+  .match-status-bar { min-height: 72px; padding: 9px 18px; gap: 10px; }.match-team { display: grid; gap: 1px; }.match-team.away { justify-content: end; }.match-team span { font-size: 18px; }.match-team b { font-size: 10px; }.match-live-score { min-width: 112px; padding: 8px 12px; gap: 8px; }.match-live-score small { font-size: 8px; }.match-live-score strong { font-size: 24px; }.match-command-actions { width: 100%; }.match-command-actions > span { font-size: 9px; }.match-command-actions button { min-height: 38px; font-size: 12px; }
   .decision-banner { padding: 10px 18px; gap: 12px; }.decision-banner p { font-size: 10px; }
   .panel { padding: 24px 16px; }.tactic-list { grid-template-columns: 1fr 1fr; }.tactic-card, .tactic-add-card { min-height: 68px; }.board-toolbar { align-items: stretch; flex-direction: column; }.board-toolbar-actions { width: 100%; min-width: 0; }.board-toolbar-actions > span { justify-self: start; }.board-toolbar .section-title { margin-bottom: 4px; }.pitch-shell { padding: 6px; }.pitch { padding: 10px; }.player-token { --token-anchor-x: -15px; grid-template-columns: 31px auto; }.player-token > span { width: 30px; height: 30px; }.player-token > b { min-width: 40px; font-size: 7px; }
   .team-instruction-sliders, .player-instruction-sliders { grid-template-columns: 1fr; }.pass-assignment-builder { align-items: stretch; flex-direction: column; }.pass-assignment-builder button { width: 100%; }.player-instruction-empty { align-items: flex-start; flex-direction: column; }

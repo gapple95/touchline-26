@@ -1191,7 +1191,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         <h1 id="fixture-title">어떤 실제 경기를<br />다시 지휘할까요?</h1>
         <p>공식 출전 명단을 기준으로, 그 순간 당신이라면 어떤 전술을 선택했을지 설계합니다.</p>
       </div>
-      {accessMode === "nickname" && <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>회원가입 없이 이 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>}
+      {accessMode === "nickname" && <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>해당 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>}
 
       <div className="fixture-list" aria-label="월드컵 경기 선택">
         {fixtures.map((fixture) => {
@@ -1697,16 +1697,23 @@ function MatchRoom(props: MatchRoomProps) {
   }
   return (
     <>
+      <header className="match-command-header">
       <section className="match-status-bar" aria-label="현재 경기 상황">
         <div className="match-team home"><span>{props.fixture.home.code}</span><b>{props.fixture.home.name}</b></div>
         <div className="match-live-score"><small><i />KICKOFF</small><strong>PRE <i>·</i> MATCH</strong></div>
         <div className="match-team away"><span>{props.fixture.away.code}</span><b>{props.fixture.away.name}</b></div>
         <div className="match-clock"><span>{props.fixture.stage}</span><b>{props.fixture.dataScope}</b></div>
+        <div className="match-command-actions">
+          <span className={props.hasUnconfirmedChanges || awaitingOpponentDecision ? "dirty" : "saved"}>{awaitingOpponentDecision ? `${opponentSnapshot.minute}′ 대응 결정 대기` : props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
+          <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
+          <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? nextOpponentMinute === null ? "전술 확정 · 경기 리뷰" : `${opponentSnapshot.minute}′ 전술 확정 → ${nextOpponentMinute}′` : "전술 확정"}</button>
+        </div>
       </section>
 
       <section className="decision-banner" aria-live="polite">
         <span>PRE-MATCH PLAN</span><p>{props.notice}</p><b>{props.activeTactic.name} · {props.activeTactic.formation}</b>
       </section>
+      </header>
 
       <section className={`match-workspace ${coachDrawerOpen ? "coach-open" : "coach-collapsed"}`}>
         <aside className="tactic-panel panel">
