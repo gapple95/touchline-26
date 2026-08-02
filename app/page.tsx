@@ -95,6 +95,16 @@ type MatchPlanDecision = {
 };
 
 type ScoredMatchPlanDecision = MatchPlanDecision & { effectiveness: number };
+type ManagerCardAnalysis = {
+  provider: "gemini" | "local";
+  archetype: string;
+  summary: string;
+  confidence: number;
+  traits: Array<{ label: string; value: number; tone: Tone }>;
+  badges: string[];
+  evidence: Array<{ minute: string; title: string; detail: string }>;
+  coachingFocus: string;
+};
 
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -485,6 +495,8 @@ export default function Home() {
   const [notice, setNotice] = useState("CONTROL 전술로 경기를 운영 중입니다.");
   const [duelResolved, setDuelResolved] = useState(false);
   const [matchPlanDecisions, setMatchPlanDecisions] = useState<MatchPlanDecision[]>([]);
+  const [managerAnalysis, setManagerAnalysis] = useState<ManagerCardAnalysis | null>(null);
+  const [managerAnalysisLoading, setManagerAnalysisLoading] = useState(false);
 
   function selectFixture(fixture: MatchFixture) {
     if (fixture.availability !== "READY") return;
@@ -498,6 +510,8 @@ export default function Home() {
     const managedTeam = selectedFixture[team];
     setSelectedTeam(team);
     setMatchPlanDecisions([]);
+    setManagerAnalysis(null);
+    setManagerAnalysisLoading(false);
     setView("match");
     setNotice(`${managedTeam.name}의 킥오프 전 전술을 설계하고 저장하세요.`);
   }
@@ -625,6 +639,30 @@ export default function Home() {
     confirmCurrentTactic(opponent);
     setNotice(`${activeTactic.name} 전술 설계를 확정했습니다. 경기 리뷰에서 선택의 결과를 확인하세요.`);
     setView("review");
+  }
+
+  async function openManagerCard() {
+    setView("manager");
+    setManagerAnalysisLoading(true);
+    try {
+      const response = await fetch("/api/ai-manager-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decisions: matchPlanDecisions.map((decision) => ({
+            ...decision,
+            effectiveness: scoreTacticalMatchup(decision),
+          })),
+        }),
+      });
+      const payload = await response.json() as { analysis?: ManagerCardAnalysis };
+      if (!response.ok || !payload.analysis) throw new Error("Manager analysis unavailable");
+      setManagerAnalysis(payload.analysis);
+    } catch {
+      setManagerAnalysis(null);
+    } finally {
+      setManagerAnalysisLoading(false);
+    }
   }
 
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
@@ -869,11 +907,11 @@ export default function Home() {
       )}
 
       {view === "review" && (
-        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} decisions={matchPlanDecisions} onReplay={() => setView("match")} onManagerCard={() => setView("manager")} />
+        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} decisions={matchPlanDecisions} onReplay={() => setView("match")} onManagerCard={openManagerCard} />
       )}
 
       {view === "manager" && (
-        <ManagerScreen switchCount={switchCount} activeTactic={activeTactic} />
+        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} onRegenerate={openManagerCard} />
       )}
 
       {view === "duel" && (
@@ -1823,36 +1861,32 @@ function ReviewScreen({ activeTactic, switchCount, decisions, onReplay, onManage
   );
 }
 
-function ManagerScreen({ switchCount, activeTactic }: { switchCount: number; activeTactic: Tactic }) {
-  const switching = Math.min(92, 76 + switchCount * 2);
-  const risk = activeTactic.id === "chase" ? 82 : activeTactic.id === "lock" ? 48 : 68;
+function ManagerScreen({ activeTactic, analysis, loading, onRegenerate }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; onRegenerate: () => void }) {
+  if (!analysis) {
+    return <section className="screen page-screen"><ScreenHeader eyebrow="MANAGER STYLE CARD" title="감독 성향을 분석하고 있습니다" description="15분별 전술 선택과 상성 점수를 기반으로 감독 카드를 생성합니다." /><div className="manager-analysis-loading"><b>{loading ? "GEMINI가 경기 기록을 분석 중입니다." : "감독 카드 분석을 준비하지 못했습니다."}</b><p>확정한 전술, 상대 블록, 구간별 효과 점수를 종합합니다.</p>{!loading && <button className="primary-button" onClick={onRegenerate}>Gemini로 다시 분석</button>}</div></section>;
+  }
   return (
     <section className="screen page-screen">
-      <ScreenHeader eyebrow="MANAGER STYLE CARD" title="매 경기의 선택이 나만의 감독 정체성이 된다" description="포메이션 취향이 아니라 실제 의사결정의 반복 패턴으로 감독 성향을 만듭니다." />
+      <ScreenHeader eyebrow={analysis.provider === "gemini" ? "GEMINI MANAGER ANALYSIS" : "LOCAL MANAGER ANALYSIS"} title="매 경기의 선택이 나만의 감독 정체성이 된다" description="15분별 전술 선택과 상대 전술 상성을 분석해 만든 감독 성향 카드입니다." />
       <div className="manager-layout">
         <article className="identity-card">
-          <div className="identity-top"><span>MY MANAGER ID</span><em>CONFIDENCE 78%</em></div>
-          <h2>THE<br />PRESSING<br />ARCHITECT</h2>
-          <p>포메이션보다 압박 트리거와 전환 타이밍을 중시하는 감독</p>
-          <small>최근 5경기 · 31개 결정 기준</small>
+          <div className="identity-top"><span>MY MANAGER ID</span><em>CONFIDENCE {analysis.confidence}%</em></div>
+          <h2>{analysis.archetype}</h2>
+          <p>{analysis.summary}</p>
+          <small>이번 경기 · {activeTactic.name} 중심 전술 기록</small>
         </article>
         <div className="trait-panel">
           <div className="trait-bars">
-            <Metric label="압박 성향" value={82} tone="lime" />
-            <Metric label="전술 전환" value={switching} tone="mint" />
-            <Metric label="위험 선호" value={risk} tone="orange" />
-            <Metric label="근거 활용" value={73} tone="yellow" />
+            {analysis.traits.map((trait) => <Metric key={trait.label} label={trait.label} value={trait.value} tone={trait.tone} />)}
           </div>
-          <div className="badge-grid"><span>HIGH PRESS</span><span>EARLY SWITCH</span><span>RISK TAKER</span><span>DATA-DRIVEN</span></div>
+          <div className="badge-grid">{analysis.badges.map((badge) => <span key={badge}>{badge}</span>)}</div>
           <div className="evidence-log">
-            <b>성향 근거</b>
-            <article><span>62&apos;</span><p>동점 상황에서 압박 강도를 52에서 82로 높임</p></article>
-            <article><span>KO</span><p>킥오프 전 전술을 저장하고 선수 역할을 직접 확정</p></article>
-            <article><span>79&apos;</span><p>득점 필요 상황에서 {activeTactic.name} 전술의 위험을 감수</p></article>
+            <b>AI 성향 근거</b>
+            {analysis.evidence.map((item) => <article key={`${item.minute}-${item.title}`}><span>{item.minute}</span><p><strong>{item.title}</strong>{item.detail}</p></article>)}
           </div>
         </div>
       </div>
-      <div className="share-strip"><div><span>SHAREABLE IDENTITY</span><b>싱글 플레이 기록이 Ghost·Live 대결의 메타가 됩니다.</b></div><button className="primary-button">감독 카드 공유</button></div>
+      <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onRegenerate}>Gemini로 다시 분석</button></div>
     </section>
   );
 }
