@@ -2146,7 +2146,7 @@ function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, 
       <ScreenHeader eyebrow="AI MANAGER ANALYSIS" title="매 경기의 선택이 나만의 감독 정체성이 된다" description="15분별 전술 선택과 상대 전술 상성을 분석해 만든 감독 성향 카드입니다." />
       <div className="manager-layout">
         <article className="identity-card">
-          <div className="identity-top"><span>MY MANAGER ID</span><em>CONFIDENCE {analysis.confidence}%</em></div>
+          <div className="identity-top"><span>감독 성향 프로필</span><em>{analysis.provider === "gemini" ? "AI" : "지표"} CONFIDENCE {analysis.confidence}%</em></div>
           <h2>{analysis.archetype}</h2>
           <p>{analysis.summary}</p>
           <small>이번 경기 · {activeTactic.name} 중심 전술 기록</small>

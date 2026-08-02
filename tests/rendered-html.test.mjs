@@ -175,6 +175,8 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.match(page + css, /background: #000/);
   assert.match(page, /MY NICKNAME/);
   assert.match(page, /MY MATCH RECORD/);
+  assert.match(page, /감독 성향 프로필/);
+  assert.match(page, /analysis\.provider === "gemini"/);
   assert.match(page, /PUBLIC RANKING/);
   assert.match(page, /api\/match-records/);
   assert.match(recordsRoute, /export async function GET/);
