@@ -5,6 +5,7 @@ import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
 import { deriveLiveTacticalMetrics } from "@/lib/domain/live-tactical-metrics.js";
 import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
+import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
 type View = "fixture" | "team" | "match" | "review" | "manager" | "duel";
@@ -823,6 +824,7 @@ export default function Home() {
     const outgoing = lineup[targetIndex];
     setLineup((current) => current.map((player, index) => index === targetIndex ? incoming : player));
     setBench((current) => current.map((player, index) => index === payload.index ? outgoing : player));
+    updateTacticDetails(activeTacticId, carryTacticalReferencesThroughSubstitution(activeTactic.details, outgoing.id, incoming.id), false);
     setSelectedPlayer(null);
     setNotice(`${outgoing.name} 대신 ${incoming.name} 선수를 투입했습니다. 역할 적합도와 시너지가 다시 계산됩니다.`);
   }
@@ -846,6 +848,7 @@ export default function Home() {
     const outgoing = lineup[selectedPlayer];
     setLineup((current) => current.map((player, playerIndex) => playerIndex === selectedPlayer ? incoming : player));
     setBench((current) => current.map((player, benchIndex) => benchIndex === index ? outgoing : player));
+    updateTacticDetails(activeTacticId, carryTacticalReferencesThroughSubstitution(activeTactic.details, outgoing.id, incoming.id), false);
     setSelectedPlayer(null);
     setNotice(`${incoming.name} 선수를 투입했습니다.`);
   }

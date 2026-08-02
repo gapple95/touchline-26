@@ -42,6 +42,7 @@ test("keeps the core interaction contract in source", async () => {
 
   assert.match(page, /draggable/);
   assert.match(page, /dropOnPitch/);
+  assert.match(page, /carryTacticalReferencesThroughSubstitution/);
   assert.match(page, /createTactic/);
   assert.match(page, /tactic-add-card/);
   assert.match(page, /어떤 전술을 기준으로 만들까요/);

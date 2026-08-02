@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createLocalTacticalRecommendation, normalizeTacticalRecommendation } from "../lib/domain/tactical-ai.js";
+import { carryTacticalReferencesThroughSubstitution } from "../lib/domain/tactical-substitution.js";
 
 const context = {
   prompt: "후반 막판에 전방 압박으로 빠르게 득점하고 싶어",
@@ -29,4 +30,23 @@ test("normalizes AI output to permitted tactics, players, and score bounds", () 
   assert.equal(recommendation.playerInstructions.length, 1);
   assert.deepEqual(recommendation.playerPositions, []);
   assert.deepEqual(recommendation.passLinks, [{ fromPlayerId: "lee-kangin", toPlayerId: "cho-guesung", intensity: 100 }]);
+});
+
+test("carries passes and player relationships through a bench substitution", () => {
+  const details = {
+    relationships: [
+      { id: "old-supply", fromPlayerId: "outgoing", toPlayerId: "target", type: "SUPPLY" },
+      { id: "old-cover", fromPlayerId: "target", toPlayerId: "outgoing", type: "COVER" },
+    ],
+    playerInstructions: [
+      { playerId: "outgoing", aggression: 70, takeOn: 60, passingFrequency: 80, forwardRuns: 75, defensiveWorkRate: 40, runDirection: "FORWARD", passTargets: [{ id: "old-pass", toPlayerId: "target", intensity: 88 }] },
+    ],
+  };
+  const next = carryTacticalReferencesThroughSubstitution(details, "outgoing", "incoming");
+  assert.deepEqual(next.relationships.map(({ fromPlayerId, toPlayerId, type }) => ({ fromPlayerId, toPlayerId, type })), [
+    { fromPlayerId: "incoming", toPlayerId: "target", type: "SUPPLY" },
+    { fromPlayerId: "target", toPlayerId: "incoming", type: "COVER" },
+  ]);
+  assert.equal(next.playerInstructions[0].playerId, "incoming");
+  assert.equal(next.playerInstructions[0].passTargets[0].toPlayerId, "target");
 });
