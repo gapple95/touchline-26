@@ -8,7 +8,7 @@ import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
-type View = "landing" | "fixture" | "team" | "match" | "review" | "manager" | "duel";
+type View = "landing" | "fixture" | "fixture-create" | "team" | "match" | "review" | "manager" | "duel";
 type AccessMode = "nickname" | "private";
 type TacticId = string;
 type Tone = "lime" | "orange" | "mint" | "yellow";
@@ -32,6 +32,10 @@ type MatchFixture = {
   availableManagerTeams: Array<"home" | "away">;
   availability: "READY" | "SOON";
   dataScope: string;
+  custom?: {
+    squads: Record<"home" | "away", { lineup: Player[]; bench: Player[] }>;
+    snapshots: Record<"home" | "away", OpponentTacticalSnapshot[]>;
+  };
 };
 
 type Slot = { x: number; y: number; role: string };
@@ -71,7 +75,7 @@ type PendingPassDraft = {
   intensity: number;
 };
 
-type OpponentShapePoint = { x: number; y: number; role: string };
+type OpponentShapePoint = { id?: string; name?: string; x: number; y: number; role: string };
 type OpponentTacticalSnapshot = {
   minute: number;
   formation: string;
@@ -83,6 +87,10 @@ type OpponentTacticalSnapshot = {
   responseInstruction: string;
   shape: OpponentShapePoint[];
 };
+
+type CustomPlayerDraft = { id: string; name: string; number: number; position: string; starter: boolean };
+type CustomTeamDraft = { code: string; name: string; players: CustomPlayerDraft[] };
+type CustomPointMap = Record<string, { x: number; y: number }>;
 
 type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
 type TacticReplayPlayer = Pick<Player, "id" | "name" | "number" | "position" | "role"> & { x: number; y: number };
@@ -521,6 +529,7 @@ function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapsh
 export default function Home() {
   const [view, setView] = useState<View>("landing");
   const [selectedFixture, setSelectedFixture] = useState<MatchFixture | null>(null);
+  const [customFixtures, setCustomFixtures] = useState<MatchFixture[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away" | null>(null);
   const [savedTactics, setSavedTactics] = useState<Tactic[]>(initialTactics);
   const [tacticLayouts, setTacticLayouts] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
@@ -601,13 +610,16 @@ export default function Home() {
     if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
     setRecordSaved(false);
     const managedTeam = selectedFixture[team];
-    const nextLineup = previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
-    const nextBench = previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
+    const customSquad = selectedFixture.custom?.squads[team];
+    const nextLineup = customSquad ? customSquad.lineup.map((player) => ({ ...player, stamina: 100 })) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
+    const nextBench = customSquad ? customSquad.bench.map((player) => ({ ...player, stamina: 100 })) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
+    const customKickoff = selectedFixture.custom?.snapshots[team][0]?.shape ?? [];
+    const customSlots = customSquad && customKickoff.length === nextLineup.length ? customKickoff.map((point) => ({ x: point.x, y: point.y, role: point.role })) : createFormationSlots("control", tacticLayouts);
     setSelectedTeam(team);
     setLineup(nextLineup);
     setBench(nextBench);
     setActiveTacticId("control");
-    setSlots(createFormationSlots("control", tacticLayouts));
+    setSlots(customSlots);
     setConfirmedTactics(createConfirmedTacticsForSquad(savedTactics, tacticLayouts, nextLineup, nextBench));
     setCurrentMatchMinutes({});
     setPreviousMatchMinutes(null);
@@ -1095,12 +1107,14 @@ export default function Home() {
         )}
       </header>
 
-      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} accessMode={accessMode} onLogout={logoutToLanding} onSelect={selectFixture} />}
+      {view === "fixture" && <FixtureSelector fixtures={[...matchFixtures, ...customFixtures]} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} accessMode={accessMode} onLogout={logoutToLanding} onCreate={() => setView("fixture-create")} onSelect={selectFixture} />}
+      {view === "fixture-create" && <CustomFixtureCreator onBack={() => setView("fixture")} onCreate={(fixture) => { setCustomFixtures((current) => [fixture, ...current]); selectFixture(fixture); }} />}
       {view === "team" && selectedFixture && <TeamSelector fixture={selectedFixture} nickname={nickname} accessMode={accessMode} onBack={() => setView("fixture")} onSelect={selectManagedTeam} />}
 
       {view === "match" && selectedFixture && selectedTeam && (
         <MatchRoom
           fixture={selectedFixture}
+          opponentSnapshots={selectedFixture.custom?.snapshots[selectedTeam === "home" ? "away" : "home"] ?? opponentTacticalSnapshots}
           savedTactics={savedTactics}
           activeTactic={activeTactic}
           liveMetrics={liveMetrics}
@@ -1162,6 +1176,7 @@ export default function Home() {
 
 type MatchRoomProps = {
   fixture: MatchFixture;
+  opponentSnapshots: OpponentTacticalSnapshot[];
   savedTactics: Tactic[];
   activeTactic: Tactic;
   liveMetrics: LiveTacticalMetrics;
@@ -1227,7 +1242,7 @@ function LandingScreen({ nickname, onNicknameEnter, onPrivateEnter }: { nickname
   );
 }
 
-function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, onLogout, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; accessMode: AccessMode; onLogout: () => void; onSelect: (fixture: MatchFixture) => void }) {
+function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, onLogout, onCreate, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; accessMode: AccessMode; onLogout: () => void; onCreate: () => void; onSelect: (fixture: MatchFixture) => void }) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRecord[]>([]);
   const [profileRecords, setProfileRecords] = useState<ProfileRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(true);
@@ -1283,6 +1298,8 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
       </div>
       {accessMode === "nickname" && <div className="nickname-entry locked-nickname"><span>MY NICKNAME</span><input value={nickname} readOnly aria-label="현재 닉네임" /><button type="button" onClick={onLogout}>로그아웃</button><small>해당 닉네임으로 경기 기록과 감독카드를 저장합니다. 변경하려면 로그아웃해 주세요.</small></div>}
 
+      <button className="custom-fixture-button" type="button" onClick={onCreate}><span>+</span><div><b>직접 경기 만들기</b><small>홈·어웨이·명단·15분별 위치를 직접 입력합니다.</small></div></button>
+
       <div className="fixture-list" aria-label="월드컵 경기 선택">
         {fixtures.map((fixture) => {
           const isReady = fixture.availability === "READY";
@@ -1324,6 +1341,84 @@ function FixtureRecordPanel({ accessMode, nickname, leaderboard, profileRecords,
 
 function DeleteRecordDialog({ record, onCancel, onConfirm }: { record: ProfileRecord; onCancel: () => void; onConfirm: () => void }) {
   return <div className="record-delete-backdrop" role="presentation"><section className="record-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="record-delete-title"><span>DELETE RECORD</span><h2 id="record-delete-title">기록을 삭제할까요?</h2><p><b>{record.fixtureLabel}</b> 기록을 삭제하면 점수와 감독카드를 다시 복구할 수 없습니다.</p><div><button className="text-button" type="button" onClick={onCancel}>취소</button><button className="record-delete-confirm" type="button" onClick={onConfirm}>영구 삭제</button></div></section></div>;
+}
+
+const customMatchMinutes = [0, 15, 30, 45, 60, 75, 90];
+const customPositionOptions = ["GK", "RB", "RWB", "CB", "LB", "LWB", "DM", "CM", "AM", "RW", "LW", "ST", "FW"];
+
+function newCustomPlayer(side: "home" | "away", index: number): CustomPlayerDraft {
+  return { id: `${side}-${Date.now()}-${index}`, name: "", number: index + 1, position: index === 0 ? "GK" : "CM", starter: true };
+}
+
+function CustomFixtureCreator({ onBack, onCreate }: { onBack: () => void; onCreate: (fixture: MatchFixture) => void }) {
+  const [tournament, setTournament] = useState("CUSTOM");
+  const [stage, setStage] = useState("CUSTOM");
+  const [home, setHome] = useState<CustomTeamDraft>(() => ({ code: "HOME", name: "홈팀", players: Array.from({ length: 7 }, (_, index) => newCustomPlayer("home", index)) }));
+  const [away, setAway] = useState<CustomTeamDraft>(() => ({ code: "AWAY", name: "어웨이팀", players: Array.from({ length: 7 }, (_, index) => newCustomPlayer("away", index)) }));
+  const [positionTeam, setPositionTeam] = useState<"home" | "away">("home");
+  const [positionMinute, setPositionMinute] = useState(0);
+  const [points, setPoints] = useState<CustomPointMap>({});
+  const [error, setError] = useState("");
+
+  function updateTeam(side: "home" | "away", updater: (current: CustomTeamDraft) => CustomTeamDraft) {
+    if (side === "home") setHome(updater); else setAway(updater);
+  }
+
+  function updatePlayer(side: "home" | "away", id: string, patch: Partial<CustomPlayerDraft>) {
+    updateTeam(side, (team) => ({ ...team, players: team.players.map((player) => player.id === id ? { ...player, ...patch } : player) }));
+  }
+
+  function pointKey(side: "home" | "away", minute: number, playerId: string) { return `${side}-${minute}-${playerId}`; }
+  function pointFor(side: "home" | "away", minute: number, player: CustomPlayerDraft, index: number) {
+    const fallback = formationSlots.control[index] ?? { x: 48, y: 50 };
+    return points[pointKey(side, minute, player.id)] ?? { x: side === "home" ? fallback.x : 100 - fallback.x, y: fallback.y };
+  }
+  function updatePoint(side: "home" | "away", player: CustomPlayerDraft, index: number, axis: "x" | "y", value: number) {
+    const current = pointFor(side, positionMinute, player, index);
+    setPoints((all) => ({ ...all, [pointKey(side, positionMinute, player.id)]: { ...current, [axis]: Math.max(3, Math.min(97, value)) } }));
+  }
+
+  function buildTeam(team: CustomTeamDraft, side: "home" | "away") {
+    const populated = team.players.filter((player) => player.name.trim());
+    const starters = populated.filter((player) => player.starter);
+    const bench = populated.filter((player) => !player.starter);
+    if (populated.length < 7 || populated.length > 15) throw new Error(`${team.name || side} 명단은 7~15명으로 입력해 주세요.`);
+    if (starters.length < 7 || starters.length > 11) throw new Error(`${team.name || side} 선발은 7~11명이어야 합니다.`);
+    if (bench.length > 5) throw new Error(`${team.name || side} 교체 인원은 최대 5명입니다.`);
+    if (populated.some((player) => !player.position)) throw new Error("모든 선수의 포지션을 선택해 주세요.");
+    const numbers = populated.map((player) => player.number);
+    if (new Set(numbers).size !== numbers.length) throw new Error(`${team.name || side}의 등번호가 겹칩니다.`);
+    const toPlayer = (player: CustomPlayerDraft): Player => ({ id: `custom-${side}-${player.id}`, name: player.name.trim(), number: player.number, position: player.position, role: player.position, stamina: 100 });
+    return { populated, starters, lineup: starters.map(toPlayer), bench: bench.map(toPlayer) };
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const homeTeam = buildTeam(home, "home");
+      const awayTeam = buildTeam(away, "away");
+      const snapshots = (side: "home" | "away", team: ReturnType<typeof buildTeam>): OpponentTacticalSnapshot[] => customMatchMinutes.map((minute) => ({
+        minute, formation: "CUSTOM", phase: "직접 입력 배치", block: "CUSTOM", headline: `${side === "home" ? home.name : away.name} ${minute}분 배치`, observation: "경기 생성자가 입력한 선수 위치입니다.", responseTacticId: "control",
+        responseInstruction: "입력된 배치에 맞춰 전술을 설계합니다.",
+        shape: team.starters.map((player, index) => { const point = pointFor(side, minute, player, index); return { id: `custom-${side}-${player.id}`, name: player.name.trim(), x: point.x, y: point.y, role: player.position }; }),
+      }));
+      const fixture: MatchFixture = {
+        id: `custom-${Date.now()}`, tournament: tournament.trim() || "CUSTOM", stage: stage.trim() || "CUSTOM", date: "CUSTOM MATCH",
+        home: { code: home.code.trim().toUpperCase().slice(0, 4) || "HOME", name: home.name.trim() || "홈팀" }, away: { code: away.code.trim().toUpperCase().slice(0, 4) || "AWAY", name: away.name.trim() || "어웨이팀" },
+        availableManagerTeams: ["home", "away"], availability: "READY", dataScope: "CUSTOM · 직접 입력 명단 및 15분별 배치",
+        custom: { squads: { home: { lineup: homeTeam.lineup, bench: homeTeam.bench }, away: { lineup: awayTeam.lineup, bench: awayTeam.bench } }, snapshots: { home: snapshots("home", homeTeam), away: snapshots("away", awayTeam) } },
+      };
+      onCreate(fixture);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "경기를 만들지 못했습니다."); }
+  }
+
+  const positionDraft = positionTeam === "home" ? home : away;
+  return <section className="custom-fixture-screen"><button className="back-to-fixtures" type="button" onClick={onBack}>← 경기 선택으로</button><header><span>CUSTOM MATCH BUILDER</span><h1>직접 경기 만들기</h1><p>양팀 명단과 15분 단위 배치를 입력하면 바로 전술 시뮬레이션에 사용할 수 있습니다.</p></header><form onSubmit={submit}>
+    <section className="custom-meta"><label>대회<input value={tournament} onChange={(event) => setTournament(event.target.value)} placeholder="CUSTOM 또는 GROUP H" /></label><label>스테이지<input value={stage} onChange={(event) => setStage(event.target.value)} placeholder="CUSTOM" /></label></section>
+    <div className="custom-team-grid">{(["home", "away"] as const).map((side) => { const team = side === "home" ? home : away; return <section key={side} className="custom-team-editor"><header><span>{side === "home" ? "HOME" : "AWAY"}</span><div><input value={team.code} maxLength={4} onChange={(event) => updateTeam(side, (current) => ({ ...current, code: event.target.value }))} aria-label={`${side} 코드`} /><input value={team.name} onChange={(event) => updateTeam(side, (current) => ({ ...current, name: event.target.value }))} aria-label={`${side} 팀 이름`} /></div></header><p>명단 7~15명 · 선발 7~11명 · 벤치 최대 5명</p><div className="custom-player-list">{team.players.map((player) => <div key={player.id}><input className="player-number" type="number" min={1} max={99} value={player.number} onChange={(event) => updatePlayer(side, player.id, { number: Number(event.target.value) })} aria-label="등번호" /><input value={player.name} onChange={(event) => updatePlayer(side, player.id, { name: event.target.value })} placeholder="선수 이름" aria-label="선수 이름" /><select value={player.position} onChange={(event) => updatePlayer(side, player.id, { position: event.target.value })}>{customPositionOptions.map((position) => <option key={position}>{position}</option>)}</select><label className="starter-toggle"><input type="checkbox" checked={player.starter} onChange={(event) => updatePlayer(side, player.id, { starter: event.target.checked })} /> 선발</label><button type="button" disabled={team.players.length <= 7} onClick={() => updateTeam(side, (current) => ({ ...current, players: current.players.filter((item) => item.id !== player.id) }))}>×</button></div>)}</div><button className="custom-add-player" type="button" disabled={team.players.length >= 15} onClick={() => updateTeam(side, (current) => ({ ...current, players: [...current.players, newCustomPlayer(side, current.players.length)] }))}>+ 선수 추가</button></section>; })}</div>
+    <section className="custom-position-editor"><header><div><span>15-MINUTE POSITION INPUT</span><h2>선수 위치 입력</h2></div><div className="custom-side-tabs"><button type="button" className={positionTeam === "home" ? "active" : ""} onClick={() => setPositionTeam("home")}>{home.code || "HOME"}</button><button type="button" className={positionTeam === "away" ? "active" : ""} onClick={() => setPositionTeam("away")}>{away.code || "AWAY"}</button></div></header><div className="custom-minute-tabs">{customMatchMinutes.map((minute) => <button type="button" key={minute} className={positionMinute === minute ? "active" : ""} onClick={() => setPositionMinute(minute)}>{minute}′</button>)}</div><p>선발 선수의 좌표를 가로(X)·세로(Y) 3~97 범위로 입력합니다. 0분부터 90분까지 모두 입력할 수 있습니다.</p><div className="custom-position-list">{positionDraft.players.filter((player) => player.name.trim() && player.starter).map((player, index) => { const point = pointFor(positionTeam, positionMinute, player, index); return <label key={player.id}><b>{player.name} <small>{player.position}</small></b><span>X <input type="number" min={3} max={97} value={point.x} onChange={(event) => updatePoint(positionTeam, player, index, "x", Number(event.target.value))} /></span><span>Y <input type="number" min={3} max={97} value={point.y} onChange={(event) => updatePoint(positionTeam, player, index, "y", Number(event.target.value))} /></span></label>; })}</div></section>
+    {error && <p className="custom-fixture-error" role="alert">{error}</p>}<div className="custom-fixture-actions"><button className="text-button" type="button" onClick={onBack}>취소</button><button className="primary-button" type="submit">경기 만들고 팀 선택</button></div>
+  </form></section>;
 }
 
 function TeamSelector({ fixture, nickname, accessMode, onBack, onSelect }: { fixture: MatchFixture; nickname: string; accessMode: AccessMode; onBack: () => void; onSelect: (team: "home" | "away") => void }) {
@@ -1460,11 +1555,11 @@ function MatchRoom(props: MatchRoomProps) {
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
   const selectedPlayerSlot = props.selectedPlayer === null ? null : props.slots[props.selectedPlayer];
   const selectedInstruction = selectedPlayerData ? playerInstructionFor(selectedPlayerData.id) : null;
-  const opponentSnapshot = opponentTacticalSnapshots.find((snapshot) => snapshot.minute === opponentSnapshotMinute) ?? opponentTacticalSnapshots[0];
-  const opponentSnapshotIndex = opponentTacticalSnapshots.findIndex((snapshot) => snapshot.minute === opponentSnapshot.minute);
-  const unlockedOpponentIndex = Math.min(confirmedOpponentIndex + 1, opponentTacticalSnapshots.length - 1);
-  const awaitingOpponentDecision = opponentSnapshotIndex === unlockedOpponentIndex && confirmedOpponentIndex < opponentTacticalSnapshots.length - 1;
-  const nextOpponentMinute = opponentTacticalSnapshots[opponentSnapshotIndex + 1]?.minute ?? null;
+  const opponentSnapshot = props.opponentSnapshots.find((snapshot) => snapshot.minute === opponentSnapshotMinute) ?? props.opponentSnapshots[0];
+  const opponentSnapshotIndex = props.opponentSnapshots.findIndex((snapshot) => snapshot.minute === opponentSnapshot.minute);
+  const unlockedOpponentIndex = Math.min(confirmedOpponentIndex + 1, props.opponentSnapshots.length - 1);
+  const awaitingOpponentDecision = opponentSnapshotIndex === unlockedOpponentIndex && confirmedOpponentIndex < props.opponentSnapshots.length - 1;
+  const nextOpponentMinute = props.opponentSnapshots[opponentSnapshotIndex + 1]?.minute ?? null;
 
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
@@ -1952,7 +2047,7 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? nextOpponentMinute === null ? "전술 확정 · 경기 리뷰" : `${opponentSnapshot.minute}′ 전술 확정 → ${nextOpponentMinute}′` : "전술 확정"}</button>
             </div>
           </div>
-          <div className="opponent-scroll-target" ref={opponentTimelineRef}><OpponentTacticalTimeline snapshot={opponentSnapshot} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} /></div>
+          <div className="opponent-scroll-target" ref={opponentTimelineRef}><OpponentTacticalTimeline snapshot={opponentSnapshot} snapshots={props.opponentSnapshots} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} /></div>
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
@@ -2183,28 +2278,28 @@ function MatchRoom(props: MatchRoomProps) {
   );
 }
 
-function OpponentTacticalTimeline({ snapshot, unlockedIndex, onMinute }: { snapshot: OpponentTacticalSnapshot; unlockedIndex: number; onMinute: (minute: number) => void }) {
-  const shape = modelOpponentShape(snapshot.formation, snapshot.block, snapshot.phase);
+function OpponentTacticalTimeline({ snapshot, snapshots, unlockedIndex, onMinute }: { snapshot: OpponentTacticalSnapshot; snapshots: OpponentTacticalSnapshot[]; unlockedIndex: number; onMinute: (minute: number) => void }) {
+  const shape = snapshot.shape.length ? snapshot.shape : modelOpponentShape(snapshot.formation, snapshot.block, snapshot.phase);
 
   return (
     <section className="opponent-timeline-panel" aria-label="15분 단위 상대 전술 분석">
       <header className="opponent-timeline-head">
-        <div><span>OPPONENT TACTICAL SNAPSHOT</span><h3>포르투갈 {snapshot.minute}&apos; · {snapshot.formation}</h3><p>포메이션·압박 블록을 반영한 11인 라인 모델</p></div>
+        <div><span>OPPONENT TACTICAL SNAPSHOT</span><h3>상대팀 {snapshot.minute}&apos; · {snapshot.formation}</h3><p>포메이션·압박 블록을 반영한 11인 라인 모델</p></div>
         <div><b>{snapshot.block}</b><small>{snapshot.phase}</small></div>
       </header>
       <div className="opponent-timeline-tabs" role="tablist" aria-label="상대 전술 시간대 선택">
-        {opponentTacticalSnapshots.map((item, index) => <button key={item.minute} type="button" className={item.minute === snapshot.minute ? "active" : ""} onClick={() => onMinute(item.minute)} aria-pressed={item.minute === snapshot.minute} disabled={index > unlockedIndex} title={index > unlockedIndex ? "이전 시간대의 우리 전술을 확정하면 열립니다." : undefined}>{item.minute}&apos;</button>)}
+        {snapshots.map((item, index) => <button key={item.minute} type="button" className={item.minute === snapshot.minute ? "active" : ""} onClick={() => onMinute(item.minute)} aria-pressed={item.minute === snapshot.minute} disabled={index > unlockedIndex} title={index > unlockedIndex ? "이전 시간대의 우리 전술을 확정하면 열립니다." : undefined}>{item.minute}&apos;</button>)}
       </div>
       <div className="opponent-timeline-content">
-        <div className="opponent-mini-pitch" aria-label={`포르투갈 ${snapshot.minute}분 추정 배치`}>
-          <span>POR FORWARD ←</span>
+        <div className="opponent-mini-pitch" aria-label={`상대팀 ${snapshot.minute}분 배치`}>
+          <span>OPPONENT FORWARD ←</span>
           <i className="opponent-halfway" />
           <i className="opponent-centre-circle" />
           <i className="opponent-penalty-box left" /><i className="opponent-penalty-box right" />
           <i className="opponent-six-yard-box left" /><i className="opponent-six-yard-box right" />
           <i className="opponent-goal left" /><i className="opponent-goal right" />
           <i className="opponent-penalty-spot left" /><i className="opponent-penalty-spot right" />
-          {shape.map((point, index) => <b key={`${snapshot.minute}-${point.role}-${index}`} className="opponent-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
+          {shape.map((point, index) => <b key={`${snapshot.minute}-${point.id ?? point.role}-${index}`} className="opponent-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.name ?? point.role}</b>)}
         </div>
         <div className="opponent-observation"><span>상대 관찰</span><b>{snapshot.headline}</b><p>{snapshot.observation}</p></div>
       </div>
