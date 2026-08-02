@@ -647,15 +647,6 @@ export default function Home() {
   const currentTacticSnapshot: ConfirmedTacticSnapshot = { lineup, bench, slots, details: activeTactic.details };
   const confirmedTacticSnapshot = confirmedTactics[activeTacticId];
   const hasUnconfirmedChanges = !confirmedTacticSnapshot || tacticSnapshotSignature(currentTacticSnapshot) !== tacticSnapshotSignature(confirmedTacticSnapshot);
-  useEffect(() => {
-    if (view !== "match") return;
-    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warnBeforeLeaving);
-    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
-  }, [view]);
 
   function leaveMatchRoom() {
     if (view === "match" && !window.confirm("경기 중 페이지를 벗어나면 현재까지 저장한 전술이 사라질 수 있습니다. 경기 선택으로 이동할까요?")) return;
@@ -2054,7 +2045,6 @@ function MatchRoom(props: MatchRoomProps) {
       <section className="decision-banner" aria-live="polite">
         <span>PRE-MATCH PLAN</span><p>{props.notice}</p><b>{props.activeTactic.name} · {props.activeTactic.formation}</b>
       </section>
-      <p className="match-leave-warning" role="status">이 페이지를 벗어나면 현재 경기에서 저장한 전술이 사라질 수 있습니다.</p>
       </header>
 
       <section className={`match-workspace ${coachDrawerOpen ? "coach-open" : "coach-collapsed"}`}>

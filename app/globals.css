@@ -734,8 +734,3 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 }
 
 .custom-side-lock { min-height: 38px; display: grid; place-items: center; border: 1px solid #b8c5b9; background: #e5ede2; color: var(--green); font: 900 11px Arial, sans-serif; letter-spacing: .08em; }
-.match-leave-warning { margin: 0; padding: 8px 72px; background: #fff1da; color: #765020; font-size: 13px; font-weight: 800; }
-
-@media (max-width: 760px) {
-  .match-leave-warning { padding: 8px 18px; font-size: 11px; }
-}
