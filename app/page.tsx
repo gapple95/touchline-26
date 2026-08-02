@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
-import { deriveLiveTacticalMetrics, derivePlayerFatigueRisks } from "@/lib/domain/live-tactical-metrics.js";
+import { applyTacticalStaminaDrain, deriveLiveTacticalMetrics, derivePlayerFatigueRisks } from "@/lib/domain/live-tactical-metrics.js";
 import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
@@ -558,8 +558,9 @@ export default function Home() {
   function resetBoard() {
     if (!confirmedTacticSnapshot) return;
     const restoredSnapshot = cloneTacticSnapshot(confirmedTacticSnapshot);
-    setLineup(restoredSnapshot.lineup);
-    setBench(restoredSnapshot.bench);
+    const currentStamina = new Map([...lineup, ...bench].map((player) => [player.id, player.stamina]));
+    setLineup(restoredSnapshot.lineup.map((player) => ({ ...player, stamina: currentStamina.get(player.id) ?? player.stamina })));
+    setBench(restoredSnapshot.bench.map((player) => ({ ...player, stamina: currentStamina.get(player.id) ?? player.stamina })));
     setSlots(restoredSnapshot.slots);
     setTacticLayouts((current) => ({
       ...current,
@@ -853,6 +854,11 @@ export default function Home() {
     setNotice(`${incoming.name} 선수를 투입했습니다.`);
   }
 
+  function advanceLineupStamina(minutes: number, details: DetailedTacticInstructions) {
+    if (minutes <= 0) return;
+    setLineup((current) => applyTacticalStaminaDrain({ players: current, details, minutes }));
+  }
+
   function aiRecommendationContext(prompt: string) {
     return {
       prompt,
@@ -950,6 +956,7 @@ export default function Home() {
           onUpdateTacticDetails={updateTacticDetails}
           onConfirmTactic={confirmCurrentTactic}
           onFinishMatchPlan={finishMatchPlan}
+          onAdvanceLineupStamina={advanceLineupStamina}
           onStartDrag={startDrag}
           onDragOverPitch={previewPitchZone}
           onDragLeavePitch={leavePitchZone}
@@ -1010,6 +1017,7 @@ type MatchRoomProps = {
   onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
   onConfirmTactic: (opponent?: OpponentTacticalSnapshot) => void;
   onFinishMatchPlan: (opponent: OpponentTacticalSnapshot) => void;
+  onAdvanceLineupStamina: (minutes: number, details: DetailedTacticInstructions) => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -1318,6 +1326,7 @@ function MatchRoom(props: MatchRoomProps) {
       return;
     }
     props.onConfirmTactic(opponentSnapshot);
+    props.onAdvanceLineupStamina(nextOpponentMinute - opponentSnapshot.minute, props.activeTactic.details);
     setConfirmedOpponentIndex(opponentSnapshotIndex);
     setOpponentSnapshotMinute(nextOpponentMinute);
   }
@@ -1717,7 +1726,7 @@ function MatchRoom(props: MatchRoomProps) {
                         data-player-id={player.id}
                         data-kit-source={props.teamKit.source}
                       >
-                        <span>{player.number}</span><b>{player.name}</b><small>{slot.role}</small>
+                        <span>{player.number}</span><b>{player.name}</b><small><i>{slot.role}</i><em className="player-stamina" style={{ "--stamina-level": `${player.stamina}%`, "--stamina-hue": String(Math.round(player.stamina * 1.2)) } as CSSProperties} title={`체력 ${Math.round(player.stamina)}%`}><u /></em></small>
                       </button>
                     );
                   })}

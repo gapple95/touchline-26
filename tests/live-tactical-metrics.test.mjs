@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deriveLiveTacticalMetrics, derivePlayerFatigueRisks, LIVE_TACTICAL_METRIC_MODEL } from "../lib/domain/live-tactical-metrics.js";
+import { applyTacticalStaminaDrain, deriveLiveTacticalMetrics, derivePlayerFatigueRisks, LIVE_TACTICAL_METRIC_MODEL } from "../lib/domain/live-tactical-metrics.js";
 
 const players = [
   { id: "gk", position: "GK", stamina: 88 },
@@ -116,4 +116,17 @@ test("raises player fatigue risk and brings substitution timing forward for inte
   assert.match(intense.substitutionWindow, /즉시 고려/);
   assert.ok(intense.drivers.includes("적극성"));
   assert.ok(intense.drivers.includes("1대1 돌파"));
+});
+
+test("reduces active player stamina over elapsed tactical match time", () => {
+  const intensiveDetails = {
+    ...baseDetails,
+    playerInstructions: [{
+      playerId: "p1", aggression: 100, takeOn: 100, passingFrequency: 90,
+      forwardRuns: 100, defensiveWorkRate: 100, runDirection: "FORWARD", passTargets: [],
+    }],
+  };
+  const afterFifteen = applyTacticalStaminaDrain({ players, details: intensiveDetails, minutes: 15 });
+  assert.ok(afterFifteen.every((player, index) => player.stamina < players[index].stamina));
+  assert.ok(afterFifteen.find((player) => player.id === "p1").stamina < afterFifteen.find((player) => player.id === "p2").stamina);
 });

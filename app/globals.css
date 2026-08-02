@@ -458,8 +458,8 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .player-token > span { grid-row: 1/3; width: 34px; height: 34px; display: grid; place-items: center; border: 3px solid var(--kit-outline, var(--white)); border-radius: 50%; background: var(--kit-shirt, var(--lime)); color: var(--kit-number, var(--ink)); font: 900 11px Arial, sans-serif; transition: .16s; }
 .player-token.goalkeeper > span { box-shadow: 0 0 0 2px rgba(8,20,13,.26); }
 .player-token > b { min-width: 47px; padding: 2px 6px; background: rgba(8,20,13,.86); font-size: 8px; white-space: nowrap; }
-.player-token > small { width: min-content; min-width: 24px; padding: 2px 6px; color: #c6d2c9; background: rgba(8,20,13,.66); font: 700 7px Arial, sans-serif; }
-.player-token > span, .player-token > b, .player-token > small { pointer-events: none; }
+.player-token > small { width: min-content; min-width: 48px; padding: 2px 6px; display: flex; align-items: center; gap: 5px; color: #c6d2c9; background: rgba(8,20,13,.66); font: 700 7px Arial, sans-serif; }.player-token > small > i { font-style: normal; }.player-stamina { width: 28px; height: 5px; overflow: hidden; display: block; border-radius: 8px; background: rgba(255,255,255,.18); }.player-stamina > u { width: var(--stamina-level); height: 100%; display: block; border-radius: inherit; background: hsl(var(--stamina-hue) 78% 54%); box-shadow: 0 0 5px hsl(var(--stamina-hue) 78% 54% / .7); transition: width .35s ease, background-color .35s ease; }
+.player-token > span, .player-token > b, .player-token > small, .player-token > small * { pointer-events: none; }
 .player-token:hover > span, .player-token.selected > span { background: var(--orange); color: var(--white); transform: scale(1.13); }
 .player-token.selected > b { color: var(--lime); }
 .pitch-field.pass-linking { cursor: crosshair; }

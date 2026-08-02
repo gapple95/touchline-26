@@ -78,6 +78,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page + css, /save-tactic-button/);
   assert.match(page, /deriveLiveTacticalMetrics/);
   assert.match(page, /derivePlayerFatigueRisks/);
+  assert.match(page, /applyTacticalStaminaDrain/);
+  assert.match(page + css, /player-stamina/);
   assert.match(page + css, /SUBSTITUTION WATCH/);
   assert.match(page + css, /TACTICAL PLAN INDEX/);
   assert.match(page + css, /live-metric-dock/);
@@ -111,8 +113,8 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /cancelPassAssignment/);
   assert.match(page, /function handleBoardReset\(\)/);
   assert.match(page, /const restoredSnapshot = cloneTacticSnapshot\(confirmedTacticSnapshot\)/);
-  assert.match(page, /setLineup\(restoredSnapshot\.lineup\)/);
-  assert.match(page, /setBench\(restoredSnapshot\.bench\)/);
+  assert.match(page, /setLineup\(restoredSnapshot\.lineup\.map/);
+  assert.match(page, /setBench\(restoredSnapshot\.bench\.map/);
   assert.match(page, /setSlots\(restoredSnapshot\.slots\)/);
   assert.match(page, /details: cloneTacticDetails\(restoredSnapshot\.details\)/);
   assert.match(page, /onClick=\{handleBoardReset\}/);
@@ -139,7 +141,7 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /TOUCHLINE_FALLBACK/);
   assert.match(page + css, /--kit-shirt/);
   assert.match(css, /var\(--kit-number/);
-  assert.match(css, /player-token > span, \.player-token > b, \.player-token > small \{ pointer-events: none/);
+assert.match(css, /player-token > span, \.player-token > b, \.player-token > small, \.player-token > small \* \{ pointer-events: none/);
   assert.match(css, /--token-anchor-x: -17px/);
   assert.doesNotMatch(css, /player-token[\s\S]{0,400}translate\(-50%,-50%\)/);
   assert.match(page, /onDragLeavePitch/);
