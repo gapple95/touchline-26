@@ -338,6 +338,11 @@ const players: Player[] = [
   { id: "hong-chul", name: "홍철", number: 14, position: "LB", role: "와이드 풀백", stamina: 87 },
 ];
 
+/** Every new fixture begins at kickoff with a fully recovered matchday squad. */
+function createKickoffSquad(): Player[] {
+  return players.map((player) => ({ ...player, stamina: 100 }));
+}
+
 const matchFixtures: MatchFixture[] = [
   {
     id: "kor-por-2022",
@@ -473,9 +478,10 @@ function cloneFormationLayouts(layouts: Record<TacticId, FormationSlot[]>): Reco
 }
 
 function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapshot> {
+  const kickoffSquad = createKickoffSquad();
   return Object.fromEntries(initialTactics.map((tactic) => [tactic.id, {
-    lineup: players.slice(0, 11).map((player) => ({ ...player })),
-    bench: players.slice(11).map((player) => ({ ...player })),
+    lineup: kickoffSquad.slice(0, 11),
+    bench: kickoffSquad.slice(11),
     slots: createFormationSlots(tactic.id),
     details: cloneTacticDetails(tactic.details),
   }]));
@@ -488,8 +494,8 @@ export default function Home() {
   const [savedTactics, setSavedTactics] = useState<Tactic[]>(initialTactics);
   const [tacticLayouts, setTacticLayouts] = useState<Record<TacticId, FormationSlot[]>>(() => cloneFormationLayouts(formationSlots));
   const [activeTacticId, setActiveTacticId] = useState<TacticId>("control");
-  const [lineup, setLineup] = useState(players.slice(0, 11));
-  const [bench, setBench] = useState(players.slice(11));
+  const [lineup, setLineup] = useState(() => createKickoffSquad().slice(0, 11));
+  const [bench, setBench] = useState(() => createKickoffSquad().slice(11));
   const [slots, setSlots] = useState<Slot[]>(() => createFormationSlots("control"));
   const [confirmedTactics, setConfirmedTactics] = useState<Record<TacticId, ConfirmedTacticSnapshot>>(() => createInitialConfirmedTactics());
   const [hoveredZone, setHoveredZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
@@ -517,7 +523,15 @@ export default function Home() {
   function selectManagedTeam(team: "home" | "away") {
     if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
     const managedTeam = selectedFixture[team];
+    const kickoffSquad = createKickoffSquad();
     setSelectedTeam(team);
+    setLineup(kickoffSquad.slice(0, 11));
+    setBench(kickoffSquad.slice(11));
+    setActiveTacticId("control");
+    setSlots(createFormationSlots("control", tacticLayouts));
+    setConfirmedTactics(createInitialConfirmedTactics());
+    setSelectedPlayer(null);
+    setSwitchCount(0);
     setMatchPlanDecisions([]);
     setReviewAnalysis(null);
     setReviewAnalysisLoading(false);
