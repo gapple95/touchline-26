@@ -122,6 +122,9 @@ type LeaderboardRecord = {
   managerConfidence: number;
   badges: string[];
   createdAt: string;
+  rank?: number;
+  managedTeam?: "home" | "away" | "unknown";
+  timeline?: MatchPlanDecision[];
 };
 
 type ProfileRecord = LeaderboardRecord & {
@@ -573,6 +576,13 @@ export default function Home() {
     setView("fixture");
   }
 
+  function logoutToLanding() {
+    setNickname("");
+    setAccessMode("private");
+    window.localStorage.removeItem("touchline26-nickname");
+    setView("landing");
+  }
+
   function registerNicknameFromPrivateMode() {
     return enableNicknameMode(nickname);
   }
@@ -796,7 +806,7 @@ export default function Home() {
   async function saveMatchRecord(isPublic: boolean) {
     const savedNickname = nickname.replace(/\s+/g, " ").trim();
     if (savedNickname.length < 2) return { ok: false, message: "닉네임을 2자 이상 입력해 주세요." };
-    if (!selectedFixture || !managerAnalysis) return { ok: false, message: "저장할 경기 분석이 아직 준비되지 않았습니다." };
+    if (!selectedFixture || !selectedTeam || !managerAnalysis) return { ok: false, message: "저장할 경기 분석이 아직 준비되지 않았습니다." };
     const scored = matchPlanDecisions.map((decision) => scoreTacticalMatchup(decision));
     const averageScore = scored.length ? Math.round(scored.reduce((total, value) => total + value, 0) / scored.length) : 50;
     const matchScore = clampScore(averageScore + Math.min(4, switchCount));
@@ -808,8 +818,18 @@ export default function Home() {
           nickname: savedNickname,
           fixtureId: selectedFixture.id,
           fixtureLabel: `${selectedFixture.home.code} vs ${selectedFixture.away.code}`,
+          managedTeam: selectedTeam,
           score: matchScore,
           isPublic,
+          tacticTimeline: matchPlanDecisions.map((decision) => ({
+            minute: decision.minute,
+            opponentFormation: decision.opponentFormation,
+            opponentBlock: decision.opponentBlock,
+            opponentPhase: decision.opponentPhase,
+            tacticName: decision.tacticName,
+            tacticFormation: decision.tacticFormation,
+            metrics: decision.metrics,
+          })),
           manager: {
             archetype: managerAnalysis.archetype,
             confidence: managerAnalysis.confidence,
@@ -1057,8 +1077,8 @@ export default function Home() {
         )}
       </header>
 
-      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} accessMode={accessMode} onNicknameChange={updateNickname} onSelect={selectFixture} />}
-      {view === "team" && selectedFixture && <TeamSelector fixture={selectedFixture} onBack={() => setView("fixture")} onSelect={selectManagedTeam} />}
+      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} accessMode={accessMode} onLogout={logoutToLanding} onSelect={selectFixture} />}
+      {view === "team" && selectedFixture && <TeamSelector fixture={selectedFixture} nickname={nickname} accessMode={accessMode} onBack={() => setView("fixture")} onSelect={selectManagedTeam} />}
 
       {view === "match" && selectedFixture && selectedTeam && (
         <MatchRoom
@@ -1104,7 +1124,7 @@ export default function Home() {
       )}
 
       {view === "manager" && (
-        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} accessMode={accessMode} onNicknameChange={updateNickname} onRegisterNickname={registerNicknameFromPrivateMode} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
+        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} accessMode={accessMode} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
       )}
 
       {view === "duel" && (
@@ -1189,7 +1209,7 @@ function LandingScreen({ nickname, onNicknameEnter, onPrivateEnter }: { nickname
   );
 }
 
-function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, onNicknameChange, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; accessMode: AccessMode; onNicknameChange: (value: string) => void; onSelect: (fixture: MatchFixture) => void }) {
+function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, onLogout, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; accessMode: AccessMode; onLogout: () => void; onSelect: (fixture: MatchFixture) => void }) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRecord[]>([]);
   const [profileRecords, setProfileRecords] = useState<ProfileRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(true);
@@ -1243,10 +1263,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         <h1 id="fixture-title">어떤 실제 경기를<br />다시 지휘할까요?</h1>
         <p>공식 출전 명단을 기준으로, 그 순간 당신이라면 어떤 전술을 선택했을지 설계합니다.</p>
       </div>
-      {accessMode === "nickname" && <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>해당 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>}
-
-      <FixtureRecordPanel accessMode={accessMode} nickname={normalizedNickname} leaderboard={leaderboard} profileRecords={profileRecords} loading={recordsLoading} message={recordsMessage} onClearMessage={() => setRecordsMessage("")} onDelete={setDeleteCandidate} />
-      {deleteCandidate && <DeleteRecordDialog record={deleteCandidate} onCancel={() => setDeleteCandidate(null)} onConfirm={() => void deleteProfileRecord()} />}
+      {accessMode === "nickname" && <div className="nickname-entry locked-nickname"><span>MY NICKNAME</span><input value={nickname} readOnly aria-label="현재 닉네임" /><button type="button" onClick={onLogout}>로그아웃</button><small>해당 닉네임으로 경기 기록과 감독카드를 저장합니다. 변경하려면 로그아웃해 주세요.</small></div>}
 
       <div className="fixture-list" aria-label="월드컵 경기 선택">
         {fixtures.map((fixture) => {
@@ -1291,7 +1308,47 @@ function DeleteRecordDialog({ record, onCancel, onConfirm }: { record: ProfileRe
   return <div className="record-delete-backdrop" role="presentation"><section className="record-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="record-delete-title"><span>DELETE RECORD</span><h2 id="record-delete-title">기록을 삭제할까요?</h2><p><b>{record.fixtureLabel}</b> 기록을 삭제하면 점수와 감독카드를 다시 복구할 수 없습니다.</p><div><button className="text-button" type="button" onClick={onCancel}>취소</button><button className="record-delete-confirm" type="button" onClick={onConfirm}>영구 삭제</button></div></section></div>;
 }
 
-function TeamSelector({ fixture, onBack, onSelect }: { fixture: MatchFixture; onBack: () => void; onSelect: (team: "home" | "away") => void }) {
+function TeamSelector({ fixture, nickname, accessMode, onBack, onSelect }: { fixture: MatchFixture; nickname: string; accessMode: AccessMode; onBack: () => void; onSelect: (team: "home" | "away") => void }) {
+  const [records, setRecords] = useState<Record<"home" | "away", { leaderboard: LeaderboardRecord[]; profile: ProfileRecord[] }>>({ home: { leaderboard: [], profile: [] }, away: { leaderboard: [], profile: [] } });
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [openedRecord, setOpenedRecord] = useState<ProfileRecord | LeaderboardRecord | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<ProfileRecord | null>(null);
+  const normalizedNickname = nickname.replace(/\s+/g, " ").trim();
+
+  async function loadTeamRecords() {
+    setLoading(true);
+    try {
+      const nicknameQuery = accessMode === "nickname" && normalizedNickname.length >= 2 ? `&nickname=${encodeURIComponent(normalizedNickname)}` : "";
+      const responses = await Promise.all((["home", "away"] as const).map(async (side) => {
+        const response = await fetch(`/api/match-records?fixtureId=${encodeURIComponent(fixture.id)}&managedTeam=${side}${nicknameQuery}`);
+        const payload = await response.json() as { records?: LeaderboardRecord[]; profileRecords?: ProfileRecord[]; error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "감독 기록을 불러오지 못했습니다.");
+        return [side, { leaderboard: payload.records ?? [], profile: payload.profileRecords ?? [] }] as const;
+      }));
+      setRecords(Object.fromEntries(responses) as Record<"home" | "away", { leaderboard: LeaderboardRecord[]; profile: ProfileRecord[] }>);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "감독 기록을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadTeamRecords(); }, [fixture.id, normalizedNickname, accessMode]);
+
+  async function deleteProfileRecord() {
+    if (!deleteCandidate) return;
+    try {
+      const response = await fetch("/api/match-records", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteCandidate.id, nickname: normalizedNickname }) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "기록을 삭제하지 못했습니다.");
+      setDeleteCandidate(null);
+      setMessage("경기 기록을 삭제했습니다. 삭제한 기록은 복구할 수 없습니다.");
+      await loadTeamRecords();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "기록을 삭제하지 못했습니다.");
+    }
+  }
   return (
     <section className="team-select-screen" aria-labelledby="team-select-title">
       <button className="back-to-fixtures" onClick={onBack}>← 경기 다시 선택</button>
@@ -1310,8 +1367,32 @@ function TeamSelector({ fixture, onBack, onSelect }: { fixture: MatchFixture; on
           </button>;
         })}
       </div>
+      <section className="team-rankings" aria-label="선택 팀별 감독 순위">
+        <div className="team-rankings-heading"><span>PUBLIC RANKING</span><h2>선택 팀별 감독 순위</h2><p>같은 경기라도 어느 팀을 지휘했는지에 따라 순위를 따로 계산합니다. 기록을 누르면 0~90분 전술 선택을 읽기 전용으로 확인할 수 있습니다.</p></div>
+        <div className="team-ranking-grid">
+          {(["home", "away"] as const).map((side) => <TeamRankingPanel key={side} team={fixture[side]} side={side} loading={loading} accessMode={accessMode} records={records[side]} onOpen={setOpenedRecord} onDelete={setDeleteCandidate} />)}
+        </div>
+        {message && <p className="team-ranking-message" role="status">{message}<button type="button" onClick={() => setMessage("")} aria-label="안내 닫기">×</button></p>}
+      </section>
+      {openedRecord && <TacticTimelineDialog record={openedRecord} onClose={() => setOpenedRecord(null)} />}
+      {deleteCandidate && <DeleteRecordDialog record={deleteCandidate} onCancel={() => setDeleteCandidate(null)} onConfirm={() => void deleteProfileRecord()} />}
     </section>
   );
+}
+
+function TeamRankingPanel({ team, side, loading, accessMode, records, onOpen, onDelete }: { team: MatchFixture["home"]; side: "home" | "away"; loading: boolean; accessMode: AccessMode; records: { leaderboard: LeaderboardRecord[]; profile: ProfileRecord[] }; onOpen: (record: LeaderboardRecord | ProfileRecord) => void; onDelete: (record: ProfileRecord) => void }) {
+  return <article className="team-ranking-panel">
+    <div className="team-ranking-title"><span>{side === "home" ? "HOME TEAM" : "AWAY TEAM"}</span><h3>{team.code} 감독 순위</h3></div>
+    {loading ? <p className="team-ranking-empty">순위를 불러오는 중입니다.</p> : records.leaderboard.length ? <ol>{records.leaderboard.map((record) => <li key={record.id}><button type="button" className="team-record-open" onClick={() => onOpen(record)}><b>{record.rank ?? "-"}</b><span><strong>{record.nickname}</strong><small>{record.managerArchetype}</small></span><em>{record.score}</em></button></li>)}</ol> : <p className="team-ranking-empty">아직 공개된 감독 기록이 없습니다.</p>}
+    {accessMode === "nickname" && !loading && records.profile.length > 0 && <div className="team-my-records"><span>MY RECORD</span>{records.profile.map((record) => <div key={record.id}><button type="button" onClick={() => onOpen(record)}><b>{record.isPublic ? `${record.rank}위` : "비공개"}</b><strong>{record.score}점 · 전술 보기</strong></button><button className="team-record-delete" type="button" onClick={() => onDelete(record)} aria-label={`${team.code} 기록 삭제`}>삭제</button></div>)}</div>}
+  </article>;
+}
+
+function TacticTimelineDialog({ record, onClose }: { record: LeaderboardRecord | ProfileRecord; onClose: () => void }) {
+  const timeline = record.timeline ?? [];
+  const [activeMinute, setActiveMinute] = useState(timeline[0]?.minute ?? 0);
+  const active = timeline.find((item) => item.minute === activeMinute) ?? timeline[0];
+  return <div className="tactic-timeline-backdrop" role="presentation" onMouseDown={onClose}><section className="tactic-timeline-dialog" role="dialog" aria-modal="true" aria-labelledby="tactic-timeline-title" onMouseDown={(event) => event.stopPropagation()}><div className="tactic-timeline-heading"><span>READ ONLY · LIVE TACTICS</span><button type="button" onClick={onClose} aria-label="전술 타임라인 닫기">×</button><h2 id="tactic-timeline-title">{record.nickname} 감독의 경기 선택</h2><p>{record.fixtureLabel} · {record.score}점 · 드래그나 변경 없이 당시 확정 전술만 볼 수 있습니다.</p></div>{timeline.length ? <><div className="timeline-minutes" role="tablist">{timeline.map((item) => <button key={item.minute} type="button" className={item.minute === active?.minute ? "active" : ""} onClick={() => setActiveMinute(item.minute)}>{item.minute}′</button>)}</div>{active && <div className="timeline-decision"><div><span>OPPONENT</span><b>{active.opponentFormation || "상대 전술 정보"}</b><small>{active.opponentBlock} · {active.opponentPhase}</small></div><div><span>MY TACTIC</span><b>{active.tacticName || "확정 전술"}</b><small>{active.tacticFormation}</small></div><div className="timeline-metric-grid">{[["공격", active.metrics.attack], ["수비", active.metrics.defence], ["중앙", active.metrics.centre], ["전환", active.metrics.transition], ["압박", active.metrics.pressing], ["체력 리스크", active.metrics.fatigue]].map(([label, value]) => <div key={String(label)}><span>{label}</span><b>{Number(value)}</b><i><em style={{ width: `${Number(value)}%` }} /></i></div>)}</div></div>}</> : <p className="timeline-empty">이전 형식으로 저장된 기록입니다. 0~90분 전술 타임라인은 새로 저장한 경기부터 제공됩니다.</p>}</section></div>;
 }
 
 function MatchRoom(props: MatchRoomProps) {
@@ -2189,29 +2270,14 @@ function ReviewScreen({ activeTactic, switchCount, decisions, analysis, loading,
   );
 }
 
-function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, onNicknameChange, onRegisterNickname, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; accessMode: AccessMode; onNicknameChange: (value: string) => void; onRegisterNickname: () => boolean; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
+function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; accessMode: AccessMode; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
   const [isPublic, setIsPublic] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordMessage, setRecordMessage] = useState("");
-  const [leaderboard, setLeaderboard] = useState<LeaderboardRecord[]>([]);
-
-  async function loadLeaderboard() {
-    try {
-      const response = await fetch("/api/match-records");
-      const payload = await response.json() as { records?: LeaderboardRecord[] };
-      if (response.ok) setLeaderboard(payload.records ?? []);
-    } catch {
-      setLeaderboard([]);
-    }
-  }
-
-  useEffect(() => { if (accessMode === "nickname") void loadLeaderboard(); }, [accessMode]);
-
   async function saveRecord() {
     setSavingRecord(true);
     const result = await onSaveRecord(isPublic);
     setRecordMessage(result.message);
-    if (result.ok && isPublic) await loadLeaderboard();
     setSavingRecord(false);
   }
 
@@ -2243,23 +2309,15 @@ function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, 
       <section className="record-panel" aria-labelledby="record-panel-title">
         <div><span>MY MATCH RECORD</span><h2 id="record-panel-title">감독카드 저장 및 순위 등록</h2><p>닉네임은 회원가입 없는 식별자입니다. 공개 기록은 다른 감독에게도 보입니다.</p></div>
         <div className="record-controls">
-          <label><b>닉네임</b><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="닉네임 2자 이상" aria-label="경기 기록 닉네임" /></label>
+          <label><b>닉네임</b><input value={nickname} readOnly aria-label="현재 닉네임" /></label>
           <label className="record-public-toggle"><input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} /> <span>공개 순위에 등록</span></label>
           <button className="primary-button" type="button" onClick={() => void saveRecord()} disabled={savingRecord}>{savingRecord ? "저장 중..." : isPublic ? "저장하고 순위 공개" : "내 기록 저장"}</button>
         </div>
         {recordMessage && <p className="record-message" role="status">{recordMessage}</p>}
       </section>
-      <section className="leaderboard-panel" aria-labelledby="leaderboard-title">
-        <div><span>PUBLIC RANKING</span><h2 id="leaderboard-title">감독 순위</h2></div>
-        {leaderboard.length ? <ol>{leaderboard.map((record, index) => <li key={record.id}><b>{index + 1}</b><div><strong>{record.nickname}</strong><span>{record.fixtureLabel} · {record.managerArchetype}</span></div><em>{record.score}</em></li>)}</ol> : <p>아직 공개된 감독 기록이 없습니다. 첫 번째 순위에 도전해 보세요.</p>}
-      </section>
       </> : <section className="record-panel private-record-panel" aria-labelledby="record-panel-title">
-        <div><span>PRIVATE SESSION</span><h2 id="record-panel-title">비공개 전술 체험 중</h2><p>이 세션의 전술과 감독카드는 공개 순위에 남지 않습니다. 결과를 공개하고 싶을 때만 닉네임을 등록하세요.</p></div>
-        <div className="record-controls">
-          <label><b>공개에 사용할 닉네임</b><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="닉네임 2자 이상" aria-label="공개에 사용할 닉네임" /></label>
-          <button className="primary-button" type="button" onClick={() => { if (onRegisterNickname()) { setIsPublic(true); setRecordMessage("닉네임을 등록했습니다. 공개 순위 등록을 선택할 수 있습니다."); } else setRecordMessage("닉네임을 2자 이상 입력해 주세요."); }}>닉네임 등록</button>
-        </div>
-        {recordMessage && <p className="record-message" role="status">{recordMessage}</p>}
+        <div><span>PRIVATE SESSION</span><h2 id="record-panel-title">비공개 전술 체험 중</h2><p>이 세션은 공개 순위와 경기 기록에 저장되지 않습니다. 닉네임으로 기록을 남기려면 메인 화면에서 다시 입장해 주세요.</p></div>
+        <button className="primary-button" type="button" onClick={onChooseNextMatch}>경기 선택으로 돌아가기</button>
       </section>}
       <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onChooseNextMatch}>다른 경기 고르기</button></div>
     </section>

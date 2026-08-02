@@ -1,0 +1,161 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "8eb7c39f-7bf1-4cd5-91ce-8dde92e04d7a",
+  "prevId": "5714831b-137b-48bb-ba93-b90b963153a1",
+  "tables": {
+    "match_records": {
+      "name": "match_records",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fixture_id": {
+          "name": "fixture_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fixture_label": {
+          "name": "fixture_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "managed_team": {
+          "name": "managed_team",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'unknown'"
+        },
+        "score": {
+          "name": "score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_public": {
+          "name": "is_public",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "manager_archetype": {
+          "name": "manager_archetype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manager_confidence": {
+          "name": "manager_confidence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manager_badges": {
+          "name": "manager_badges",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "manager_summary": {
+          "name": "manager_summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tactic_timeline": {
+          "name": "tactic_timeline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_match_records_public_score": {
+          "name": "idx_match_records_public_score",
+          "columns": [
+            "is_public",
+            "score"
+          ],
+          "isUnique": false
+        },
+        "idx_match_records_public_fixture_score": {
+          "name": "idx_match_records_public_fixture_score",
+          "columns": [
+            "is_public",
+            "fixture_id",
+            "score",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_match_records_public_fixture_team_score": {
+          "name": "idx_match_records_public_fixture_team_score",
+          "columns": [
+            "is_public",
+            "fixture_id",
+            "managed_team",
+            "score",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "idx_match_records_nickname_created_at": {
+          "name": "idx_match_records_nickname_created_at",
+          "columns": [
+            "nickname",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}
