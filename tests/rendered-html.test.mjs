@@ -31,12 +31,13 @@ test("server-renders the TOUCHLINE 26 fixture selection", async () => {
 });
 
 test("keeps the core interaction contract in source", async () => {
-  const [page, layout, css, packageJson, managerRoute] = await Promise.all([
+  const [page, layout, css, packageJson, managerRoute, reviewRoute] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai-manager-card/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/ai-match-review/route.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /draggable/);
@@ -151,6 +152,10 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(managerRoute, /GEMINI_API_KEY/);
   assert.match(managerRoute, /manager-profile analyst/);
   assert.match(managerRoute, /localAnalysis/);
+  assert.match(page, /api\/ai-match-review/);
+  assert.match(page + css, /review-ai-summary/);
+  assert.match(reviewRoute, /Korean football match reviewer/);
+  assert.match(reviewRoute, /GEMINI_API_KEY/);
   assert.match(page, /requires|최종 적용은 감독이 확정/);
   assert.match(page, /Tactical|TACTICAL DUEL/);
   assert.match(layout, /감독의 판단을 플레이하다/);

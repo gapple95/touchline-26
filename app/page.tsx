@@ -105,6 +105,12 @@ type ManagerCardAnalysis = {
   evidence: Array<{ minute: string; title: string; detail: string }>;
   coachingFocus: string;
 };
+type MatchReviewAnalysis = {
+  provider: "gemini" | "local";
+  headline: string;
+  summary: string;
+  insights: Array<{ title: string; detail: string; tone: Tone; tag: string }>;
+};
 
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -495,6 +501,8 @@ export default function Home() {
   const [notice, setNotice] = useState("CONTROL 전술로 경기를 운영 중입니다.");
   const [duelResolved, setDuelResolved] = useState(false);
   const [matchPlanDecisions, setMatchPlanDecisions] = useState<MatchPlanDecision[]>([]);
+  const [reviewAnalysis, setReviewAnalysis] = useState<MatchReviewAnalysis | null>(null);
+  const [reviewAnalysisLoading, setReviewAnalysisLoading] = useState(false);
   const [managerAnalysis, setManagerAnalysis] = useState<ManagerCardAnalysis | null>(null);
   const [managerAnalysisLoading, setManagerAnalysisLoading] = useState(false);
 
@@ -510,6 +518,8 @@ export default function Home() {
     const managedTeam = selectedFixture[team];
     setSelectedTeam(team);
     setMatchPlanDecisions([]);
+    setReviewAnalysis(null);
+    setReviewAnalysisLoading(false);
     setManagerAnalysis(null);
     setManagerAnalysisLoading(false);
     setView("match");
@@ -636,9 +646,42 @@ export default function Home() {
   }
 
   function finishMatchPlan(opponent: OpponentTacticalSnapshot) {
+    const finalDecision: MatchPlanDecision = {
+      minute: opponent.minute,
+      opponentFormation: opponent.formation,
+      opponentBlock: opponent.block,
+      opponentPhase: opponent.phase,
+      tacticId: activeTactic.id,
+      tacticName: activeTactic.name,
+      tacticFormation: activeTactic.formation,
+      metrics: liveMetrics,
+    };
+    const decisionsForReview = [...matchPlanDecisions.filter((item) => item.minute !== opponent.minute), finalDecision].sort((a, b) => a.minute - b.minute);
     confirmCurrentTactic(opponent);
+    void generateMatchReview(decisionsForReview);
     setNotice(`${activeTactic.name} 전술 설계를 확정했습니다. 경기 리뷰에서 선택의 결과를 확인하세요.`);
     setView("review");
+  }
+
+  async function generateMatchReview(decisions: MatchPlanDecision[]) {
+    setReviewAnalysis(null);
+    setReviewAnalysisLoading(true);
+    try {
+      const response = await fetch("/api/ai-match-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decisions: decisions.map((decision) => ({ ...decision, effectiveness: scoreTacticalMatchup(decision) })),
+        }),
+      });
+      const payload = await response.json() as { analysis?: MatchReviewAnalysis };
+      if (!response.ok || !payload.analysis) throw new Error("Review analysis unavailable");
+      setReviewAnalysis(payload.analysis);
+    } catch {
+      setReviewAnalysis(null);
+    } finally {
+      setReviewAnalysisLoading(false);
+    }
   }
 
   async function openManagerCard() {
@@ -670,6 +713,8 @@ export default function Home() {
     setSelectedFixture(null);
     setSelectedTeam(null);
     setMatchPlanDecisions([]);
+    setReviewAnalysis(null);
+    setReviewAnalysisLoading(false);
     setManagerAnalysis(null);
     setManagerAnalysisLoading(false);
     setView("fixture");
@@ -917,7 +962,7 @@ export default function Home() {
       )}
 
       {view === "review" && (
-        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} decisions={matchPlanDecisions} onReplay={() => setView("match")} onManagerCard={openManagerCard} />
+        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} decisions={matchPlanDecisions} analysis={reviewAnalysis} loading={reviewAnalysisLoading} onReplay={() => setView("match")} onManagerCard={openManagerCard} />
       )}
 
       {view === "manager" && (
@@ -1829,7 +1874,7 @@ function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTactica
   );
 }
 
-function ReviewScreen({ activeTactic, switchCount, decisions, onReplay, onManagerCard }: { activeTactic: Tactic; switchCount: number; decisions: MatchPlanDecision[]; onReplay: () => void; onManagerCard: () => void }) {
+function ReviewScreen({ activeTactic, switchCount, decisions, analysis, loading, onReplay, onManagerCard }: { activeTactic: Tactic; switchCount: number; decisions: MatchPlanDecision[]; analysis: MatchReviewAnalysis | null; loading: boolean; onReplay: () => void; onManagerCard: () => void }) {
   const fallbackDecision: MatchPlanDecision = { minute: 0, opponentFormation: "4-3-3", opponentBlock: "MID BLOCK", opponentPhase: "기본 분석", tacticId: activeTactic.id, tacticName: activeTactic.name, tacticFormation: activeTactic.formation, metrics: { ...activeTactic.metrics, pressing: 55, progression: 55, spaceBehindRisk: 45 } as LiveTacticalMetrics };
   const scoredDecisions: ScoredMatchPlanDecision[] = (decisions.length ? decisions : [fallbackDecision]).map((decision) => ({ ...decision, effectiveness: scoreTacticalMatchup(decision) }));
   const averageEffectiveness = Math.round(scoredDecisions.reduce((total, decision) => total + decision.effectiveness, 0) / scoredDecisions.length);
@@ -1849,7 +1894,11 @@ function ReviewScreen({ activeTactic, switchCount, decisions, onReplay, onManage
           <Metric label="최대 위험" value={100 - weakestDecision.effectiveness} tone="orange" />
           <small>상대 블록·포메이션과 내 전술 지표를 비교한 파생 점수</small>
         </article>
-        <div className="decision-list">
+        <div className={`decision-list ${analysis ? "has-ai-review" : "is-loading"}`}>
+          {analysis ? <>
+            <article className="review-ai-summary"><span>AI MATCH REVIEW</span><h2>{analysis.headline}</h2><p>{analysis.summary}</p></article>
+            <div className="review-ai-insights">{analysis.insights.map((insight, index) => <DecisionCard key={`${insight.title}-${index}`} number={`0${index + 1}`} tone={insight.tone} title={insight.title} body={insight.detail} tag={insight.tag} />)}</div>
+          </> : <div className="review-analysis-loading" role="status"><div className="analysis-progress" aria-hidden="true"><i /></div><b>{loading ? "AI가 경기 리뷰를 분석 중입니다" : "AI 리뷰를 준비하지 못했습니다"}</b><p>15분별 전술 선택과 상성 점수를 바탕으로 결과를 정리합니다.</p></div>}
           <DecisionCard number="01" tone="lime" title="가장 잘 맞은 대응" body={`${bestDecision.minute}′, 상대 ${bestDecision.opponentFormation} ${bestDecision.opponentBlock}에 ${bestDecision.tacticName} ${bestDecision.tacticFormation}을 선택해 ${bestDecision.effectiveness}점을 기록했습니다.`} tag={`EFFECTIVENESS ${bestDecision.effectiveness}/100`} />
           <DecisionCard number="02" tone="orange" title="가장 어려웠던 구간" body={`${weakestDecision.minute}′, 상대 ${weakestDecision.opponentPhase} 상황에서 ${weakestDecision.tacticName}의 압박·전환 지표가 충분히 맞물리지 않았습니다.`} tag={`EFFECTIVENESS ${weakestDecision.effectiveness}/100`} />
           <DecisionCard number="03" tone="mint" title="다음 전술 보완" body={weakestDecision.opponentBlock === "LOW BLOCK" ? "낮은 블록에는 측면 폭과 빠른 전진 패스를 더 높여 박스 진입 경로를 만드세요." : weakestDecision.opponentBlock === "HIGH PRESS" ? "강한 전방 압박에는 수비 가담과 짧은 지원 거리를 높여 첫 패스 탈출구를 만드세요." : "상대 라인 사이 공간을 위해 중앙 연결과 압박 강도를 한 단계 더 조절해보세요."} tag={`NEXT: ${weakestDecision.opponentBlock}`} />
