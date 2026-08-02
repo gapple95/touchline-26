@@ -85,6 +85,7 @@ type OpponentTacticalSnapshot = {
 };
 
 type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
+type TacticReplayPlayer = Pick<Player, "id" | "name" | "number" | "position" | "role"> & { x: number; y: number };
 type MatchPlanDecision = {
   minute: number;
   opponentFormation: string;
@@ -94,6 +95,7 @@ type MatchPlanDecision = {
   tacticName: string;
   tacticFormation: string;
   metrics: LiveTacticalMetrics;
+  players?: TacticReplayPlayer[];
 };
 
 type ScoredMatchPlanDecision = MatchPlanDecision & { effectiveness: number };
@@ -723,6 +725,10 @@ export default function Home() {
     setConfirmedTactics((current) => ({ ...current, [activeTacticId]: cloneTacticSnapshot(currentTacticSnapshot) }));
     setTacticLayouts((current) => ({ ...current, [activeTacticId]: slots.map(({ x, y }) => ({ x, y })) }));
     if (opponent) {
+      const players = lineup.map((player, index) => {
+        const slot = slots[index] ?? { x: 50, y: 50 };
+        return { id: player.id, name: player.name, number: player.number, position: player.position, role: player.role, x: slot.x, y: slot.y };
+      });
       const decision: MatchPlanDecision = {
         minute: opponent.minute,
         opponentFormation: opponent.formation,
@@ -732,6 +738,7 @@ export default function Home() {
         tacticName: activeTactic.name,
         tacticFormation: activeTactic.formation,
         metrics: liveMetrics,
+        players,
       };
       setMatchPlanDecisions((current) => [...current.filter((item) => item.minute !== opponent.minute), decision].sort((a, b) => a.minute - b.minute));
     }
@@ -739,6 +746,10 @@ export default function Home() {
   }
 
   function finishMatchPlan(opponent: OpponentTacticalSnapshot) {
+    const players = lineup.map((player, index) => {
+      const slot = slots[index] ?? { x: 50, y: 50 };
+      return { id: player.id, name: player.name, number: player.number, position: player.position, role: player.role, x: slot.x, y: slot.y };
+    });
     const finalDecision: MatchPlanDecision = {
       minute: opponent.minute,
       opponentFormation: opponent.formation,
@@ -748,6 +759,7 @@ export default function Home() {
       tacticName: activeTactic.name,
       tacticFormation: activeTactic.formation,
       metrics: liveMetrics,
+      players,
     };
     const decisionsForReview = [...matchPlanDecisions.filter((item) => item.minute !== opponent.minute), finalDecision].sort((a, b) => a.minute - b.minute);
     confirmCurrentTactic(opponent);
@@ -829,6 +841,7 @@ export default function Home() {
             tacticName: decision.tacticName,
             tacticFormation: decision.tacticFormation,
             metrics: decision.metrics,
+            players: decision.players,
           })),
           manager: {
             archetype: managerAnalysis.archetype,
@@ -1388,7 +1401,7 @@ function TeamRankingPanel({ team, side, loading, accessMode, records, onOpen, on
   </article>;
 }
 
-function ReadOnlyTacticalBoard({ side, formation, block, phase }: { side: "opponent" | "ours"; formation: string; block: string; phase: string }) {
+function ReadOnlyTacticalBoard({ side, formation, block, phase, players = [] }: { side: "opponent" | "ours"; formation: string; block: string; phase: string; players?: TacticReplayPlayer[] }) {
   const baseShape = modelOpponentShape(formation || "4-3-3", block || "MID BLOCK", phase || "기본 전술");
   const shape = side === "ours" ? baseShape.map((point) => ({ ...point, x: 100 - point.x })) : baseShape;
   const label = side === "opponent" ? "OPPONENT TACTICS BOARD" : "MY LIVE TACTICS BOARD";
@@ -1396,7 +1409,7 @@ function ReadOnlyTacticalBoard({ side, formation, block, phase }: { side: "oppon
     <header><span>{label}</span><b>{formation || "4-3-3"}</b><small>{block || "MID BLOCK"}</small></header>
     <div className="replay-pitch">
       <i className="opponent-halfway" /><i className="opponent-centre-circle" /><i className="opponent-penalty-box left" /><i className="opponent-penalty-box right" /><i className="opponent-six-yard-box left" /><i className="opponent-six-yard-box right" /><i className="opponent-goal left" /><i className="opponent-goal right" /><i className="opponent-penalty-spot left" /><i className="opponent-penalty-spot right" />
-      {shape.map((point, index) => <b key={`${side}-${point.role}-${index}`} className="replay-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
+      {side === "ours" && players.length ? players.map((player) => <b key={player.id} className="replay-player" style={{ left: `${player.x}%`, top: `${player.y}%` }}><span>{player.name}</span><small>{player.position || player.role}</small></b>) : shape.map((point, index) => <b key={`${side}-${point.role}-${index}`} className="replay-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
     </div>
   </section>;
 }
@@ -1406,7 +1419,7 @@ function TacticTimelineDialog({ record, onClose }: { record: LeaderboardRecord |
   const [activeMinute, setActiveMinute] = useState(timeline[0]?.minute ?? 0);
   const active = timeline.find((item) => item.minute === activeMinute) ?? timeline[0];
   const ownBlock = active && active.metrics.defence >= 72 ? "LOW BLOCK" : active && active.metrics.pressing >= 72 ? "HIGH PRESS" : "MID BLOCK";
-  return <div className="tactic-timeline-backdrop" role="presentation" onMouseDown={onClose}><section className="tactic-timeline-dialog replay-dialog" role="dialog" aria-modal="true" aria-labelledby="tactic-timeline-title" onMouseDown={(event) => event.stopPropagation()}><div className="tactic-timeline-heading"><span>READ ONLY · LIVE TACTICS</span><button type="button" onClick={onClose} aria-label="전술 타임라인 닫기">×</button><h2 id="tactic-timeline-title">{record.nickname} 감독의 경기 선택</h2><p>{record.fixtureLabel} · {record.score}점 · 드래그나 변경 없이 당시 확정 전술만 볼 수 있습니다.</p></div>{timeline.length ? <><div className="timeline-minutes" role="tablist">{timeline.map((item) => <button key={item.minute} type="button" className={item.minute === active?.minute ? "active" : ""} onClick={() => setActiveMinute(item.minute)}>{item.minute}′</button>)}</div>{active && <div className="replay-layout"><div className="replay-time"><span>TIME</span><b>{active.minute}′</b><small>확정된 전술 장면</small></div><ReadOnlyTacticalBoard side="opponent" formation={active.opponentFormation} block={active.opponentBlock} phase={active.opponentPhase} /><ReadOnlyTacticalBoard side="ours" formation={active.tacticFormation} block={ownBlock} phase={active.tacticName} /><div className="replay-strategies"><article><span>상대팀 전략</span><b>{active.opponentPhase || "상대 전술 관찰"}</b><p>{active.opponentBlock || "MID BLOCK"} · {active.opponentFormation}</p></article><article><span>우리팀 전략</span><b>{active.tacticName || "확정 전술"}</b><p>{active.tacticFormation} · {ownBlock}</p></article></div><div className="timeline-metric-grid replay-metrics"><header><span>MY TACTICAL INDEX</span><b>우리팀 전술 지표</b></header>{[["공격", active.metrics.attack], ["수비", active.metrics.defence], ["중앙", active.metrics.centre], ["전환", active.metrics.transition], ["압박", active.metrics.pressing], ["체력 리스크", active.metrics.fatigue]].map(([label, value]) => <div key={String(label)}><span>{label}</span><b>{Number(value)}</b><i><em style={{ width: `${Number(value)}%` }} /></i></div>)}</div></div>}</> : <p className="timeline-empty">이전 형식으로 저장된 기록입니다. 0~90분 전술 타임라인은 새로 저장한 경기부터 제공됩니다.</p>}</section></div>;
+  return <div className="tactic-timeline-backdrop" role="presentation" onMouseDown={onClose}><section className="tactic-timeline-dialog replay-dialog" role="dialog" aria-modal="true" aria-labelledby="tactic-timeline-title" onMouseDown={(event) => event.stopPropagation()}><div className="tactic-timeline-heading"><span>READ ONLY · LIVE TACTICS</span><button type="button" onClick={onClose} aria-label="전술 타임라인 닫기">×</button><h2 id="tactic-timeline-title">{record.nickname} 감독의 경기 선택</h2><p>{record.fixtureLabel} · {record.score}점 · 드래그나 변경 없이 당시 확정 전술만 볼 수 있습니다.</p></div>{timeline.length ? <><div className="timeline-minutes" role="tablist">{timeline.map((item) => <button key={item.minute} type="button" className={item.minute === active?.minute ? "active" : ""} onClick={() => setActiveMinute(item.minute)}>{item.minute}′</button>)}</div>{active && <div className="replay-layout"><div className="replay-time"><span>TIME</span><b>{active.minute}′</b><small>확정된 전술 장면</small></div><ReadOnlyTacticalBoard side="opponent" formation={active.opponentFormation} block={active.opponentBlock} phase={active.opponentPhase} /><ReadOnlyTacticalBoard side="ours" formation={active.tacticFormation} block={ownBlock} phase={active.tacticName} players={active.players ?? []} /><div className="replay-strategies"><article><span>상대팀 전략</span><b>{active.opponentPhase || "상대 전술 관찰"}</b><p>{active.opponentBlock || "MID BLOCK"} · {active.opponentFormation}</p></article><article><span>우리팀 전략</span><b>{active.tacticName || "확정 전술"}</b><p>{active.tacticFormation} · {ownBlock}</p></article></div><div className="timeline-metric-grid replay-metrics"><header><span>MY TACTICAL INDEX</span><b>우리팀 전술 지표</b></header>{[["공격", active.metrics.attack], ["수비", active.metrics.defence], ["중앙", active.metrics.centre], ["전환", active.metrics.transition], ["압박", active.metrics.pressing], ["체력 리스크", active.metrics.fatigue]].map(([label, value]) => <div key={String(label)}><span>{label}</span><b>{Number(value)}</b><i><em style={{ width: `${Number(value)}%` }} /></i></div>)}</div></div>}</> : <p className="timeline-empty">이전 형식으로 저장된 기록입니다. 0~90분 전술 타임라인은 새로 저장한 경기부터 제공됩니다.</p>}</section></div>;
 }
 
 function MatchRoom(props: MatchRoomProps) {

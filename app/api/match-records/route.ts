@@ -10,6 +10,7 @@ type TimelineEntry = {
   tacticName: string;
   tacticFormation: string;
   metrics: Record<string, number>;
+  players: Array<{ id: string; name: string; number: number; position: string; role: string; x: number; y: number }>;
 };
 
 function cleanText(value: unknown, maximum: number) {
@@ -46,6 +47,17 @@ function normaliseTimeline(value: unknown): TimelineEntry[] {
     const rawMetrics = item.metrics && typeof item.metrics === "object" ? item.metrics as Record<string, unknown> : {};
     const metrics = Object.fromEntries(["attack", "defence", "centre", "transition", "fatigue", "pressing", "progression", "spaceBehindRisk"]
       .map((key) => [key, score(rawMetrics[key])])) as Record<string, number>;
+    const players = Array.isArray(item.players) ? item.players.slice(0, 11).flatMap((player) => {
+      if (!player || typeof player !== "object") return [];
+      const data = player as Record<string, unknown>;
+      const id = cleanText(data.id, 64);
+      const name = cleanText(data.name, 32);
+      if (!id || !name) return [];
+      const x = Number(data.x);
+      const y = Number(data.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return [];
+      return [{ id, name, number: Math.max(0, Math.min(99, Math.round(Number(data.number) || 0))), position: cleanText(data.position, 12), role: cleanText(data.role, 24), x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) }];
+    }) : [];
     return [{
       minute: Math.round(minute),
       opponentFormation: cleanText(item.opponentFormation, 32),
@@ -54,6 +66,7 @@ function normaliseTimeline(value: unknown): TimelineEntry[] {
       tacticName: cleanText(item.tacticName, 48),
       tacticFormation: cleanText(item.tacticFormation, 24),
       metrics,
+      players,
     }];
   });
 }
