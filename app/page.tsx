@@ -575,7 +575,7 @@ function resampleModelSlots(template: FormationModelTactic, group: FormationMode
   }));
 }
 
-function formationDerivedSlots(lineup: Array<Pick<OfficialLineupPlayer, "tacticalPosition" | "position">>, variationKey = "default"): Slot[] {
+function formationDerivedSlots(lineup: Array<Pick<OfficialLineupPlayer, "tacticalPosition" | "position">>, variationKey = "default", preferredTemplate?: FormationModelTactic): Slot[] {
   const grouped: Record<FormationModelGroup, number[]> = { GK: [], DEF: [], MID: [], ATT: [] };
   lineup.forEach((player, index) => {
     grouped[formationGroup(player.tacticalPosition || player.position)].push(index);
@@ -586,7 +586,7 @@ function formationDerivedSlots(lineup: Array<Pick<OfficialLineupPlayer, "tactica
   }));
   const bestDistance = Math.min(...templateDistances.map(({ distance }) => distance));
   const eligibleTemplates = templateDistances.filter(({ distance }) => distance === bestDistance).map(({ template }) => template);
-  const template = eligibleTemplates[stableModelSeed(variationKey) % eligibleTemplates.length];
+  const template = preferredTemplate ?? eligibleTemplates[stableModelSeed(variationKey) % eligibleTemplates.length];
   const slots: Slot[] = Array.from({ length: lineup.length }, () => ({ x: 50, y: 50, role: "CM" }));
   (Object.keys(grouped) as FormationModelGroup[]).forEach((group) => {
     const modelSlots = resampleModelSlots(template, group, grouped[group].length);
@@ -596,6 +596,31 @@ function formationDerivedSlots(lineup: Array<Pick<OfficialLineupPlayer, "tactica
     });
   });
   return slots;
+}
+
+const formationModelLabels: Record<FormationModelTactic, { formation: string; phase: string; block: string }> = {
+  control: { formation: "4-3-3 CONTROL", phase: "점유·균형", block: "MID BLOCK" },
+  press: { formation: "4-3-3 PRESS", phase: "전방 압박", block: "HIGH PRESS" },
+  chase: { formation: "3-4-3 CHASE", phase: "측면 전환", block: "HIGH BUILD" },
+  lock: { formation: "5-4-1 LOCK", phase: "수비 잠금", block: "LOW BLOCK" },
+};
+
+function createModelTacticTimeline(variationKey: string): FormationModelTactic[] {
+  let state = stableModelSeed(variationKey);
+  const nextRandom = () => {
+    state = (state * 1_664_525 + 1_013_904_223) >>> 0;
+    return state / 4_294_967_296;
+  };
+  const timeline: FormationModelTactic[] = [];
+  let previous: FormationModelTactic | null = null;
+  while (timeline.length < customMatchMinutes.length) {
+    const available = formationModelTactics.filter((tactic) => tactic !== previous);
+    const tactic = available[Math.floor(nextRandom() * available.length)];
+    const duration = 1 + Math.floor(nextRandom() * 3);
+    for (let step = 0; step < duration && timeline.length < customMatchMinutes.length; step += 1) timeline.push(tactic);
+    previous = tactic;
+  }
+  return timeline;
 }
 
 function officialSquadPlayers(fixture: MatchFixture, side: "home" | "away") {
@@ -638,16 +663,20 @@ function officialOpponentSnapshots(fixture: MatchFixture, managedSide: "home" | 
   const opponent = fixture.official?.[opponentSide];
   if (!opponent) return opponentTacticalSnapshots;
   const starters = opponent.lineup.filter((member) => member.starter);
-  const ownViewSlots = formationDerivedSlots(starters, `${fixture.official?.id ?? "fixture"}-${opponent.team.code}-opponent`);
-  return customMatchMinutes.map((minute) => {
+  const variationKey = `${fixture.official?.id ?? "fixture"}-${opponent.team.code}-opponent`;
+  const tacticTimeline = createModelTacticTimeline(variationKey);
+  return customMatchMinutes.map((minute, index) => {
+    const tacticModel = tacticTimeline[index];
+    const tacticalLabel = formationModelLabels[tacticModel];
+    const ownViewSlots = formationDerivedSlots(starters, `${variationKey}-${minute}`, tacticModel);
     const priorEvents = fixture.official?.events.filter((event) => event.teamId === opponent.team.id && event.minute <= minute) ?? [];
     return {
       minute,
-      formation: "FORMATION MODEL",
-      phase: "실제 선발 명단 기반",
-      block: "MODELLED",
-      headline: `${displayTeamName(opponent.team)} 선발 포메이션 모델`,
-      observation: `${minute}분까지 상대팀 이벤트 ${priorEvents.length}개를 반영했습니다. 외부 공개 데이터는 실제 공식 데이터와 다를 수 있으며, 추적 좌표가 없어 선발 포지션을 모델로 표시합니다.`,
+      formation: tacticalLabel.formation,
+      phase: tacticalLabel.phase,
+      block: tacticalLabel.block,
+      headline: `${displayTeamName(opponent.team)} ${tacticalLabel.formation} 모델`,
+      observation: `${minute}′ 구간은 ${tacticalLabel.phase} 모델입니다. 상대팀 이벤트 ${priorEvents.length}개를 반영했습니다. 외부 공개 데이터는 실제 공식 데이터와 다를 수 있으며, 추적 좌표가 없어 포메이션을 모델로 표시합니다.`,
       responseTacticId: "control",
       responseInstruction: "실제 선발·출전 데이터와 팀 스탯을 보고 대응 전술을 설계합니다.",
       shape: starters.map((player, index) => ({ id: String(player.playerId), name: displayOfficialPlayerName(opponent.team.code, player.name), x: 100 - (ownViewSlots[index]?.x ?? 50), y: ownViewSlots[index]?.y ?? 50, role: canonicalPosition(player.tacticalPosition || player.position) })),
