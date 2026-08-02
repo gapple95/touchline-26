@@ -1417,6 +1417,7 @@ function MatchRoom(props: MatchRoomProps) {
   const playerMenuRef = useRef<HTMLDivElement>(null);
   const playerMenuDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
   const pitchFieldRef = useRef<HTMLDivElement>(null);
+  const opponentTimelineRef = useRef<HTMLDivElement>(null);
   const passPopoverRef = useRef<HTMLDivElement>(null);
   const passPopoverDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
   const recommended = props.recommendation
@@ -1630,6 +1631,7 @@ function MatchRoom(props: MatchRoomProps) {
   function confirmOpponentDecision() {
     if (!awaitingOpponentDecision) {
       props.onConfirmTactic();
+      window.requestAnimationFrame(() => opponentTimelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
       return;
     }
     if (nextOpponentMinute === null) {
@@ -1640,6 +1642,7 @@ function MatchRoom(props: MatchRoomProps) {
     props.onAdvanceLineupStamina(nextOpponentMinute - opponentSnapshot.minute, props.activeTactic.details);
     setConfirmedOpponentIndex(opponentSnapshotIndex);
     setOpponentSnapshotMinute(nextOpponentMinute);
+    window.requestAnimationFrame(() => opponentTimelineRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function clampPassPopoverPosition(x: number, y: number) {
@@ -1917,7 +1920,7 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? nextOpponentMinute === null ? "전술 확정 · 경기 리뷰" : `${opponentSnapshot.minute}′ 전술 확정 → ${nextOpponentMinute}′` : "전술 확정"}</button>
             </div>
           </div>
-          <OpponentTacticalTimeline snapshot={opponentSnapshot} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} />
+          <div className="opponent-scroll-target" ref={opponentTimelineRef}><OpponentTacticalTimeline snapshot={opponentSnapshot} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} /></div>
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
