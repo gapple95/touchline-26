@@ -124,6 +124,12 @@ type LeaderboardRecord = {
   createdAt: string;
 };
 
+type ProfileRecord = LeaderboardRecord & {
+  fixtureId: string;
+  isPublic: boolean;
+  rank: number | null;
+};
+
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -1184,6 +1190,52 @@ function LandingScreen({ nickname, onNicknameEnter, onPrivateEnter }: { nickname
 }
 
 function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, onNicknameChange, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; accessMode: AccessMode; onNicknameChange: (value: string) => void; onSelect: (fixture: MatchFixture) => void }) {
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRecord[]>([]);
+  const [profileRecords, setProfileRecords] = useState<ProfileRecord[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(true);
+  const [recordsMessage, setRecordsMessage] = useState("");
+  const [deleteCandidate, setDeleteCandidate] = useState<ProfileRecord | null>(null);
+  const normalizedNickname = nickname.replace(/\s+/g, " ").trim();
+
+  async function loadPreMatchRecords() {
+    setRecordsLoading(true);
+    try {
+      const query = accessMode === "nickname" && normalizedNickname.length >= 2 ? `?nickname=${encodeURIComponent(normalizedNickname)}` : "";
+      const response = await fetch(`/api/match-records${query}`);
+      const payload = await response.json() as { records?: LeaderboardRecord[]; profileRecords?: ProfileRecord[]; error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "감독 기록을 불러오지 못했습니다.");
+      setLeaderboard(payload.records ?? []);
+      setProfileRecords(payload.profileRecords ?? []);
+    } catch (error) {
+      setRecordsMessage(error instanceof Error ? error.message : "감독 기록을 불러오지 못했습니다.");
+    } finally {
+      setRecordsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadPreMatchRecords(); }, 220);
+    return () => window.clearTimeout(timer);
+  }, [accessMode, normalizedNickname]);
+
+  async function deleteProfileRecord() {
+    if (!deleteCandidate) return;
+    try {
+      const response = await fetch("/api/match-records", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteCandidate.id, nickname: normalizedNickname }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "기록을 삭제하지 못했습니다.");
+      setDeleteCandidate(null);
+      setRecordsMessage("경기 기록을 삭제했습니다. 삭제한 기록은 복구할 수 없습니다.");
+      await loadPreMatchRecords();
+    } catch (error) {
+      setRecordsMessage(error instanceof Error ? error.message : "기록을 삭제하지 못했습니다.");
+    }
+  }
+
   return (
     <section className="fixture-screen" aria-labelledby="fixture-title">
       <div className="fixture-intro">
@@ -1192,6 +1244,9 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         <p>공식 출전 명단을 기준으로, 그 순간 당신이라면 어떤 전술을 선택했을지 설계합니다.</p>
       </div>
       {accessMode === "nickname" && <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>해당 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>}
+
+      <FixtureRecordPanel accessMode={accessMode} nickname={normalizedNickname} leaderboard={leaderboard} profileRecords={profileRecords} loading={recordsLoading} message={recordsMessage} onClearMessage={() => setRecordsMessage("")} onDelete={setDeleteCandidate} />
+      {deleteCandidate && <DeleteRecordDialog record={deleteCandidate} onCancel={() => setDeleteCandidate(null)} onConfirm={() => void deleteProfileRecord()} />}
 
       <div className="fixture-list" aria-label="월드컵 경기 선택">
         {fixtures.map((fixture) => {
@@ -1212,6 +1267,28 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
       <div className="fixture-policy"><b>DATA BOUNDARY</b><span>경기·출전 명단은 공식 데이터, 피치 위 배치와 지침은 당신의 반사실적 전술입니다.</span></div>
     </section>
   );
+}
+
+function FixtureRecordPanel({ accessMode, nickname, leaderboard, profileRecords, loading, message, onClearMessage, onDelete }: { accessMode: AccessMode; nickname: string; leaderboard: LeaderboardRecord[]; profileRecords: ProfileRecord[]; loading: boolean; message: string; onClearMessage: () => void; onDelete: (record: ProfileRecord) => void }) {
+  return (
+    <section className="fixture-records" aria-label="경기 전 감독 기록과 순위">
+      <article className="fixture-leaderboard">
+        <div className="fixture-records-heading"><span>PUBLIC RANKING</span><h2>감독 순위</h2><p>공개된 감독카드의 종합 점수 순위입니다.</p></div>
+        {loading ? <p className="fixture-records-empty">순위를 불러오는 중입니다.</p> : leaderboard.length ? <ol>{leaderboard.map((record, index) => <li key={record.id}><b>{index + 1}</b><div><strong>{record.nickname}</strong><span>{record.fixtureLabel} · {record.managerArchetype}</span></div><em>{record.score}</em></li>)}</ol> : <p className="fixture-records-empty">아직 공개된 감독 기록이 없습니다.</p>}
+      </article>
+      <article className="fixture-profile">
+        <div className="fixture-records-heading"><span>MY MATCH RECORD</span><h2>{accessMode === "nickname" && nickname.length >= 2 ? `${nickname}의 경기 기록` : "내 경기 기록"}</h2><p>{accessMode === "nickname" && nickname.length >= 2 ? "경기별 순위와 저장한 감독카드를 관리할 수 있습니다." : "닉네임으로 입장하면 저장 기록과 경기별 순위를 확인할 수 있습니다."}</p></div>
+        {accessMode === "nickname" && nickname.length >= 2 ? (
+          loading ? <p className="fixture-records-empty">기록을 불러오는 중입니다.</p> : profileRecords.length ? <ul>{profileRecords.map((record) => <li key={record.id}><div><b>{record.fixtureLabel}</b><span>{record.isPublic ? `${record.rank}위 · 공개 기록` : "비공개 기록"} · {record.managerArchetype}</span></div><em>{record.score}점</em><button type="button" onClick={() => onDelete(record)} aria-label={`${record.fixtureLabel} 기록 삭제`}>삭제</button></li>)}</ul> : <p className="fixture-records-empty">아직 저장한 경기 기록이 없습니다.</p>
+        ) : <p className="fixture-records-empty">닉네임을 등록한 뒤 이곳에서 기록을 관리할 수 있습니다.</p>}
+        {message && <p className="fixture-records-message" role="status">{message}<button type="button" onClick={onClearMessage} aria-label="안내 닫기">×</button></p>}
+      </article>
+    </section>
+  );
+}
+
+function DeleteRecordDialog({ record, onCancel, onConfirm }: { record: ProfileRecord; onCancel: () => void; onConfirm: () => void }) {
+  return <div className="record-delete-backdrop" role="presentation"><section className="record-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="record-delete-title"><span>DELETE RECORD</span><h2 id="record-delete-title">기록을 삭제할까요?</h2><p><b>{record.fixtureLabel}</b> 기록을 삭제하면 점수와 감독카드를 다시 복구할 수 없습니다.</p><div><button className="text-button" type="button" onClick={onCancel}>취소</button><button className="record-delete-confirm" type="button" onClick={onConfirm}>영구 삭제</button></div></section></div>;
 }
 
 function TeamSelector({ fixture, onBack, onSelect }: { fixture: MatchFixture; onBack: () => void; onSelect: (team: "home" | "away") => void }) {

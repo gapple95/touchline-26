@@ -15,5 +15,6 @@ export const matchRecords = sqliteTable("match_records", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
   index("idx_match_records_public_score").on(table.isPublic, table.score),
+  index("idx_match_records_public_fixture_score").on(table.isPublic, table.fixtureId, table.score, table.createdAt),
   index("idx_match_records_nickname_created_at").on(table.nickname, table.createdAt),
 ]);

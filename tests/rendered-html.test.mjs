@@ -179,9 +179,15 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.match(page, /analysis\.provider === "gemini"/);
   assert.match(page, /PUBLIC RANKING/);
   assert.match(page, /api\/match-records/);
+  assert.match(page, /FixtureRecordPanel/);
+  assert.match(page, /DeleteRecordDialog/);
+  assert.match(page, /삭제한 기록은 복구할 수 없습니다/);
   assert.match(recordsRoute, /export async function GET/);
   assert.match(recordsRoute, /export async function POST/);
+  assert.match(recordsRoute, /export async function DELETE/);
+  assert.match(recordsRoute, /profileRecords/);
   assert.match(databaseSchema, /matchRecords/);
+  assert.match(databaseSchema, /idx_match_records_public_fixture_score/);
   assert.match(css, /\.badge-grid span \{[^}]*align-items: center;[^}]*justify-content: center/);
   assert.match(page, /returnToFixtureSelection/);
   assert.match(page, /다른 경기 고르기/);
