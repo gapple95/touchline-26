@@ -1310,7 +1310,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
     <section className="fixture-screen" aria-labelledby="fixture-title">
       <div className="fixture-intro">
         <span>WORLD CUP MATCH ARCHIVE</span>
-        <h1 id="fixture-title">어떤 실제 경기를 다시 지휘할까요?</h1>
+        <h1 id="fixture-title">어떤 경기를 다시 지휘할까요?</h1>
         <p>공식 출전 명단을 기준으로, 그 순간 당신이라면 어떤 전술을 선택했을지 설계합니다.</p>
       </div>
       {accessMode === "nickname" && <div className="nickname-entry locked-nickname"><span>MY NICKNAME</span><input value={nickname} readOnly aria-label="현재 닉네임" /><button type="button" onClick={onLogout}>로그아웃</button><small>해당 닉네임으로 경기 기록과 감독카드를 저장합니다. 변경하려면 로그아웃해 주세요.</small></div>}
