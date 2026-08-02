@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyTacticalStaminaDrain, deriveLiveTacticalMetrics, derivePlayerFatigueRisks, LIVE_TACTICAL_METRIC_MODEL } from "../lib/domain/live-tactical-metrics.js";
+import { applyBetweenMatchRecovery, applyTacticalStaminaDrain, deriveLiveTacticalMetrics, derivePlayerFatigueRisks, LIVE_TACTICAL_METRIC_MODEL } from "../lib/domain/live-tactical-metrics.js";
 
 const players = [
   { id: "gk", position: "GK", stamina: 88 },
@@ -129,4 +129,14 @@ test("reduces active player stamina over elapsed tactical match time", () => {
   const afterFifteen = applyTacticalStaminaDrain({ players, details: intensiveDetails, minutes: 15 });
   assert.ok(afterFifteen.every((player, index) => player.stamina < players[index].stamina));
   assert.ok(afterFifteen.find((player) => player.id === "p1").stamina < afterFifteen.find((player) => player.id === "p2").stamina);
+});
+
+test("carries only a small fatigue penalty into the next fixture for players who appeared", () => {
+  const nextFixture = applyBetweenMatchRecovery({
+    players: players.slice(0, 3),
+    minutesByPlayerId: { gk: 90, p1: 45 },
+  });
+  assert.equal(nextFixture.find((player) => player.id === "gk").stamina, 92.8);
+  assert.equal(nextFixture.find((player) => player.id === "p1").stamina, 96.4);
+  assert.equal(nextFixture.find((player) => player.id === "p2").stamina, 100);
 });

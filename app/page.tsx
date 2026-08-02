@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
-import { applyTacticalStaminaDrain, deriveLiveTacticalMetrics, derivePlayerFatigueRisks } from "@/lib/domain/live-tactical-metrics.js";
+import { applyBetweenMatchRecovery, applyTacticalStaminaDrain, deriveLiveTacticalMetrics, derivePlayerFatigueRisks } from "@/lib/domain/live-tactical-metrics.js";
 import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
@@ -521,6 +521,8 @@ export default function Home() {
   const [reviewAnalysisLoading, setReviewAnalysisLoading] = useState(false);
   const [managerAnalysis, setManagerAnalysis] = useState<ManagerCardAnalysis | null>(null);
   const [managerAnalysisLoading, setManagerAnalysisLoading] = useState(false);
+  const [currentMatchMinutes, setCurrentMatchMinutes] = useState<Record<string, number>>({});
+  const [previousMatchMinutes, setPreviousMatchMinutes] = useState<Record<string, number> | null>(null);
 
   function selectFixture(fixture: MatchFixture) {
     if (fixture.availability !== "READY") return;
@@ -532,10 +534,16 @@ export default function Home() {
   function selectManagedTeam(team: "home" | "away") {
     if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
     const managedTeam = selectedFixture[team];
+    const nextLineup = previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
+    const nextBench = previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
     setSelectedTeam(team);
+    setLineup(nextLineup);
+    setBench(nextBench);
     setActiveTacticId("control");
     setSlots(createFormationSlots("control", tacticLayouts));
-    setConfirmedTactics(createConfirmedTacticsForSquad(savedTactics, tacticLayouts, lineup, bench));
+    setConfirmedTactics(createConfirmedTacticsForSquad(savedTactics, tacticLayouts, nextLineup, nextBench));
+    setCurrentMatchMinutes({});
+    setPreviousMatchMinutes(null);
     setSelectedPlayer(null);
     setSwitchCount(0);
     setMatchPlanDecisions([]);
@@ -680,6 +688,7 @@ export default function Home() {
     };
     const decisionsForReview = [...matchPlanDecisions.filter((item) => item.minute !== opponent.minute), finalDecision].sort((a, b) => a.minute - b.minute);
     confirmCurrentTactic(opponent);
+    setPreviousMatchMinutes(currentMatchMinutes);
     void generateMatchReview(decisionsForReview);
     setNotice(`${activeTactic.name} 전술 설계를 확정했습니다. 경기 리뷰에서 선택의 결과를 확인하세요.`);
     setView("review");
@@ -877,6 +886,13 @@ export default function Home() {
   function advanceLineupStamina(minutes: number, details: DetailedTacticInstructions) {
     if (minutes <= 0) return;
     setLineup((current) => applyTacticalStaminaDrain({ players: current, details, minutes }));
+    setCurrentMatchMinutes((current) => {
+      const next = { ...current };
+      lineup.forEach((player) => {
+        next[player.id] = Math.min(120, (next[player.id] ?? 0) + minutes);
+      });
+      return next;
+    });
   }
 
   function aiRecommendationContext(prompt: string) {
