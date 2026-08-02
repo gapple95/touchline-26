@@ -477,14 +477,23 @@ function cloneFormationLayouts(layouts: Record<TacticId, FormationSlot[]>): Reco
   return Object.fromEntries(Object.entries(layouts).map(([id, layout]) => [id, layout.map((slot) => ({ ...slot }))]));
 }
 
-function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapshot> {
-  const kickoffSquad = createKickoffSquad();
-  return Object.fromEntries(initialTactics.map((tactic) => [tactic.id, {
-    lineup: kickoffSquad.slice(0, 11),
-    bench: kickoffSquad.slice(11),
-    slots: createFormationSlots(tactic.id),
+function createConfirmedTacticsForSquad(
+  tactics: Tactic[],
+  layouts: Record<TacticId, FormationSlot[]>,
+  lineup: Player[],
+  bench: Player[],
+): Record<TacticId, ConfirmedTacticSnapshot> {
+  return Object.fromEntries(tactics.map((tactic) => [tactic.id, {
+    lineup: lineup.map((player) => ({ ...player })),
+    bench: bench.map((player) => ({ ...player })),
+    slots: createFormationSlots(tactic.id, layouts),
     details: cloneTacticDetails(tactic.details),
   }]));
+}
+
+function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapshot> {
+  const kickoffSquad = createKickoffSquad();
+  return createConfirmedTacticsForSquad(initialTactics, formationSlots, kickoffSquad.slice(0, 11), kickoffSquad.slice(11));
 }
 
 export default function Home() {
@@ -523,13 +532,10 @@ export default function Home() {
   function selectManagedTeam(team: "home" | "away") {
     if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
     const managedTeam = selectedFixture[team];
-    const kickoffSquad = createKickoffSquad();
     setSelectedTeam(team);
-    setLineup(kickoffSquad.slice(0, 11));
-    setBench(kickoffSquad.slice(11));
     setActiveTacticId("control");
     setSlots(createFormationSlots("control", tacticLayouts));
-    setConfirmedTactics(createInitialConfirmedTactics());
+    setConfirmedTactics(createConfirmedTacticsForSquad(savedTactics, tacticLayouts, lineup, bench));
     setSelectedPlayer(null);
     setSwitchCount(0);
     setMatchPlanDecisions([]);
