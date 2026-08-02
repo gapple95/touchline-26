@@ -8,9 +8,7 @@
       "intent": "CONTROL",
       "formationId": "4-2-3-1",
       "instructions": { "pressing": 52, "defensiveLine": 50, "attackingWidth": 58, "tempo": 55, "risk": 43, "aggression": 52, "takeOn": 38, "passingFrequency": 84, "wideFinalAction": "CUTBACK", "wideActions": { "left": "CUTBACK", "right": "CUTBACK" } },
-      "relationships": [
-        { "id": "control-supply", "fromPlayerId": "lee-kangin", "toPlayerId": "cho-guesung", "type": "SUPPLY" }
-      ],
+      "relationships": [],
       "playerInstructions": [
         {
           "playerId": "lee-kangin",
@@ -49,9 +47,7 @@
       "intent": "PRESS",
       "formationId": "4-3-3",
       "instructions": { "pressing": 82, "defensiveLine": 70, "attackingWidth": 64, "tempo": 76, "risk": 68, "aggression": 86, "takeOn": 61, "passingFrequency": 58, "wideFinalAction": "EARLY_CROSS", "wideActions": { "left": "EARLY_CROSS", "right": "EARLY_CROSS" } },
-      "relationships": [
-        { "id": "press-cover", "fromPlayerId": "jung-wooyoung", "toPlayerId": "kim-jinsu", "type": "COVER" }
-      ],
+      "relationships": [],
       "playerInstructions": [],
       "phaseInstructions": {
         "OUT_OF_POSSESSION": ["press-centre-backs", "force-right-touchline"],
@@ -78,9 +74,7 @@
       "intent": "CHASE",
       "formationId": "3-4-3",
       "instructions": { "pressing": 88, "defensiveLine": 76, "attackingWidth": 82, "tempo": 88, "risk": 91, "aggression": 92, "takeOn": 82, "passingFrequency": 49, "wideFinalAction": "BYLINE_DRIBBLE", "wideActions": { "left": "BYLINE_DRIBBLE", "right": "BYLINE_DRIBBLE" } },
-      "relationships": [
-        { "id": "chase-overlap", "fromPlayerId": "kim-jinsu", "toPlayerId": "son-heungmin", "type": "OVERLAP" }
-      ],
+      "relationships": [],
       "playerInstructions": [],
       "phaseInstructions": {
         "IN_POSSESSION": ["front-five", "wide-overload", "far-side-run"],
@@ -106,9 +100,7 @@
       "intent": "PROTECT",
       "formationId": "5-4-1",
       "instructions": { "pressing": 38, "defensiveLine": 34, "attackingWidth": 50, "tempo": 36, "risk": 24, "aggression": 34, "takeOn": 28, "passingFrequency": 76, "wideFinalAction": "RECYCLE", "wideActions": { "left": "RECYCLE", "right": "RECYCLE" } },
-      "relationships": [
-        { "id": "lock-cover", "fromPlayerId": "kim-younggwon", "toPlayerId": "kim-jinsu", "type": "COVER" }
-      ],
+      "relationships": [],
       "playerInstructions": [],
       "phaseInstructions": {
         "OUT_OF_POSSESSION": ["compact-5-4-1", "deny-halfspace"],

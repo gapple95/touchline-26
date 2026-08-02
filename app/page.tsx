@@ -234,6 +234,14 @@ function modelOpponentShape(formation: string, block: string, phase: string): Op
   return [goalkeeper, ...backFour, point(lines.midfield + 8, 50, "DM"), point(lines.midfield, 70, "RCM"), point(lines.midfield, 30, "LCM"), point(lines.attack + 4, 84, "RW"), point(lines.attack, 50, "ST"), point(lines.attack + 4, 16, "LW")];
 }
 
+function orientSnapshotsForManagedTeam(snapshots: OpponentTacticalSnapshot[], team: "home" | "away") {
+  if (team === "home") return snapshots;
+  return snapshots.map((snapshot) => ({
+    ...snapshot,
+    shape: snapshot.shape.map((point) => ({ ...point, x: 100 - point.x })),
+  }));
+}
+
 function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTacticInstructions {
   return {
     ...details,
@@ -422,7 +430,7 @@ const initialTactics: Tactic[] = [
     risk: "낮은 템포로 박스 진입 횟수가 줄어들 수 있음",
     details: {
       aggression: 52, takeOn: 38, passingFrequency: 84, wideFinalAction: "CUTBACK", wideActions: { left: "CUTBACK", right: "CUTBACK" },
-      relationships: [{ id: "control-supply", fromPlayerId: "lee-kangin", toPlayerId: "cho-guesung", type: "SUPPLY" }],
+      relationships: [],
       playerInstructions: [],
     },
   },
@@ -437,7 +445,7 @@ const initialTactics: Tactic[] = [
     risk: "압박이 풀리면 수비 라인 뒤 공간이 커짐",
     details: {
       aggression: 86, takeOn: 61, passingFrequency: 58, wideFinalAction: "EARLY_CROSS", wideActions: { left: "EARLY_CROSS", right: "EARLY_CROSS" },
-      relationships: [{ id: "press-cover", fromPlayerId: "jung-wooyoung", toPlayerId: "kim-jinsu", type: "COVER" }],
+      relationships: [],
       playerInstructions: [],
     },
   },
@@ -452,7 +460,7 @@ const initialTactics: Tactic[] = [
     risk: "양쪽 윙백 전진 시 전환 수비가 크게 약화됨",
     details: {
       aggression: 92, takeOn: 82, passingFrequency: 49, wideFinalAction: "BYLINE_DRIBBLE", wideActions: { left: "BYLINE_DRIBBLE", right: "BYLINE_DRIBBLE" },
-      relationships: [{ id: "chase-overlap", fromPlayerId: "kim-jinsu", toPlayerId: "son-heungmin", type: "OVERLAP" }],
+      relationships: [],
       playerInstructions: [],
     },
   },
@@ -467,7 +475,7 @@ const initialTactics: Tactic[] = [
     risk: "상대 진영에서 공을 소유하기 어려움",
     details: {
       aggression: 34, takeOn: 28, passingFrequency: 76, wideFinalAction: "RECYCLE", wideActions: { left: "RECYCLE", right: "RECYCLE" },
-      relationships: [{ id: "lock-cover", fromPlayerId: "kim-younggwon", toPlayerId: "kim-jinsu", type: "COVER" }],
+      relationships: [],
       playerInstructions: [],
     },
   },
@@ -612,7 +620,7 @@ export default function Home() {
     setRecordSaved(false);
     const managedTeam = selectedFixture[team];
     const customSquad = selectedFixture.custom?.squads[team];
-    const customKickoff = selectedFixture.custom?.snapshots[team][0]?.shape ?? [];
+    const customKickoff = orientSnapshotsForManagedTeam(selectedFixture.custom?.snapshots[team] ?? [], team)[0]?.shape ?? [];
     const nextLineup = customSquad ? customSquad.lineup.map((player, index) => ({ ...player, position: customKickoff[index]?.role ?? player.position, role: customKickoff[index]?.role ?? player.role, stamina: 100 })) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
     const nextBench = customSquad ? customSquad.bench.map((player) => ({ ...player, stamina: 100 })) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
     const customSlots = customSquad && customKickoff.length === nextLineup.length ? customKickoff.map((point) => ({ x: point.x, y: point.y, role: point.role })) : createFormationSlots("control", tacticLayouts);
@@ -1130,7 +1138,9 @@ export default function Home() {
       {view === "match" && selectedFixture && selectedTeam && (
         <MatchRoom
           fixture={selectedFixture}
-          opponentSnapshots={selectedFixture.custom?.snapshots[selectedTeam === "home" ? "away" : "home"] ?? opponentTacticalSnapshots}
+          opponentSnapshots={selectedFixture.custom
+            ? orientSnapshotsForManagedTeam(selectedFixture.custom.snapshots[selectedTeam === "home" ? "away" : "home"], selectedTeam)
+            : opponentTacticalSnapshots}
           savedTactics={savedTactics}
           activeTactic={activeTactic}
           liveMetrics={liveMetrics}
@@ -1367,9 +1377,13 @@ function customStarterPoint(side: "home" | "away", index: number) {
   return { x: side === "home" ? fallback.x : 100 - fallback.x, y: fallback.y };
 }
 
+function customPositionAt(side: "home" | "away", x: number, y: number) {
+  return resolvePitchPosition(side === "home" ? x : 100 - x, y).code;
+}
+
 function newCustomPlayer(side: "home" | "away", index: number): CustomPlayerDraft {
   const point = customStarterPoint(side, index);
-  return { id: `${side}-${Date.now()}-${index}`, name: "", number: index + 1, position: resolvePitchPosition(point.x, point.y).code, starter: true };
+  return { id: `${side}-${Date.now()}-${index}`, name: "", number: index + 1, position: customPositionAt(side, point.x, point.y), starter: true };
 }
 
 function CustomFixtureCreator({ onBack, onCreate }: { onBack: () => void; onCreate: (fixture: MatchFixture) => void }) {
@@ -1412,7 +1426,7 @@ function CustomFixtureCreator({ onBack, onCreate }: { onBack: () => void; onCrea
     const x = Math.max(3, Math.min(97, ((event.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(3, Math.min(97, ((event.clientY - rect.top) / rect.height) * 100));
     setPoints((all) => ({ ...all, [pointKey(positionTeam, positionMinute, playerId)]: { x, y } }));
-    updatePlayer(positionTeam, playerId, { position: resolvePitchPosition(x, y).code });
+    updatePlayer(positionTeam, playerId, { position: customPositionAt(positionTeam, x, y) });
     setHoveredPositionZone(null);
   }
 
@@ -1438,7 +1452,7 @@ function CustomFixtureCreator({ onBack, onCreate }: { onBack: () => void; onCrea
       const snapshots = (side: "home" | "away", team: ReturnType<typeof buildTeam>): OpponentTacticalSnapshot[] => customMatchMinutes.map((minute) => ({
         minute, formation: "CUSTOM", phase: "직접 입력 배치", block: "CUSTOM", headline: `${side === "home" ? home.name : away.name} ${minute}분 배치`, observation: "경기 생성자가 입력한 선수 위치입니다.", responseTacticId: "control",
         responseInstruction: "입력된 배치에 맞춰 전술을 설계합니다.",
-        shape: team.starters.map((player, index) => { const point = pointFor(side, minute, player, index); return { id: `custom-${side}-${player.id}`, name: player.name.trim(), x: point.x, y: point.y, role: resolvePitchPosition(point.x, point.y).code }; }),
+        shape: team.starters.map((player, index) => { const point = pointFor(side, minute, player, index); return { id: `custom-${side}-${player.id}`, name: player.name.trim(), x: point.x, y: point.y, role: customPositionAt(side, point.x, point.y) }; }),
       }));
       const fixture: MatchFixture = {
         id: `custom-${Date.now()}`, tournament: tournament.trim() || "CUSTOM", stage: stage.trim() || "CUSTOM", date: "CUSTOM MATCH", createdBy: createdBy.trim() || "ANONYMOUS",
