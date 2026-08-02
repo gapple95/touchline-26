@@ -68,6 +68,28 @@ const koreaWorldCup2026Numbers: Record<string, number> = {
   "Donggyeong Lee": 26,
 };
 
+type KoreaLineupPosition = { name: string; x: number; y: number; role: string };
+const koreaWorldCup2026Lineups: Record<number, KoreaLineupPosition[]> = {
+  2: [
+    { name: "Seunggyu Kim", x: 8, y: 50, role: "GK" },
+    { name: "Gihyuk Lee", x: 27, y: 22, role: "LCB" }, { name: "Minjae Kim", x: 24, y: 50, role: "CB" }, { name: "Hanbeom Lee", x: 27, y: 78, role: "RCB" },
+    { name: "Taeseok Lee", x: 52, y: 13, role: "LM" }, { name: "Seungho Paik", x: 49, y: 38, role: "CM" }, { name: "Inbeom Hwang", x: 52, y: 62, role: "DM/CM" }, { name: "Youngwoo Seol", x: 52, y: 87, role: "RM" },
+    { name: "Jae Sung Lee", x: 74, y: 17, role: "LW" }, { name: "Heung Min Son", x: 86, y: 50, role: "ST" }, { name: "Kangin Lee", x: 74, y: 83, role: "RW" },
+  ],
+  25: [
+    { name: "Seunggyu Kim", x: 8, y: 50, role: "GK" },
+    { name: "Gihyuk Lee", x: 27, y: 22, role: "LCB" }, { name: "Minjae Kim", x: 24, y: 50, role: "CB" }, { name: "Hanbeom Lee", x: 27, y: 78, role: "RCB" },
+    { name: "Moonhwan Kim", x: 52, y: 13, role: "LM" }, { name: "Seungho Paik", x: 49, y: 38, role: "CM" }, { name: "Inbeom Hwang", x: 52, y: 62, role: "DM/CM" }, { name: "Youngwoo Seol", x: 52, y: 87, role: "RM" },
+    { name: "Jae Sung Lee", x: 74, y: 17, role: "LW" }, { name: "Heung Min Son", x: 86, y: 50, role: "ST" }, { name: "Kangin Lee", x: 74, y: 83, role: "RW" },
+  ],
+  50: [
+    { name: "Seunggyu Kim", x: 8, y: 50, role: "GK" },
+    { name: "Gihyuk Lee", x: 27, y: 22, role: "LCB" }, { name: "Minjae Kim", x: 24, y: 50, role: "CB" }, { name: "Hanbeom Lee", x: 27, y: 78, role: "RCB" },
+    { name: "Taeseok Lee", x: 52, y: 13, role: "LM" }, { name: "Seungho Paik", x: 49, y: 38, role: "CM" }, { name: "Inbeom Hwang", x: 52, y: 62, role: "DM/CM" }, { name: "Youngwoo Seol", x: 52, y: 87, role: "RM" },
+    { name: "Hee Chan Hwang", x: 74, y: 17, role: "LW" }, { name: "Hyeongyu Oh", x: 86, y: 50, role: "ST" }, { name: "Kangin Lee", x: 74, y: 83, role: "RW" },
+  ],
+};
+
 function displayTeamName(team: Pick<OfficialTeam, "code" | "name">) {
   return team.code === "KOR" ? "대한민국" : team.name;
 }
@@ -88,6 +110,11 @@ function provisionalSquadNumber(teamId: number, playerId: number) {
   const squad = worldCupData.players.filter((player) => player.teamId === teamId).sort((left, right) => left.id - right.id);
   const index = squad.findIndex((player) => player.id === playerId);
   return index < 0 ? 0 : index + 1;
+}
+
+function koreaLineupPosition(fixture: MatchFixture, side: "home" | "away", playerName: string) {
+  if (fixture.official?.[side].team.code !== "KOR") return undefined;
+  return koreaWorldCup2026Lineups[fixture.official.id]?.find((player) => player.name === playerName);
 }
 
 type Slot = { x: number; y: number; role: string };
@@ -622,6 +649,19 @@ function formationDerivedSlots(lineup: Array<Pick<OfficialLineupPlayer, "tactica
   return slots;
 }
 
+function officialLineupSlots(fixture: MatchFixture, side: "home" | "away", lineup: OfficialLineupPlayer[], variationKey = "default", preferredTemplate?: FormationModelTactic) {
+  const koreaModel = fixture.official?.[side].team.code === "KOR" ? koreaWorldCup2026Lineups[fixture.official.id] : undefined;
+  if (koreaModel) {
+    const byName = new Map(koreaModel.map((player) => [player.name, player]));
+    const fallback = formationDerivedSlots(lineup, variationKey, preferredTemplate);
+    return lineup.map((player, index) => {
+      const position = byName.get(player.name);
+      return position ? { x: position.x, y: position.y, role: position.role } : fallback[index];
+    });
+  }
+  return formationDerivedSlots(lineup, variationKey, preferredTemplate);
+}
+
 const formationModelLabels: Record<FormationModelTactic, { formation: string; phase: string; block: string }> = {
   control: { formation: "4-3-3 CONTROL", phase: "점유·균형", block: "MID BLOCK" },
   press: { formation: "4-3-3 PRESS", phase: "전방 압박", block: "HIGH PRESS" },
@@ -649,18 +689,21 @@ function createModelTacticTimeline(variationKey: string): FormationModelTactic[]
 
 function officialSquadPlayers(fixture: MatchFixture, side: "home" | "away") {
   const squad = fixture.official?.[side].lineup ?? [];
-  const ordered = [...squad].sort((left, right) => Number(right.starter) - Number(left.starter) || right.minutes - left.minutes || left.name.localeCompare(right.name));
-  return ordered.map((member) => ({
+  return squad.map((member) => {
+    const lineupPosition = koreaLineupPosition(fixture, side, member.name);
+    const playerPosition = lineupPosition?.role ?? canonicalPosition(member.tacticalPosition || member.position);
+    return {
     id: `fifa-wc-2026-${fixture.official?.id}-${side}-${member.playerId}`,
     name: displayOfficialPlayerName(fixture.official?.[side].team.code ?? "", member.name),
     number: fixture.official?.[side].team.code === "KOR"
       ? (koreaWorldCup2026Numbers[member.name] ?? provisionalSquadNumber(fixture.official?.[side].team.id ?? 0, member.playerId))
       : provisionalSquadNumber(fixture.official?.[side].team.id ?? 0, member.playerId),
-    position: canonicalPosition(member.tacticalPosition || member.position),
-    role: canonicalPosition(member.tacticalPosition || member.position),
+    position: playerPosition,
+    role: playerPosition,
     stamina: officialTournamentStamina(fixture, side, member.playerId),
     starter: member.starter,
-  }));
+    };
+  });
 }
 
 function officialTournamentStamina(fixture: MatchFixture, side: "home" | "away", playerId: number) {
@@ -694,7 +737,7 @@ function officialOpponentSnapshots(fixture: MatchFixture, managedSide: "home" | 
   return customMatchMinutes.map((minute, index) => {
     const tacticModel = tacticTimeline[index];
     const tacticalLabel = formationModelLabels[tacticModel];
-    const ownViewSlots = formationDerivedSlots(starters, `${variationKey}-${minute}`, tacticModel);
+    const ownViewSlots = officialLineupSlots(fixture, opponentSide, starters, `${variationKey}-${minute}`, tacticModel);
     const priorEvents = fixture.official?.events.filter((event) => event.teamId === opponent.team.id && event.minute <= minute) ?? [];
     return {
       minute,
@@ -868,7 +911,7 @@ export default function Home() {
     const customKickoff = orientSnapshotsForManagedTeam(selectedFixture.custom?.snapshots[team] ?? [], team)[0]?.shape ?? [];
     const nextLineup = customSquad ? customSquad.lineup.map((player, index) => ({ ...player, position: customKickoff[index]?.role ?? player.position, role: customKickoff[index]?.role ?? player.role, stamina: 100 })) : officialSquad.length ? officialSquad.filter((player) => player.starter) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
     const nextBench = customSquad ? customSquad.bench.map((player) => ({ ...player, stamina: 100 })) : officialSquad.length ? officialSquad.filter((player) => !player.starter) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
-    const customSlots = customSquad && customKickoff.length === nextLineup.length ? customKickoff.map((point) => ({ x: point.x, y: point.y, role: point.role })) : officialSquad.length ? formationDerivedSlots(selectedFixture.official?.[team].lineup.filter((player) => player.starter) ?? [], `${selectedFixture.official?.id ?? "fixture"}-${team}-managed`) : createFormationSlots("control", tacticLayouts);
+    const customSlots = customSquad && customKickoff.length === nextLineup.length ? customKickoff.map((point) => ({ x: point.x, y: point.y, role: point.role })) : officialSquad.length ? officialLineupSlots(selectedFixture, team, selectedFixture.official?.[team].lineup.filter((player) => player.starter) ?? [], `${selectedFixture.official?.id ?? "fixture"}-${team}-managed`) : createFormationSlots("control", tacticLayouts);
     setSelectedTeam(team);
     setLineup(nextLineup);
     setBench(nextBench);
