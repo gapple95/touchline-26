@@ -159,6 +159,7 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.doesNotMatch(page + css, /goal-label/);
   assert.match(page, /generateRecommendation/);
   assert.match(page, /api\/ai-manager-card/);
+  assert.match(css, /\.badge-grid span \{[^}]*align-items: center;[^}]*justify-content: center/);
   assert.match(page, /returnToFixtureSelection/);
   assert.match(page, /다른 경기 고르기/);
   assert.doesNotMatch(page, /AI로 다시 분석/);
