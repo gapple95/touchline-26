@@ -1333,7 +1333,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         })}
       </div>
 
-      <div className="fixture-policy"><b>DATA BOUNDARY</b><span>경기·출전 명단은 공식 데이터, 피치 위 배치와 지침은 당신의 반사실적 전술입니다.</span></div>
+      <div className="fixture-policy"><b>DATA BOUNDARY</b><span>경기·출전 명단의 공식 데이터는 실제 데이터와 오차가 있을 수 있습니다.</span></div>
     </section>
   );
 }
