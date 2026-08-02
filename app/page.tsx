@@ -1078,7 +1078,7 @@ export default function Home() {
   return (
     <main className="app-shell">
       <header className="app-header">
-        <button className="wordmark" onClick={() => setView("landing")} aria-label="TOUCHLINE 26 메인으로 이동">
+        <button className="wordmark" onClick={() => setView("fixture")} aria-label="경기 선택으로 이동">
           <span className="wordmark-box">T</span>
           <span>TOUCHLINE <b>26</b></span>
         </button>
