@@ -666,6 +666,15 @@ export default function Home() {
     }
   }
 
+  function returnToFixtureSelection() {
+    setSelectedFixture(null);
+    setSelectedTeam(null);
+    setMatchPlanDecisions([]);
+    setManagerAnalysis(null);
+    setManagerAnalysisLoading(false);
+    setView("fixture");
+  }
+
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
     const marker = origin === "pitch" ? event.currentTarget.querySelector<HTMLElement>(":scope > span") : null;
     const markerRect = marker?.getBoundingClientRect();
@@ -912,7 +921,7 @@ export default function Home() {
       )}
 
       {view === "manager" && (
-        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} onRegenerate={openManagerCard} />
+        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} onChooseNextMatch={returnToFixtureSelection} />
       )}
 
       {view === "duel" && (
@@ -1862,9 +1871,9 @@ function ReviewScreen({ activeTactic, switchCount, decisions, onReplay, onManage
   );
 }
 
-function ManagerScreen({ activeTactic, analysis, loading, onRegenerate }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; onRegenerate: () => void }) {
+function ManagerScreen({ activeTactic, analysis, loading, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; onChooseNextMatch: () => void }) {
   if (!analysis) {
-    return <section className="screen page-screen"><ScreenHeader eyebrow="MANAGER STYLE CARD" title="AI가 감독 성향을 분석 중입니다" description="확정한 전술과 상대 전술의 상성을 종합해 감독 카드를 만들고 있습니다." /><div className="manager-analysis-loading" role="status"><div className="analysis-progress" aria-hidden="true"><i /></div><b>{loading ? "AI가 분석 중입니다" : "감독 카드 분석을 준비하지 못했습니다."}</b><p>15분별 전술 선택, 상대 블록, 구간별 효과 점수를 종합합니다.</p>{!loading && <button className="primary-button" onClick={onRegenerate}>AI로 다시 분석</button>}</div></section>;
+    return <section className="screen page-screen"><ScreenHeader eyebrow="MANAGER STYLE CARD" title="AI가 감독 성향을 분석 중입니다" description="확정한 전술과 상대 전술의 상성을 종합해 감독 카드를 만들고 있습니다." /><div className="manager-analysis-loading" role="status"><div className="analysis-progress" aria-hidden="true"><i /></div><b>{loading ? "AI가 분석 중입니다" : "감독 카드 분석을 준비하지 못했습니다."}</b><p>15분별 전술 선택, 상대 블록, 구간별 효과 점수를 종합합니다.</p>{!loading && <button className="primary-button" onClick={onChooseNextMatch}>다른 경기 고르기</button>}</div></section>;
   }
   return (
     <section className="screen page-screen">
@@ -1887,7 +1896,7 @@ function ManagerScreen({ activeTactic, analysis, loading, onRegenerate }: { acti
           </div>
         </div>
       </div>
-      <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onRegenerate}>AI로 다시 분석</button></div>
+      <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onChooseNextMatch}>다른 경기 고르기</button></div>
     </section>
   );
 }

@@ -144,6 +144,9 @@ test("keeps the core interaction contract in source", async () => {
   assert.doesNotMatch(page + css, /goal-label/);
   assert.match(page, /generateRecommendation/);
   assert.match(page, /api\/ai-manager-card/);
+  assert.match(page, /returnToFixtureSelection/);
+  assert.match(page, /다른 경기 고르기/);
+  assert.doesNotMatch(page, /AI로 다시 분석/);
   assert.match(page, /scoreTacticalMatchup\(decision\)/);
   assert.match(managerRoute, /GEMINI_API_KEY/);
   assert.match(managerRoute, /manager-profile analyst/);
