@@ -48,7 +48,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   min-height: 72px;
   padding: 0 3vw;
   display: grid;
-  grid-template-columns: 250px 1fr 220px;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 24px;
   color: var(--white);
@@ -80,23 +80,6 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
   transform: skew(-8deg);
   font-weight: 950;
 }
-.primary-nav { height: 72px; display: flex; justify-content: center; }
-.primary-nav button {
-  min-width: 112px;
-  height: 100%;
-  padding: 0 18px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  color: #93a097;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 800;
-}
-.primary-nav button span { margin-right: 8px; color: #59685e; font: 700 9px Arial, sans-serif; }
-.primary-nav button:hover { color: var(--white); }
-.primary-nav button.active { color: var(--lime); border-bottom-color: var(--lime); }
-.primary-nav button.active span { color: var(--lime); }
 .fixture-nav {
   justify-self: start;
   padding: 8px 12px;

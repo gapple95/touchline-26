@@ -429,13 +429,6 @@ function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapsh
   }]));
 }
 
-const navItems: Array<{ id: View; label: string; number: string }> = [
-  { id: "match", label: "매치룸", number: "01" },
-  { id: "review", label: "경기 리뷰", number: "02" },
-  { id: "manager", label: "감독 카드", number: "03" },
-  { id: "duel", label: "전술 대결", number: "04" },
-];
-
 export default function Home() {
   const [view, setView] = useState<View>("fixture");
   const [selectedFixture, setSelectedFixture] = useState<MatchFixture | null>(null);
@@ -777,13 +770,6 @@ export default function Home() {
           <span>TOUCHLINE <b>26</b></span>
         </button>
         {selectedFixture && selectedTeam && <button className={view === "fixture" ? "fixture-nav active" : "fixture-nav"} onClick={() => setView("fixture")}>경기 선택</button>}
-        {selectedFixture && selectedTeam && <nav className="primary-nav" aria-label="서비스 화면">
-          {navItems.map((item) => (
-            <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)} aria-current={view === item.id ? "page" : undefined}>
-              <span>{item.number}</span>{item.label}
-            </button>
-          ))}
-        </nav>}
         {selectedFixture && selectedTeam && view !== "fixture" && view !== "team" && view !== "match" && (
           <div className="header-match">
             <span className="live-dot" /> <b>KICKOFF</b> {selectedFixture.home.code} vs {selectedFixture.away.code}
