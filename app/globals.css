@@ -176,16 +176,16 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .match-team.away { justify-content: flex-end; text-align: right; }
 .match-team span { color: var(--green); font: 950 24px Arial, sans-serif; letter-spacing: -.04em; }
 .match-team b { font-size: 14px; }
-.match-live-score { min-width: 156px; padding: 9px 22px; display: flex; align-items: center; justify-content: center; gap: 17px; color: var(--white); background: var(--ink); }
+.match-live-score { min-width: 0; padding: 9px clamp(10px, 1.3vw, 22px); display: flex; align-items: center; justify-content: center; gap: clamp(8px, 1vw, 17px); color: var(--white); background: var(--ink); }
 .match-live-score small { display: flex; align-items: center; gap: 7px; color: var(--orange); font: 900 10px Arial, sans-serif; letter-spacing: .08em; white-space: nowrap; }
 .match-live-score small i { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 4px rgba(255,89,58,.16); }
-.match-live-score strong { font: 950 30px Arial, sans-serif; white-space: nowrap; }
+.match-live-score strong { font: 950 clamp(18px, 2.05vw, 30px) Arial, sans-serif; white-space: nowrap; }
 .match-live-score strong i { margin: 0 8px; color: #758078; font-style: normal; }
 .match-clock { padding-left: 24px; border-left: 1px solid #c8c8be; }
 .match-clock span, .match-clock b { display: block; white-space: nowrap; }
 .match-clock span { color: var(--orange); font: 900 10px Arial, sans-serif; letter-spacing: .1em; }
 .match-clock b { margin-top: 5px; font-size: 12px; }
-.match-command-actions { min-width: 260px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; align-items: end; }.match-command-actions > span { grid-column: 1 / -1; justify-self: end; padding: 5px 8px; border-radius: 20px; font: 900 10px Arial, sans-serif; letter-spacing: .04em; }.match-command-actions > span.dirty { background: #ffe1d9; color: #b53520; }.match-command-actions > span.saved { background: #dcebd7; color: #397233; }.match-command-actions button { min-height: 42px; padding: 0 10px; cursor: pointer; font-size: 13px; font-weight: 900; white-space: nowrap; }.match-command-actions .text-button { height: auto; }
+.match-command-actions { min-width: clamp(214px, 18vw, 260px); display: grid; grid-template-columns: 1fr 1fr; gap: 5px; align-items: end; }.match-command-actions > span { grid-column: 1 / -1; justify-self: end; padding: 5px 8px; border-radius: 20px; font: 900 10px Arial, sans-serif; letter-spacing: .04em; }.match-command-actions > span.dirty { background: #ffe1d9; color: #b53520; }.match-command-actions > span.saved { background: #dcebd7; color: #397233; }.match-command-actions button { min-height: 42px; padding: 0 10px; cursor: pointer; font-size: 13px; font-weight: 900; white-space: nowrap; }.match-command-actions .text-button { height: auto; }
 
 .decision-banner {
   min-height: 46px;
@@ -612,7 +612,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 .match-workspace .recommendation-head b, .match-workspace .recommendation-card > p { font-size: 15px; }
 
 /* Desktop simulator readability: tactical decisions should be legible at a glance. */
-.match-status-bar .match-team b { font-size: 16px; }.match-status-bar .match-clock span { font-size: 12px; }.match-status-bar .match-clock b { font-size: 14px; }.match-live-score small { font-size: 12px; }.match-live-score strong { font-size: 34px; }
+.match-status-bar .match-team b { font-size: 16px; }.match-status-bar .match-clock span { font-size: 12px; }.match-status-bar .match-clock b { font-size: 14px; }.match-live-score small { font-size: 12px; }.match-live-score strong { font-size: clamp(18px, 2.05vw, 30px); }
 .decision-banner span { font-size: 13px; }.decision-banner p { font-size: 16px; }.decision-banner b { font-size: 14px; }
 .match-workspace .section-title h2, .match-workspace .section-title-compact h2 { font-size: 29px; }.match-workspace .section-title small, .match-workspace .section-title p { font-size: 12px !important; }
 .match-workspace .tactic-card { min-height: 102px; }.match-workspace .tactic-letter { width: 40px; height: 40px; font-size: 15px; }.match-workspace .tactic-card b { font-size: 18px; }.match-workspace .tactic-card small { font-size: 14px !important; }.match-workspace .tactic-card em, .match-workspace .tactic-add-card b { font-size: 13px; }
@@ -678,6 +678,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 
 @media (max-width: 1240px) {
   .app-header { grid-template-columns: 220px 1fr; }.header-match { display: none; }
+  .match-status-bar { grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) minmax(214px,.9fr); gap: clamp(10px, 2vw, 24px); }.match-clock { display: none; }
 }
 
 @media (max-width: 1100px) {
