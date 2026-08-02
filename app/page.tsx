@@ -577,6 +577,12 @@ export default function Home() {
     setNotice(`${activeTactic.name} 전술의 현재 배치와 팀·개인 지침을 확정했습니다.`);
   }
 
+  function finishMatchPlan() {
+    confirmCurrentTactic();
+    setNotice(`${activeTactic.name} 전술 설계를 확정했습니다. 경기 리뷰에서 선택의 결과를 확인하세요.`);
+    setView("review");
+  }
+
   function startDrag(event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) {
     const marker = origin === "pitch" ? event.currentTarget.querySelector<HTMLElement>(":scope > span") : null;
     const markerRect = marker?.getBoundingClientRect();
@@ -805,6 +811,7 @@ export default function Home() {
           onCreateTactic={createTactic}
           onUpdateTacticDetails={updateTacticDetails}
           onConfirmTactic={confirmCurrentTactic}
+          onFinishMatchPlan={finishMatchPlan}
           onStartDrag={startDrag}
           onDragOverPitch={previewPitchZone}
           onDragLeavePitch={leavePitchZone}
@@ -820,7 +827,7 @@ export default function Home() {
       )}
 
       {view === "review" && (
-        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} onReplay={() => setView("match")} />
+        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} onReplay={() => setView("match")} onManagerCard={() => setView("manager")} />
       )}
 
       {view === "manager" && (
@@ -864,6 +871,7 @@ type MatchRoomProps = {
   onCreateTactic: (name: string, baseTacticId: TacticId) => boolean;
   onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
   onConfirmTactic: () => void;
+  onFinishMatchPlan: () => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -1163,10 +1171,17 @@ function MatchRoom(props: MatchRoomProps) {
   }
 
   function confirmOpponentDecision() {
+    if (!awaitingOpponentDecision) {
+      props.onConfirmTactic();
+      return;
+    }
+    if (nextOpponentMinute === null) {
+      props.onFinishMatchPlan();
+      return;
+    }
     props.onConfirmTactic();
-    if (!awaitingOpponentDecision) return;
     setConfirmedOpponentIndex(opponentSnapshotIndex);
-    if (nextOpponentMinute !== null) setOpponentSnapshotMinute(nextOpponentMinute);
+    setOpponentSnapshotMinute(nextOpponentMinute);
   }
 
   function clampPassPopoverPosition(x: number, y: number) {
@@ -1434,7 +1449,7 @@ function MatchRoom(props: MatchRoomProps) {
             <div className="board-toolbar-actions">
               <span className={props.hasUnconfirmedChanges || awaitingOpponentDecision ? "dirty" : "saved"}>{awaitingOpponentDecision ? `${opponentSnapshot.minute}′ 대응 결정 대기` : props.hasUnconfirmedChanges ? "미확정 변경" : "확정됨"}</span>
               <button className="text-button" onClick={handleBoardReset} title="마지막으로 확정한 전술로 되돌리기">되돌리기</button>
-              <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? `${opponentSnapshot.minute}′ 전술 확정${nextOpponentMinute === null ? "" : ` → ${nextOpponentMinute}′`}` : "전술 확정"}</button>
+              <button className="save-tactic-button" onClick={confirmOpponentDecision} disabled={!props.hasUnconfirmedChanges && !awaitingOpponentDecision}>{awaitingOpponentDecision ? nextOpponentMinute === null ? "전술 확정 · 경기 리뷰" : `${opponentSnapshot.minute}′ 전술 확정 → ${nextOpponentMinute}′` : "전술 확정"}</button>
             </div>
           </div>
           <OpponentTacticalTimeline snapshot={opponentSnapshot} unlockedIndex={unlockedOpponentIndex} onMinute={setOpponentSnapshotMinute} />
@@ -1724,7 +1739,7 @@ function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTactica
   );
 }
 
-function ReviewScreen({ activeTactic, switchCount, onReplay }: { activeTactic: Tactic; switchCount: number; onReplay: () => void }) {
+function ReviewScreen({ activeTactic, switchCount, onReplay, onManagerCard }: { activeTactic: Tactic; switchCount: number; onReplay: () => void; onManagerCard: () => void }) {
   const managerScore = Math.min(92, 78 + switchCount * 2 + (activeTactic.id === "chase" ? 3 : 0));
   return (
     <section className="screen page-screen">
@@ -1748,7 +1763,7 @@ function ReviewScreen({ activeTactic, switchCount, onReplay }: { activeTactic: T
         <div className="timeline-head"><span>MATCH DECISION TIMELINE</span><b>KOR 2-1 POR</b></div>
         <div className="timeline-line"><i /><button><span>00&apos;</span>CONTROL</button><button><span>62&apos;</span>PRESS</button><button className="highlight"><span>79&apos;</span>{activeTactic.name}</button><button><span>90+1&apos;</span>GOAL</button></div>
       </div>
-      <div className="screen-actions"><button className="secondary-button" onClick={onReplay}>79분부터 다시 플레이</button><button className="primary-button" onClick={() => window.print()}>리뷰 저장</button></div>
+      <div className="screen-actions"><button className="secondary-button" onClick={onReplay}>전술 보드로 돌아가기</button><button className="secondary-button" onClick={() => window.print()}>리뷰 저장</button><button className="primary-button" onClick={onManagerCard}>감독 카드 만들기</button></div>
     </section>
   );
 }
