@@ -543,6 +543,7 @@ export default function Home() {
   const [reviewAnalysisLoading, setReviewAnalysisLoading] = useState(false);
   const [managerAnalysis, setManagerAnalysis] = useState<ManagerCardAnalysis | null>(null);
   const [managerAnalysisLoading, setManagerAnalysisLoading] = useState(false);
+  const [recordSaved, setRecordSaved] = useState(false);
   const [currentMatchMinutes, setCurrentMatchMinutes] = useState<Record<string, number>>({});
   const [previousMatchMinutes, setPreviousMatchMinutes] = useState<Record<string, number> | null>(null);
   const [nickname, setNickname] = useState("");
@@ -598,6 +599,7 @@ export default function Home() {
 
   function selectManagedTeam(team: "home" | "away") {
     if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
+    setRecordSaved(false);
     const managedTeam = selectedFixture[team];
     const nextLineup = previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
     const nextBench = previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
@@ -818,6 +820,7 @@ export default function Home() {
   async function saveMatchRecord(isPublic: boolean) {
     const savedNickname = nickname.replace(/\s+/g, " ").trim();
     if (savedNickname.length < 2) return { ok: false, message: "닉네임을 2자 이상 입력해 주세요." };
+    if (recordSaved) return { ok: false, message: "이 경기 진행의 기록은 이미 저장되었습니다. 새 경기를 시작하면 다시 저장할 수 있습니다." };
     if (!selectedFixture || !selectedTeam || !managerAnalysis) return { ok: false, message: "저장할 경기 분석이 아직 준비되지 않았습니다." };
     const scored = matchPlanDecisions.map((decision) => scoreTacticalMatchup(decision));
     const averageScore = scored.length ? Math.round(scored.reduce((total, value) => total + value, 0) / scored.length) : 50;
@@ -855,6 +858,7 @@ export default function Home() {
       if (!response.ok) throw new Error(payload.error ?? "기록 저장에 실패했습니다.");
       setNickname(savedNickname);
       window.localStorage.setItem("touchline26-nickname", savedNickname);
+      setRecordSaved(true);
       return { ok: true, message: isPublic ? "기록을 저장하고 공개 순위에 등록했습니다." : "기록과 감독카드를 비공개로 저장했습니다." };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "기록 저장에 실패했습니다." };
@@ -869,6 +873,7 @@ export default function Home() {
     setReviewAnalysisLoading(false);
     setManagerAnalysis(null);
     setManagerAnalysisLoading(false);
+    setRecordSaved(false);
     setView("fixture");
   }
 
@@ -1137,7 +1142,7 @@ export default function Home() {
       )}
 
       {view === "manager" && (
-        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} accessMode={accessMode} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
+        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} accessMode={accessMode} recordSaved={recordSaved} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
       )}
 
       {view === "duel" && (
@@ -2300,7 +2305,7 @@ function ReviewScreen({ activeTactic, switchCount, decisions, analysis, loading,
   );
 }
 
-function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; accessMode: AccessMode; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
+function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, recordSaved, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; accessMode: AccessMode; recordSaved: boolean; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
   const [isPublic, setIsPublic] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordMessage, setRecordMessage] = useState("");
@@ -2340,8 +2345,8 @@ function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, 
         <div><span>MY MATCH RECORD</span><h2 id="record-panel-title">감독카드 저장 및 순위 등록</h2><p>닉네임은 회원가입 없는 식별자입니다. 공개 기록은 다른 감독에게도 보입니다.</p></div>
         <div className="record-controls">
           <label><b>닉네임</b><input value={nickname} readOnly aria-label="현재 닉네임" /></label>
-          <label className="record-public-toggle"><input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} /> <span>공개 순위에 등록</span></label>
-          <button className="primary-button" type="button" onClick={() => void saveRecord()} disabled={savingRecord}>{savingRecord ? "저장 중..." : isPublic ? "저장하고 순위 공개" : "내 기록 저장"}</button>
+          <label className="record-public-toggle"><input type="checkbox" checked={isPublic} disabled={savingRecord || recordSaved} onChange={(event) => setIsPublic(event.target.checked)} /> <span>공개 순위에 등록</span></label>
+          <button className="primary-button" type="button" onClick={() => void saveRecord()} disabled={savingRecord || recordSaved}>{savingRecord ? "저장 중..." : recordSaved ? "저장 완료" : isPublic ? "저장하고 순위 공개" : "내 기록 저장"}</button>
         </div>
         {recordMessage && <p className="record-message" role="status">{recordMessage}</p>}
       </section>
