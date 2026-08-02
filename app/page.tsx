@@ -2408,7 +2408,7 @@ function ReviewScreen({ activeTactic, switchCount, decisions, analysis, loading,
   const managerScore = clampScore(averageEffectiveness + Math.min(4, switchCount));
   return (
     <section className="screen page-screen">
-      <ScreenHeader eyebrow="POST-MATCH REVIEW" title="15분마다, 내 전술은 상대 전술에 얼마나 맞았을까" description="확정한 전술과 상대 포메이션·압박 블록의 상성을 0–100점으로 비교합니다." />
+      <ScreenHeader eyebrow="POST-MATCH REVIEW" title="내 전술은 상대 전술에 얼마나 맞았을까" description="확정한 전술과 상대 포메이션·압박 블록의 상성을 0–100점으로 비교합니다." />
       <div className="review-grid">
         <article className="score-card dark-card">
           <span>TACTICAL EFFECTIVENESS</span><div><b>{managerScore}</b><em>/ 100</em></div><h2>전술 대응 품질</h2>
