@@ -69,6 +69,19 @@ type PendingPassDraft = {
   intensity: number;
 };
 
+type OpponentShapePoint = { x: number; y: number; role: string };
+type OpponentTacticalSnapshot = {
+  minute: number;
+  formation: string;
+  phase: string;
+  block: string;
+  headline: string;
+  observation: string;
+  responseTacticId: TacticId;
+  responseInstruction: string;
+  shape: OpponentShapePoint[];
+};
+
 type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
 
 type AiTacticalRecommendation = {
@@ -108,6 +121,16 @@ const playerInstructionSliders: Array<{ key: "aggression" | "takeOn" | "passingF
   ...instructionSliders,
   { key: "forwardRuns", label: "전진 움직임", low: "위치 유지", high: "침투 우선" },
   { key: "defensiveWorkRate", label: "수비 가담", low: "공격 대기", high: "깊게 가담" },
+];
+
+const opponentTacticalSnapshots: OpponentTacticalSnapshot[] = [
+  { minute: 0, formation: "4-3-3", phase: "초기 빌드업", block: "MID BLOCK", headline: "중앙 3명으로 첫 패스 경로를 확보", observation: "양 풀백은 높이를 나눠 가져가고, 중앙 미드필더가 1차 전진 패스를 받습니다.", responseTacticId: "control", responseInstruction: "중앙 숫자를 맞추고 이강인의 전진 패스로 측면 전환을 노립니다.", shape: [{ x: 89, y: 50, role: "GK" }, { x: 78, y: 82, role: "RB" }, { x: 74, y: 62, role: "RCB" }, { x: 74, y: 38, role: "LCB" }, { x: 78, y: 18, role: "LB" }, { x: 61, y: 50, role: "DM" }, { x: 57, y: 70, role: "RCM" }, { x: 57, y: 30, role: "LCM" }, { x: 40, y: 82, role: "RW" }, { x: 36, y: 50, role: "ST" }, { x: 40, y: 18, role: "LW" }] },
+  { minute: 15, formation: "4-3-3", phase: "우측 과부하", block: "HIGH BUILD", headline: "오른쪽 하프스페이스에서 3대2를 만듦", observation: "우측 윙·풀백·중앙 미드필더가 같은 채널로 모이며 반대편 윙은 넓게 유지합니다.", responseTacticId: "press", responseInstruction: "상대 오른쪽 첫 터치를 압박하고, 탈취 후 손흥민 쪽 반대 전환을 빠르게 실행합니다.", shape: [{ x: 90, y: 50, role: "GK" }, { x: 76, y: 86, role: "RB" }, { x: 75, y: 64, role: "RCB" }, { x: 76, y: 38, role: "LCB" }, { x: 80, y: 15, role: "LB" }, { x: 61, y: 58, role: "DM" }, { x: 53, y: 78, role: "RCM" }, { x: 58, y: 33, role: "LCM" }, { x: 37, y: 88, role: "RW" }, { x: 34, y: 54, role: "ST" }, { x: 38, y: 15, role: "LW" }] },
+  { minute: 30, formation: "4-1-4-1", phase: "중앙 회수", block: "MID BLOCK", headline: "중앙 5명을 세워 두 번째 공을 회수", observation: "공을 잃으면 윙이 내려와 미드필드 4선을 만들고, 앵커가 센터백 앞을 보호합니다.", responseTacticId: "control", responseInstruction: "짧은 연계보다 양쪽 풀백 뒤 공간으로 한 번에 보내며 블록의 폭을 벌립니다.", shape: [{ x: 89, y: 50, role: "GK" }, { x: 77, y: 82, role: "RB" }, { x: 75, y: 62, role: "RCB" }, { x: 75, y: 38, role: "LCB" }, { x: 77, y: 18, role: "LB" }, { x: 62, y: 50, role: "DM" }, { x: 52, y: 82, role: "RM" }, { x: 53, y: 62, role: "RCM" }, { x: 53, y: 38, role: "LCM" }, { x: 52, y: 18, role: "LM" }, { x: 34, y: 50, role: "ST" }] },
+  { minute: 45, formation: "4-2-3-1", phase: "하프타임 조정", block: "MID BLOCK", headline: "더블 볼란치로 중앙 전환을 차단", observation: "2명의 수비형 미드필더가 전방 압박 뒤의 공간을 닫고, 2선은 대기합니다.", responseTacticId: "chase", responseInstruction: "윙백을 올려 넓게 고정하고, 중앙에서 막히면 즉시 측면 1대1을 만듭니다.", shape: [{ x: 89, y: 50, role: "GK" }, { x: 77, y: 82, role: "RB" }, { x: 75, y: 62, role: "RCB" }, { x: 75, y: 38, role: "LCB" }, { x: 77, y: 18, role: "LB" }, { x: 62, y: 62, role: "DM" }, { x: 62, y: 38, role: "DM" }, { x: 49, y: 82, role: "RW" }, { x: 48, y: 50, role: "AM" }, { x: 49, y: 18, role: "LW" }, { x: 32, y: 50, role: "ST" }] },
+  { minute: 60, formation: "4-4-2", phase: "전방 압박", block: "HIGH PRESS", headline: "투톱이 센터백의 다음 패스를 제한", observation: "전방 두 명이 빌드업을 가르고, 미드필드 라인이 높게 따라붙는 형태입니다.", responseTacticId: "lock", responseInstruction: "수비 라인을 과하게 올리지 않고, 압박을 넘기면 전방 한 명에게 바로 연결합니다.", shape: [{ x: 89, y: 50, role: "GK" }, { x: 77, y: 82, role: "RB" }, { x: 74, y: 62, role: "RCB" }, { x: 74, y: 38, role: "LCB" }, { x: 77, y: 18, role: "LB" }, { x: 57, y: 82, role: "RM" }, { x: 56, y: 61, role: "CM" }, { x: 56, y: 39, role: "CM" }, { x: 57, y: 18, role: "LM" }, { x: 36, y: 63, role: "ST" }, { x: 36, y: 37, role: "ST" }] },
+  { minute: 75, formation: "5-4-1", phase: "전환 수비", block: "LOW BLOCK", headline: "박스 앞 5명으로 깊이를 보호", observation: "윙백이 수비 라인에 합류하고, 4명의 미드필더가 박스 앞 공간을 먼저 닫습니다.", responseTacticId: "chase", responseInstruction: "박스 밖에서만 돌지 말고, 좌우 코너 채널을 다르게 설정해 컷백과 빠른 크로스를 섞습니다.", shape: [{ x: 90, y: 50, role: "GK" }, { x: 79, y: 88, role: "RWB" }, { x: 77, y: 68, role: "RCB" }, { x: 77, y: 50, role: "CB" }, { x: 77, y: 32, role: "LCB" }, { x: 79, y: 12, role: "LWB" }, { x: 59, y: 82, role: "RM" }, { x: 59, y: 61, role: "CM" }, { x: 59, y: 39, role: "CM" }, { x: 59, y: 18, role: "LM" }, { x: 38, y: 50, role: "ST" }] },
+  { minute: 90, formation: "5-4-1", phase: "막판 대응", block: "LOW BLOCK", headline: "한 번의 전환만 남긴 채 박스 보호", observation: "수비 블록은 낮게 유지하고, 공격 전환은 최전방 한 명과 넓은 윙 채널로 제한합니다.", responseTacticId: "chase", responseInstruction: "후방 리스크를 감수하되, 두 번째 볼을 공격 진영에서 회수하도록 적극성을 높입니다.", shape: [{ x: 91, y: 50, role: "GK" }, { x: 80, y: 88, role: "RWB" }, { x: 78, y: 68, role: "RCB" }, { x: 78, y: 50, role: "CB" }, { x: 78, y: 32, role: "LCB" }, { x: 80, y: 12, role: "LWB" }, { x: 61, y: 82, role: "RM" }, { x: 61, y: 61, role: "CM" }, { x: 61, y: 39, role: "CM" }, { x: 61, y: 18, role: "LM" }, { x: 41, y: 50, role: "ST" }] },
 ];
 
 function cloneTacticDetails(details: DetailedTacticInstructions): DetailedTacticInstructions {
@@ -894,6 +917,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [widePlayPickerOpen, setWidePlayPickerOpen] = useState(false);
   const [widePlayPickerSide, setWidePlayPickerSide] = useState<"left" | "right">("left");
+  const [opponentSnapshotMinute, setOpponentSnapshotMinute] = useState(0);
   const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [newTacticNameError, setNewTacticNameError] = useState("");
@@ -920,6 +944,7 @@ function MatchRoom(props: MatchRoomProps) {
   const selectedPlayerData = props.selectedPlayer === null ? null : props.lineup[props.selectedPlayer];
   const selectedPlayerSlot = props.selectedPlayer === null ? null : props.slots[props.selectedPlayer];
   const selectedInstruction = selectedPlayerData ? playerInstructionFor(selectedPlayerData.id) : null;
+  const opponentSnapshot = opponentTacticalSnapshots.find((snapshot) => snapshot.minute === opponentSnapshotMinute) ?? opponentTacticalSnapshots[0];
 
   useEffect(() => {
     setDetailDraft(cloneTacticDetails(props.activeTactic.details));
@@ -1383,6 +1408,7 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="save-tactic-button" onClick={props.onConfirmTactic} disabled={!props.hasUnconfirmedChanges}>전술 확정</button>
             </div>
           </div>
+          <OpponentTacticalTimeline snapshot={opponentSnapshot} activeTactic={props.activeTactic} onMinute={setOpponentSnapshotMinute} onApply={(tacticId) => props.onTactic(tacticId)} />
           <div className="bench-row">
             <div className="bench-label"><span>BENCH</span><small>선택 후 클릭하거나 보드로 드래그</small></div>
             {props.bench.map((player, index) => (
@@ -1610,6 +1636,31 @@ function MatchRoom(props: MatchRoomProps) {
         </aside>
       </section>
     </>
+  );
+}
+
+function OpponentTacticalTimeline({ snapshot, activeTactic, onMinute, onApply }: { snapshot: OpponentTacticalSnapshot; activeTactic: Tactic; onMinute: (minute: number) => void; onApply: (tacticId: TacticId) => void }) {
+  const responseIsActive = activeTactic.id === snapshot.responseTacticId;
+
+  return (
+    <section className="opponent-timeline-panel" aria-label="15분 단위 상대 전술 분석">
+      <header className="opponent-timeline-head">
+        <div><span>OPPONENT TACTICAL SNAPSHOT</span><h3>포르투갈 {snapshot.minute}&apos; · {snapshot.formation}</h3><p>공개 이벤트·360 프레임을 압축한 전술 추정 배치</p></div>
+        <div><b>{snapshot.block}</b><small>{snapshot.phase}</small></div>
+      </header>
+      <div className="opponent-timeline-tabs" role="tablist" aria-label="상대 전술 시간대 선택">
+        {opponentTacticalSnapshots.map((item) => <button key={item.minute} type="button" className={item.minute === snapshot.minute ? "active" : ""} onClick={() => onMinute(item.minute)} aria-pressed={item.minute === snapshot.minute}>{item.minute}&apos;</button>)}
+      </div>
+      <div className="opponent-timeline-content">
+        <div className="opponent-mini-pitch" aria-label={`포르투갈 ${snapshot.minute}분 추정 배치`}>
+          <span>POR FORWARD ←</span>
+          <i className="opponent-halfway" />
+          {snapshot.shape.map((point, index) => <b key={`${snapshot.minute}-${point.role}-${index}`} className="opponent-token" style={{ left: `${point.x}%`, top: `${point.y}%` }}>{point.role}</b>)}
+        </div>
+        <div className="opponent-observation"><span>상대 관찰</span><b>{snapshot.headline}</b><p>{snapshot.observation}</p></div>
+        <div className={`opponent-response ${responseIsActive ? "active" : ""}`}><span>우리 대응 전술</span><b>{responseIsActive ? `${activeTactic.name} 적용 중` : "이 시간대 추천"}</b><p>{snapshot.responseInstruction}</p><button type="button" onClick={() => onApply(snapshot.responseTacticId)}>{responseIsActive ? "적용된 전술" : "이 대응 전술 적용"}</button></div>
+      </div>
+    </section>
   );
 }
 
