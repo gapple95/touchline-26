@@ -1167,7 +1167,9 @@ function LandingScreen({ nickname, onNicknameEnter, onPrivateEnter }: { nickname
 
   return (
     <main className="landing-screen">
-      <img className="landing-cover" src="/touchline-26-hero-central.png" alt="TOUCHLINE 26 전술 보드" />
+      <video className="landing-cover" autoPlay muted loop playsInline poster="/touchline-26-hero-central.png" aria-label="TOUCHLINE 26 전술 인트로 영상">
+        <source src="/touchline-26-front-page.mp4" type="video/mp4" />
+      </video>
       <section className="landing-entry" aria-labelledby="landing-entry-title">
         <span>WORLD CUP TACTICS SIMULATOR</span><h1 id="landing-entry-title">감독으로 입장하기</h1><p>기록을 남기거나, 아무 기록 없이 비공개로 전술을 설계할 수 있습니다.</p>
         <form onSubmit={enterWithNickname}>
