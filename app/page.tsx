@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, FormEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PITCH_LANES, PITCH_PHASES, resolvePitchPosition } from "@/lib/domain/pitch-zones.js";
-import { deriveLiveTacticalMetrics } from "@/lib/domain/live-tactical-metrics.js";
+import { deriveLiveTacticalMetrics, derivePlayerFatigueRisks } from "@/lib/domain/live-tactical-metrics.js";
 import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
@@ -1791,7 +1791,7 @@ function MatchRoom(props: MatchRoomProps) {
           ) : (
             <div className="player-instruction-empty"><b>선수 개인 지침</b><span>전술 보드의 선수를 클릭하면 0–100 지침과 패스 연결 옵션이 열립니다.</span></div>
           )}
-          <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} />
+          <LiveMetricDock liveMetrics={props.liveMetrics} metricDelta={props.metricDelta} players={props.lineup} bench={props.bench} details={props.activeTactic.details} minute={opponentSnapshot.minute} />
         </section>
 
         <aside className={`coach-panel panel ${coachDrawerOpen ? "open" : "collapsed"}`} aria-expanded={coachDrawerOpen}>
@@ -1850,7 +1850,18 @@ function OpponentTacticalTimeline({ snapshot, unlockedIndex, onMinute }: { snaps
   );
 }
 
-function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTacticalMetrics; metricDelta: MatchRoomProps["metricDelta"] }) {
+function matchingBenchCandidate(outgoing: Player, bench: Player[]) {
+  const positionGroup = (position: string) => position === "GK" ? "GK" : ["RB", "LB", "RWB", "LWB", "CB"].includes(position) ? "DEF" : ["DM", "CM", "AM"].includes(position) ? "MID" : "ATT";
+  const group = positionGroup(outgoing.position);
+  return [...bench].sort((left, right) => {
+    const score = (player: Player) => player.stamina + (player.position === outgoing.position ? 30 : positionGroup(player.position) === group ? 15 : 0);
+    return score(right) - score(left);
+  })[0];
+}
+
+function LiveMetricDock({ liveMetrics, metricDelta, players, bench, details, minute }: { liveMetrics: LiveTacticalMetrics; metricDelta: MatchRoomProps["metricDelta"]; players: Player[]; bench: Player[]; details: DetailedTacticInstructions; minute: number }) {
+  const fatigueRisks = derivePlayerFatigueRisks({ players, details, minute }).filter((risk) => players.find((player) => player.id === risk.playerId)?.position !== "GK").slice(0, 2);
+  const playerById = new Map(players.map((player) => [player.id, player]));
   const scores: Array<{ label: string; value: number; tone: Tone }> = [
     { label: "공격", value: liveMetrics.attack, tone: "orange" },
     { label: "수비", value: liveMetrics.defence, tone: "mint" },
@@ -1868,6 +1879,15 @@ function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTactica
             <div key={score.label} className={`dock-score ${score.tone}`}><span>{score.label}</span><b>{score.value}</b><i><em style={{ width: `${score.value}%` }} /></i></div>
           ))}
         </div>
+        <section className="substitution-watch" aria-label="선수별 체력 리스크와 교체 타이밍">
+          <header><span>SUBSTITUTION WATCH</span><b>교체 타이밍</b></header>
+          <div>{fatigueRisks.map((risk) => {
+            const player = playerById.get(risk.playerId);
+            if (!player) return null;
+            const replacement = matchingBenchCandidate(player, bench);
+            return <article key={risk.playerId} className={`risk-${risk.status.toLowerCase()}`}><div><b>{player.name}</b><em>RISK {risk.risk}</em></div><p>{risk.substitutionWindow} · {risk.drivers.join(" · ") || "기본 전술 부하"}</p><small>교체 후보 <strong>{replacement?.name ?? "벤치 확인"}</strong>{replacement ? ` · 체력 ${replacement.stamina}%` : ""}</small></article>;
+          })}</div>
+        </section>
         <div className="dock-details">
           <div className="dock-facts"><span>수비 라인 <b>{liveMetrics.defensiveLineMetres}m</b></span><span>팀 길이 <b>{liveMetrics.teamLengthMetres}m</b></span><span>팀 폭 <b>{liveMetrics.teamWidthMetres}m</b></span><span>컴팩트 <b>{liveMetrics.compactness}</b></span><span>압박 <b>{liveMetrics.pressing}</b></span><span className="warning">뒷공간 <b>{liveMetrics.spaceBehindRisk}</b></span></div>
           <div className="dock-delta"><span>마지막 확정 대비</span><b className={deltaClass(metricDelta.attack)}>공격 {formatDelta(metricDelta.attack)}</b><b className={deltaClass(metricDelta.defence)}>수비 {formatDelta(metricDelta.defence)}</b><b className={deltaClass(metricDelta.centre)}>중앙 {formatDelta(metricDelta.centre)}</b><b className={deltaClass(metricDelta.transition)}>전환 {formatDelta(metricDelta.transition)}</b><b className={deltaClass(-metricDelta.fatigue)}>부담 {formatDelta(metricDelta.fatigue)}</b></div>

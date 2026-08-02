@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deriveLiveTacticalMetrics, LIVE_TACTICAL_METRIC_MODEL } from "../lib/domain/live-tactical-metrics.js";
+import { deriveLiveTacticalMetrics, derivePlayerFatigueRisks, LIVE_TACTICAL_METRIC_MODEL } from "../lib/domain/live-tactical-metrics.js";
 
 const players = [
   { id: "gk", position: "GK", stamina: 88 },
@@ -95,4 +95,25 @@ test("a directed forward pass raises the progression plan score", () => {
   });
   assert.ok(withPass.progression > withoutPass.progression);
   assert.ok(withPass.attack > withoutPass.attack);
+});
+
+test("raises player fatigue risk and brings substitution timing forward for intense instructions", () => {
+  const risks = derivePlayerFatigueRisks({
+    players,
+    minute: 60,
+    details: {
+      ...baseDetails,
+      playerInstructions: [{
+        playerId: "p1", aggression: 100, takeOn: 100, passingFrequency: 90,
+        forwardRuns: 100, defensiveWorkRate: 100, runDirection: "FORWARD", passTargets: [],
+      }],
+    },
+  });
+  const intense = risks.find((risk) => risk.playerId === "p1");
+  const baseline = risks.find((risk) => risk.playerId === "p2");
+  assert.ok(intense.risk > baseline.risk);
+  assert.equal(intense.status, "HIGH");
+  assert.match(intense.substitutionWindow, /즉시 고려/);
+  assert.ok(intense.drivers.includes("적극성"));
+  assert.ok(intense.drivers.includes("1대1 돌파"));
 });
