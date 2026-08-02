@@ -21,3 +21,16 @@ export const matchRecords = sqliteTable("match_records", {
   index("idx_match_records_public_fixture_team_score").on(table.isPublic, table.fixtureId, table.managedTeam, table.score, table.createdAt),
   index("idx_match_records_nickname_created_at").on(table.nickname, table.createdAt),
 ]);
+
+export const managerTactics = sqliteTable("manager_tactics", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  nickname: text("nickname").notNull(),
+  tacticName: text("tactic_name").notNull(),
+  tacticJson: text("tactic_json").notNull(),
+  layoutJson: text("layout_json").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("idx_manager_tactics_nickname_updated_at").on(table.nickname, table.updatedAt),
+  index("idx_manager_tactics_nickname_name").on(table.nickname, table.tacticName),
+]);

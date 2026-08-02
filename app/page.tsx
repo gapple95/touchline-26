@@ -46,6 +46,7 @@ type DragAnchor = Pick<DragPayload, "anchorOffsetX" | "anchorOffsetY">;
 
 type Tactic = {
   id: TacticId;
+  libraryId?: number;
   name: string;
   formation: string;
   intent: string;
@@ -61,6 +62,8 @@ type Tactic = {
   risk: string;
   details: DetailedTacticInstructions;
 };
+
+type PersonalTacticLibraryEntry = { id: number; tactic: Tactic; layout: FormationSlot[] };
 
 type ConfirmedTacticSnapshot = {
   lineup: Player[];
@@ -573,6 +576,50 @@ export default function Home() {
     setNickname(window.localStorage.getItem("touchline26-nickname") ?? "");
   }, []);
 
+  useEffect(() => {
+    const savedNickname = nickname.replace(/\s+/g, " ").trim();
+    if (accessMode !== "nickname" || savedNickname.length < 2) return;
+    let cancelled = false;
+    void fetch(`/api/manager-tactics?nickname=${encodeURIComponent(savedNickname)}`)
+      .then((response) => response.ok ? response.json() as Promise<{ tactics?: PersonalTacticLibraryEntry[] }> : Promise.reject(new Error("Tactic library unavailable")))
+      .then((payload) => {
+        if (cancelled) return;
+        const library = (payload.tactics ?? []).filter((entry) => entry && Number.isInteger(entry.id) && entry.tactic && typeof entry.tactic.id === "string" && entry.tactic.id.startsWith("custom-") && Array.isArray(entry.layout));
+        const layouts = cloneFormationLayouts(formationSlots);
+        library.forEach((entry) => { layouts[entry.tactic.id] = entry.layout.map((slot) => ({ x: slot.x, y: slot.y })); });
+        setSavedTactics([...initialTactics, ...library.map((entry) => ({ ...entry.tactic, libraryId: entry.id }))]);
+        setTacticLayouts(layouts);
+        setActiveTacticId("control");
+      })
+      .catch(() => {
+        if (!cancelled) setNotice("개인 전술 라이브러리를 불러오지 못했습니다. 현재 경기 전술은 계속 사용할 수 있습니다.");
+      });
+    return () => { cancelled = true; };
+  }, [accessMode, nickname]);
+
+  function resetPersonalTacticLibrary() {
+    setSavedTactics(initialTactics);
+    setTacticLayouts(cloneFormationLayouts(formationSlots));
+    setActiveTacticId("control");
+  }
+
+  async function persistPersonalTactic(tactic: Tactic, layout: FormationSlot[]) {
+    const savedNickname = nickname.replace(/\s+/g, " ").trim();
+    if (accessMode !== "nickname" || savedNickname.length < 2 || !tactic.id.startsWith("custom-")) return;
+    try {
+      const response = await fetch("/api/manager-tactics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: savedNickname, libraryId: tactic.libraryId, tactic, layout }),
+      });
+      const payload = await response.json() as { tactic?: PersonalTacticLibraryEntry; error?: string };
+      if (!response.ok || !payload.tactic) throw new Error(payload.error ?? "Tactic library unavailable");
+      setSavedTactics((current) => current.map((item) => item.id === tactic.id ? { ...item, libraryId: payload.tactic?.id } : item));
+    } catch {
+      setNotice(`"${tactic.name}" 전술은 현재 경기에는 적용됐지만 개인 라이브러리 저장에는 실패했습니다.`);
+    }
+  }
+
   function updateNickname(value: string) {
     setNickname(value.slice(0, 16));
   }
@@ -596,6 +643,7 @@ export default function Home() {
     setNickname("");
     setAccessMode("private");
     window.localStorage.removeItem("touchline26-nickname");
+    resetPersonalTacticLibrary();
     setView("fixture");
   }
 
@@ -603,6 +651,7 @@ export default function Home() {
     setNickname("");
     setAccessMode("private");
     window.localStorage.removeItem("touchline26-nickname");
+    resetPersonalTacticLibrary();
     setView("landing");
   }
 
@@ -741,20 +790,25 @@ export default function Home() {
     setHoveredZone(null);
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
+    void persistPersonalTactic(nextTactic, layout);
     setNotice(`${nextTactic.name} 전술을 ${base.name} 기준으로 만들고 적용했습니다.`);
     return true;
   }
 
   function updateTacticDetails(id: TacticId, details: DetailedTacticInstructions, announce = true) {
+    const updatedTactic = savedTactics.find((tactic) => tactic.id === id);
     setSavedTactics((current) => current.map((tactic) => tactic.id === id
       ? { ...tactic, details: cloneTacticDetails(details) }
       : tactic));
+    if (updatedTactic) void persistPersonalTactic({ ...updatedTactic, details: cloneTacticDetails(details) }, tacticLayouts[id] ?? formationSlots.control);
     if (announce) setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
   }
 
   function confirmCurrentTactic(opponent?: OpponentTacticalSnapshot) {
+    const savedLayout = slots.map(({ x, y }) => ({ x, y }));
     setConfirmedTactics((current) => ({ ...current, [activeTacticId]: cloneTacticSnapshot(currentTacticSnapshot) }));
-    setTacticLayouts((current) => ({ ...current, [activeTacticId]: slots.map(({ x, y }) => ({ x, y })) }));
+    setTacticLayouts((current) => ({ ...current, [activeTacticId]: savedLayout }));
+    void persistPersonalTactic(activeTactic, savedLayout);
     if (opponent) {
       const players = lineup.map((player, index) => {
         const slot = slots[index] ?? { x: 50, y: 50 };
@@ -1100,6 +1154,7 @@ export default function Home() {
     setActiveTacticId(target.id);
     setSlots(nextSlots);
     setTacticLayouts((current) => ({ ...current, [target.id]: nextSlots.map(({ x, y }) => ({ x, y })) }));
+    void persistPersonalTactic({ ...target, details }, nextSlots.map(({ x, y }) => ({ x, y })));
     setHoveredZone(null);
     setSelectedPlayer(null);
     setNotice(`${target.name} 전술, ${result.playerPositions.length}개 선수 위치, 팀·개인 지침을 라이브 보드에 적용했습니다. 저장을 누르면 확정됩니다.`);

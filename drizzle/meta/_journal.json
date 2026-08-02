@@ -22,6 +22,13 @@
       "when": 1785697411580,
       "tag": "0002_peaceful_praxagora",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1785708071840,
+      "tag": "0003_glossy_alice",
+      "breakpoints": true
     }
   ]
 }
