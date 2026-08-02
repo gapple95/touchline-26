@@ -734,3 +734,13 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 }
 
 .custom-side-lock { min-height: 38px; display: grid; place-items: center; border: 1px solid #b8c5b9; background: #e5ede2; color: var(--green); font: 900 11px Arial, sans-serif; letter-spacing: .08em; }
+
+/* Every pitch uses the live tactical board's 105 × 68 field geometry and four-band turf pattern. */
+.pitch-field,
+.opponent-mini-pitch,
+.custom-position-pitch,
+.replay-pitch {
+  aspect-ratio: 105 / 68;
+  min-height: 0;
+  background: repeating-linear-gradient(90deg, #26553c 0, #26553c 12.5%, #2a5d41 12.5%, #2a5d41 25%);
+}
