@@ -643,6 +643,7 @@ export default function Home() {
 
   async function openManagerCard() {
     setView("manager");
+    setManagerAnalysis(null);
     setManagerAnalysisLoading(true);
     try {
       const response = await fetch("/api/ai-manager-card", {
@@ -1863,11 +1864,11 @@ function ReviewScreen({ activeTactic, switchCount, decisions, onReplay, onManage
 
 function ManagerScreen({ activeTactic, analysis, loading, onRegenerate }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; onRegenerate: () => void }) {
   if (!analysis) {
-    return <section className="screen page-screen"><ScreenHeader eyebrow="MANAGER STYLE CARD" title="감독 성향을 분석하고 있습니다" description="15분별 전술 선택과 상성 점수를 기반으로 감독 카드를 생성합니다." /><div className="manager-analysis-loading"><b>{loading ? "GEMINI가 경기 기록을 분석 중입니다." : "감독 카드 분석을 준비하지 못했습니다."}</b><p>확정한 전술, 상대 블록, 구간별 효과 점수를 종합합니다.</p>{!loading && <button className="primary-button" onClick={onRegenerate}>Gemini로 다시 분석</button>}</div></section>;
+    return <section className="screen page-screen"><ScreenHeader eyebrow="MANAGER STYLE CARD" title="AI가 감독 성향을 분석 중입니다" description="확정한 전술과 상대 전술의 상성을 종합해 감독 카드를 만들고 있습니다." /><div className="manager-analysis-loading" role="status"><div className="analysis-progress" aria-hidden="true"><i /></div><b>{loading ? "AI가 분석 중입니다" : "감독 카드 분석을 준비하지 못했습니다."}</b><p>15분별 전술 선택, 상대 블록, 구간별 효과 점수를 종합합니다.</p>{!loading && <button className="primary-button" onClick={onRegenerate}>AI로 다시 분석</button>}</div></section>;
   }
   return (
     <section className="screen page-screen">
-      <ScreenHeader eyebrow={analysis.provider === "gemini" ? "GEMINI MANAGER ANALYSIS" : "LOCAL MANAGER ANALYSIS"} title="매 경기의 선택이 나만의 감독 정체성이 된다" description="15분별 전술 선택과 상대 전술 상성을 분석해 만든 감독 성향 카드입니다." />
+      <ScreenHeader eyebrow="AI MANAGER ANALYSIS" title="매 경기의 선택이 나만의 감독 정체성이 된다" description="15분별 전술 선택과 상대 전술 상성을 분석해 만든 감독 성향 카드입니다." />
       <div className="manager-layout">
         <article className="identity-card">
           <div className="identity-top"><span>MY MANAGER ID</span><em>CONFIDENCE {analysis.confidence}%</em></div>
@@ -1886,7 +1887,7 @@ function ManagerScreen({ activeTactic, analysis, loading, onRegenerate }: { acti
           </div>
         </div>
       </div>
-      <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onRegenerate}>Gemini로 다시 분석</button></div>
+      <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onRegenerate}>AI로 다시 분석</button></div>
     </section>
   );
 }
