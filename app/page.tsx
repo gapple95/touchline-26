@@ -92,6 +92,8 @@ type OpponentTacticalSnapshot = {
 type CustomPlayerDraft = { id: string; name: string; number: number; position: string; starter: boolean };
 type CustomTeamDraft = { code: string; name: string; players: CustomPlayerDraft[] };
 type CustomPointMap = Record<string, { x: number; y: number }>;
+type CustomSnapshotInsight = { minute: number; headline: string; observation: string };
+type CustomSnapshotAnalysis = Partial<Record<"home" | "away", CustomSnapshotInsight[]>>;
 
 type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
 type TacticReplayPlayer = Pick<Player, "id" | "name" | "number" | "position" | "role"> & { x: number; y: number };
@@ -1387,6 +1389,7 @@ function CustomFixtureCreator({ nickname, onBack, onCreate }: { nickname: string
   const [points, setPoints] = useState<CustomPointMap>({});
   const [hoveredPositionZone, setHoveredPositionZone] = useState<ReturnType<typeof resolvePitchPosition> | null>(null);
   const [error, setError] = useState("");
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
 
   function updateTeam(side: "home" | "away", updater: (current: CustomTeamDraft) => CustomTeamDraft) {
     if (side === "home") setHome(updater); else setAway(updater);
@@ -1434,8 +1437,19 @@ function CustomFixtureCreator({ nickname, onBack, onCreate }: { nickname: string
     return { populated, starters, lineup: starters.map(toPlayer), bench: bench.map(toPlayer) };
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  function applySnapshotAnalysis(snapshots: Record<"home" | "away", OpponentTacticalSnapshot[]>, analysis: CustomSnapshotAnalysis) {
+    return (side: "home" | "away") => {
+      const notes = new Map((analysis[side] ?? []).map((note) => [note.minute, note]));
+      return snapshots[side].map((snapshot) => {
+        const note = notes.get(snapshot.minute);
+        return note ? { ...snapshot, headline: note.headline, observation: note.observation } : snapshot;
+      });
+    };
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
     try {
       const homeTeam = buildTeam(home, "home");
       const awayTeam = buildTeam(away, "away");
@@ -1444,11 +1458,30 @@ function CustomFixtureCreator({ nickname, onBack, onCreate }: { nickname: string
         responseInstruction: "입력된 배치에 맞춰 전술을 설계합니다.",
         shape: team.starters.map((player, index) => { const point = pointFor(side, minute, player, index); return { id: `custom-${side}-${player.id}`, name: player.name.trim(), x: point.x, y: point.y, role: customPositionAt(side, point.x, point.y) }; }),
       }));
+      const baseSnapshots = { home: snapshots("home", homeTeam), away: snapshots("away", awayTeam) };
+      let analyzedSnapshots = baseSnapshots;
+      setAiAnalysisLoading(true);
+      try {
+        const response = await fetch("/api/ai-custom-fixture-analysis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(baseSnapshots),
+        });
+        const payload = await response.json() as { analysis?: CustomSnapshotAnalysis };
+        if (response.ok && payload.analysis) {
+          const withAnalysis = applySnapshotAnalysis(baseSnapshots, payload.analysis);
+          analyzedSnapshots = { home: withAnalysis("home"), away: withAnalysis("away") };
+        }
+      } catch {
+        // Keep the prepared local descriptions when the Gemini request is unavailable.
+      } finally {
+        setAiAnalysisLoading(false);
+      }
       const fixture: MatchFixture = {
         id: `custom-${Date.now()}`, tournament: tournament.trim() || "CUSTOM", stage: stage.trim() || "CUSTOM", date: "CUSTOM MATCH", createdBy: nickname.trim() || "ANONYMOUS",
         home: { code: "HOME", name: home.name.trim() || "홈팀" }, away: { code: "AWAY", name: away.name.trim() || "어웨이팀" },
         availableManagerTeams: ["home", "away"], availability: "READY", dataScope: "CUSTOM · 직접 입력 명단 및 15분별 배치",
-        custom: { squads: { home: { lineup: homeTeam.lineup, bench: homeTeam.bench }, away: { lineup: awayTeam.lineup, bench: awayTeam.bench } }, snapshots: { home: snapshots("home", homeTeam), away: snapshots("away", awayTeam) } },
+        custom: { squads: { home: { lineup: homeTeam.lineup, bench: homeTeam.bench }, away: { lineup: awayTeam.lineup, bench: awayTeam.bench } }, snapshots: analyzedSnapshots },
       };
       onCreate(fixture);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "경기를 만들지 못했습니다."); }
@@ -1460,7 +1493,7 @@ function CustomFixtureCreator({ nickname, onBack, onCreate }: { nickname: string
     <section className="custom-meta"><label>대회<input value={tournament} onChange={(event) => setTournament(event.target.value)} placeholder="CUSTOM 또는 GROUP H" /></label><label>스테이지<input value={stage} onChange={(event) => setStage(event.target.value)} placeholder="CUSTOM" /></label></section>
     <div className="custom-team-grid">{(["home", "away"] as const).map((side) => { const team = side === "home" ? home : away; const starterCount = team.players.filter((player) => player.starter).length; return <section key={side} className="custom-team-editor"><header><span>{side === "home" ? "HOME" : "AWAY"}</span><div><b className="custom-side-lock">{side === "home" ? "HOME" : "AWAY"}</b><input value={team.name} onChange={(event) => updateTeam(side, (current) => ({ ...current, name: event.target.value }))} aria-label={`${side} 팀 이름`} placeholder="팀 이름" /></div></header><p>HOME/AWAY는 고정 · 명단 7~15명 · 선발 {starterCount}/11명 · 벤치 최대 5명</p><div className="custom-player-list">{team.players.map((player) => <div key={player.id}><input className="player-number" type="number" min={1} max={99} value={player.number} onChange={(event) => updatePlayer(side, player.id, { number: Number(event.target.value) })} aria-label="등번호" /><input value={player.name} onChange={(event) => updatePlayer(side, player.id, { name: event.target.value })} placeholder="선수 이름" aria-label="선수 이름" /><select value={player.position} onChange={(event) => updatePlayer(side, player.id, { position: event.target.value })}>{customPositionOptions.map((position) => <option key={position}>{position}</option>)}</select><label className="starter-toggle"><input type="checkbox" checked={player.starter} disabled={!player.starter && starterCount >= 11} onChange={(event) => updatePlayer(side, player.id, { starter: event.target.checked })} /> 선발</label><button type="button" disabled={team.players.length <= 7} onClick={() => updateTeam(side, (current) => ({ ...current, players: current.players.filter((item) => item.id !== player.id) }))}>×</button></div>)}</div><button className="custom-add-player" type="button" disabled={team.players.length >= 15} onClick={() => updateTeam(side, (current) => ({ ...current, players: [...current.players, { ...newCustomPlayer(side, current.players.length), starter: current.players.filter((player) => player.starter).length < 11 }] }))}>+ 선수 추가</button></section>; })}</div>
     <section className="custom-position-editor"><header><div><span>15-MINUTE POSITION INPUT</span><h2>보드에서 선수 배치</h2></div><div className="custom-side-tabs"><button type="button" className={positionTeam === "home" ? "active" : ""} onClick={() => setPositionTeam("home")}>{home.code || "HOME"}</button><button type="button" className={positionTeam === "away" ? "active" : ""} onClick={() => setPositionTeam("away")}>{away.code || "AWAY"}</button></div></header><div className="custom-minute-tabs">{customMatchMinutes.map((minute) => <button type="button" key={minute} className={positionMinute === minute ? "active" : ""} onClick={() => setPositionMinute(minute)}>{minute}′</button>)}</div><p>아래 선수 카드를 경기장 위에서 직접 드래그해 배치하세요. 드래그 중 영역명(LB·CB·RW 등)을 보고, 놓으면 해당 영역의 포지션으로 자동 지정됩니다.</p><div className="custom-position-board"><div className="custom-position-pitch" onDragOver={previewCustomZone} onDragLeave={() => setHoveredPositionZone(null)} onDrop={dropOnCustomPitch}><i className="opponent-halfway" /><i className="opponent-centre-circle" /><i className="opponent-penalty-box left" /><i className="opponent-penalty-box right" /><i className="opponent-six-yard-box left" /><i className="opponent-six-yard-box right" /><div className="position-zones" aria-hidden="true">{PITCH_PHASES.slice(0, -1).map((phase) => <i key={phase.id} className="zone-line vertical" style={{ left: `${phase.max}%` }} />)}{PITCH_LANES.slice(0, -1).map((lane) => <i key={lane.id} className="zone-line horizontal" style={{ top: `${lane.max}%` }} />)}{hoveredPositionZone && <div className="position-zone-preview" style={{ left: `${hoveredPositionZone.bounds.left}%`, top: `${hoveredPositionZone.bounds.top}%`, width: `${hoveredPositionZone.bounds.width}%`, height: `${hoveredPositionZone.bounds.height}%` }}><b>{hoveredPositionZone.code}</b><span>{hoveredPositionZone.label}</span></div>}</div>{positionPlayers.map((player, index) => { const point = pointFor(positionTeam, positionMinute, player, index); return <button key={player.id} type="button" className="custom-position-token" draggable onDragStart={(event) => event.dataTransfer.setData("text/plain", player.id)} style={{ left: `${point.x}%`, top: `${point.y}%` }}><b>{player.name}</b><small>{player.position}</small></button>; })}</div><div className="custom-position-roster">{positionPlayers.map((player) => <button key={player.id} type="button" draggable onDragStart={(event) => event.dataTransfer.setData("text/plain", player.id)}><b>{player.name}</b><small>{player.position}</small></button>)}</div></div></section>
-    {error && <p className="custom-fixture-error" role="alert">{error}</p>}<div className="custom-fixture-actions"><button className="text-button" type="button" onClick={onBack}>취소</button><button className="primary-button" type="submit">경기 만들고 팀 선택</button></div>
+    {error && <p className="custom-fixture-error" role="alert">{error}</p>}<div className="custom-fixture-actions"><button className="text-button" type="button" onClick={onBack} disabled={aiAnalysisLoading}>취소</button><button className="primary-button" type="submit" disabled={aiAnalysisLoading}>{aiAnalysisLoading ? "AI 전술 분석 중…" : "경기 만들고 팀 선택"}</button></div>
   </form></section>;
 }
 
