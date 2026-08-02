@@ -7,6 +7,7 @@ import { applyBetweenMatchRecovery, applyTacticalStaminaDrain, deriveLiveTactica
 import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
+import worldCupDataImport from "@/data/worldcup2026/worldcup-2026.json";
 
 type View = "landing" | "fixture" | "fixture-create" | "team" | "match" | "review" | "manager" | "duel";
 type AccessMode = "nickname" | "private";
@@ -33,11 +34,19 @@ type MatchFixture = {
   availability: "READY" | "SOON";
   dataScope: string;
   createdBy?: string;
+  official?: OfficialWorldCupMatch;
   custom?: {
     squads: Record<"home" | "away", { lineup: Player[]; bench: Player[] }>;
     snapshots: Record<"home" | "away", OpponentTacticalSnapshot[]>;
   };
 };
+
+type OfficialLineupPlayer = { playerId: number; name: string; position: string; tacticalPosition: string; starter: boolean; minutes: number };
+type OfficialTeam = { id: number; name: string; code: string; group: string; manager: string };
+type OfficialMatchTeam = { team: OfficialTeam; score: number | null; xg: number | null; lineup: OfficialLineupPlayer[]; stats: { possession: number | null; shots: number | null; shotsOnTarget: number | null; corners: number | null; fouls: number | null } | null };
+type OfficialWorldCupMatch = { id: number; date: string; stage: string; venue: string; city: string; status: string; referee: string; playerOfTheMatch: string; home: OfficialMatchTeam; away: OfficialMatchTeam; events: Array<{ minute: number; type: string; teamId: number; player: string }> };
+type OfficialWorldCupData = { metadata: { source: string; license: string; spatialDataNotice: string; counts: { teams: number; players: number; matches: number; lineupRows: number; events: number; teamStats: number } }; matches: OfficialWorldCupMatch[] };
+const worldCupData = worldCupDataImport as OfficialWorldCupData;
 
 type Slot = { x: number; y: number; role: string };
 type FormationSlot = Pick<Slot, "x" | "y">;
@@ -387,41 +396,18 @@ function createKickoffSquad(): Player[] {
   return players.map((player) => ({ ...player, stamina: 100 }));
 }
 
-const matchFixtures: MatchFixture[] = [
-  {
-    id: "kor-por-2022",
-    tournament: "FIFA WORLD CUP QATAR 2022",
-    stage: "GROUP H",
-    date: "2022.12.02",
-    home: { code: "KOR", name: "대한민국" },
-    away: { code: "POR", name: "포르투갈" },
-    availableManagerTeams: ["home"],
-    availability: "READY",
-    dataScope: "공식 경기 정보 · 선발 11명 · 교체 출전 선수",
-  },
-  {
-    id: "kor-uru-2022",
-    tournament: "FIFA WORLD CUP QATAR 2022",
-    stage: "GROUP H",
-    date: "2022.11.24",
-    home: { code: "URU", name: "우루과이" },
-    away: { code: "KOR", name: "대한민국" },
-    availableManagerTeams: ["away"],
-    availability: "SOON",
-    dataScope: "명단 데이터 연결 예정",
-  },
-  {
-    id: "kor-gha-2022",
-    tournament: "FIFA WORLD CUP QATAR 2022",
-    stage: "GROUP H",
-    date: "2022.11.28",
-    home: { code: "KOR", name: "대한민국" },
-    away: { code: "GHA", name: "가나" },
-    availableManagerTeams: ["home"],
-    availability: "SOON",
-    dataScope: "명단 데이터 연결 예정",
-  },
-];
+const matchFixtures: MatchFixture[] = worldCupData.matches.map((match) => ({
+  id: `fifa-wc-2026-${match.id}`,
+  tournament: "FIFA WORLD CUP 2026",
+  stage: match.stage.toUpperCase(),
+  date: match.date.replaceAll("-", "."),
+  home: { code: match.home.team.code, name: match.home.team.name },
+  away: { code: match.away.team.code, name: match.away.team.name },
+  availableManagerTeams: ["home", "away"],
+  availability: "READY",
+  dataScope: `실제 명단 · ${match.events.length}개 이벤트 · 팀 스탯`,
+  official: match,
+}));
 
 const initialTactics: Tactic[] = [
   {
@@ -515,6 +501,98 @@ const formationSlots: Record<TacticId, FormationSlot[]> = {
 
 function createFormationSlots(id: TacticId, layouts: Record<TacticId, FormationSlot[]> = formationSlots): Slot[] {
   return (layouts[id] ?? formationSlots.control).map(({ x, y }) => ({ x, y, role: resolvePitchPosition(x, y).code }));
+}
+
+function canonicalPosition(position: string) {
+  const value = position.toUpperCase();
+  if (value.includes("GK")) return "GK";
+  if (value.includes("RWB")) return "RWB";
+  if (value.includes("LWB")) return "LWB";
+  if (value.includes("RB")) return "RB";
+  if (value.includes("LB")) return "LB";
+  if (value.includes("CB")) return "CB";
+  if (value.includes("DM")) return "DM";
+  if (value.includes("AM") || value.includes("CAM")) return "AM";
+  if (value.includes("RW")) return "RW";
+  if (value.includes("LW")) return "LW";
+  if (value.includes("ST") || value.includes("CF") || value.includes("FW")) return "ST";
+  return "CM";
+}
+
+function formationDerivedSlots(lineup: Array<Pick<OfficialLineupPlayer, "tacticalPosition" | "position">>): Slot[] {
+  const grouped = { GK: [] as number[], DEF: [] as number[], MID: [] as number[], ATT: [] as number[] };
+  lineup.forEach((player, index) => {
+    const role = canonicalPosition(player.tacticalPosition || player.position);
+    const group = role === "GK" ? "GK" : ["RB", "LB", "RWB", "LWB", "CB"].includes(role) ? "DEF" : ["DM", "CM", "AM"].includes(role) ? "MID" : "ATT";
+    grouped[group].push(index);
+  });
+  const slots: Slot[] = Array.from({ length: lineup.length }, () => ({ x: 50, y: 50, role: "CM" }));
+  const place = (indices: number[], x: number) => indices.forEach((index, order) => {
+    const y = ((order + 1) / (indices.length + 1)) * 100;
+    slots[index] = { x, y, role: canonicalPosition(lineup[index].tacticalPosition || lineup[index].position) };
+  });
+  place(grouped.GK, 8);
+  place(grouped.DEF, 28);
+  place(grouped.MID, 52);
+  place(grouped.ATT, 76);
+  return slots;
+}
+
+function officialSquadPlayers(fixture: MatchFixture, side: "home" | "away") {
+  const squad = fixture.official?.[side].lineup ?? [];
+  const ordered = [...squad].sort((left, right) => Number(right.starter) - Number(left.starter) || right.minutes - left.minutes || left.name.localeCompare(right.name));
+  return ordered.map((member, index) => ({
+    id: `fifa-wc-2026-${fixture.official?.id}-${side}-${member.playerId}`,
+    name: member.name,
+    number: index + 1,
+    position: canonicalPosition(member.tacticalPosition || member.position),
+    role: canonicalPosition(member.tacticalPosition || member.position),
+    stamina: officialTournamentStamina(fixture, side, member.playerId),
+    starter: member.starter,
+  }));
+}
+
+function officialTournamentStamina(fixture: MatchFixture, side: "home" | "away", playerId: number) {
+  const current = fixture.official;
+  if (!current) return 100;
+  const teamId = current[side].team.id;
+  const ordered = worldCupData.matches
+    .filter((match) => match.home.team.id === teamId || match.away.team.id === teamId)
+    .sort((left, right) => left.date.localeCompare(right.date) || left.id - right.id);
+  let fatigue = 0;
+  let lastDate: Date | null = null;
+  for (const match of ordered) {
+    const date = new Date(`${match.date}T00:00:00Z`);
+    if (lastDate) fatigue = Math.max(0, fatigue - Math.max(0, Math.round((date.getTime() - lastDate.getTime()) / 86_400_000)) * 3);
+    if (match.id === current.id) break;
+    const team = match.home.team.id === teamId ? match.home : match.away;
+    const appearance = team.lineup.find((member) => member.playerId === playerId);
+    if (appearance && appearance.minutes > 0) fatigue += Math.min(120, appearance.minutes) * 0.18;
+    lastDate = date;
+  }
+  return Math.max(55, Math.round(100 - fatigue));
+}
+
+function officialOpponentSnapshots(fixture: MatchFixture, managedSide: "home" | "away"): OpponentTacticalSnapshot[] {
+  const opponentSide = managedSide === "home" ? "away" : "home";
+  const opponent = fixture.official?.[opponentSide];
+  if (!opponent) return opponentTacticalSnapshots;
+  const starters = opponent.lineup.filter((member) => member.starter);
+  const ownViewSlots = formationDerivedSlots(starters);
+  return customMatchMinutes.map((minute) => {
+    const priorEvents = fixture.official?.events.filter((event) => event.teamId === opponent.team.id && event.minute <= minute) ?? [];
+    return {
+      minute,
+      formation: "FORMATION MODEL",
+      phase: "실제 선발 명단 기반",
+      block: "MODELLED",
+      headline: `${opponent.team.name} 선발 포메이션 모델`,
+      observation: `${minute}분까지 상대팀 이벤트 ${priorEvents.length}개를 반영했습니다. 공개 데이터에는 추적 좌표가 없어 선발 포지션을 모델로 표시합니다.`,
+      responseTacticId: "control",
+      responseInstruction: "실제 선발·출전 데이터와 팀 스탯을 보고 대응 전술을 설계합니다.",
+      shape: starters.map((player, index) => ({ id: String(player.playerId), name: player.name, x: 100 - (ownViewSlots[index]?.x ?? 50), y: ownViewSlots[index]?.y ?? 50, role: canonicalPosition(player.tacticalPosition || player.position) })),
+    };
+  });
 }
 
 function cloneFormationLayouts(layouts: Record<TacticId, FormationSlot[]>): Record<TacticId, FormationSlot[]> {
@@ -671,10 +749,11 @@ export default function Home() {
     setRecordSaved(false);
     const managedTeam = selectedFixture[team];
     const customSquad = selectedFixture.custom?.squads[team];
+    const officialSquad = selectedFixture.official ? officialSquadPlayers(selectedFixture, team) : [];
     const customKickoff = orientSnapshotsForManagedTeam(selectedFixture.custom?.snapshots[team] ?? [], team)[0]?.shape ?? [];
-    const nextLineup = customSquad ? customSquad.lineup.map((player, index) => ({ ...player, position: customKickoff[index]?.role ?? player.position, role: customKickoff[index]?.role ?? player.role, stamina: 100 })) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
-    const nextBench = customSquad ? customSquad.bench.map((player) => ({ ...player, stamina: 100 })) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
-    const customSlots = customSquad && customKickoff.length === nextLineup.length ? customKickoff.map((point) => ({ x: point.x, y: point.y, role: point.role })) : createFormationSlots("control", tacticLayouts);
+    const nextLineup = customSquad ? customSquad.lineup.map((player, index) => ({ ...player, position: customKickoff[index]?.role ?? player.position, role: customKickoff[index]?.role ?? player.role, stamina: 100 })) : officialSquad.length ? officialSquad.filter((player) => player.starter) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: lineup, minutesByPlayerId: previousMatchMinutes }) : lineup;
+    const nextBench = customSquad ? customSquad.bench.map((player) => ({ ...player, stamina: 100 })) : officialSquad.length ? officialSquad.filter((player) => !player.starter) : previousMatchMinutes ? applyBetweenMatchRecovery({ players: bench, minutesByPlayerId: previousMatchMinutes }) : bench;
+    const customSlots = customSquad && customKickoff.length === nextLineup.length ? customKickoff.map((point) => ({ x: point.x, y: point.y, role: point.role })) : officialSquad.length ? formationDerivedSlots(selectedFixture.official?.[team].lineup.filter((player) => player.starter) ?? []) : createFormationSlots("control", tacticLayouts);
     setSelectedTeam(team);
     setLineup(nextLineup);
     setBench(nextBench);
@@ -1188,6 +1267,8 @@ export default function Home() {
           fixture={selectedFixture}
           opponentSnapshots={selectedFixture.custom
             ? orientSnapshotsForManagedTeam(selectedFixture.custom.snapshots[selectedTeam === "home" ? "away" : "home"], selectedTeam)
+            : selectedFixture.official
+              ? officialOpponentSnapshots(selectedFixture, selectedTeam)
             : opponentTacticalSnapshots}
           savedTactics={savedTactics}
           activeTactic={activeTactic}
@@ -1390,7 +1471,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, on
         })}
       </div>
 
-      <div className="fixture-policy"><b>DATA BOUNDARY</b><span>경기·출전 명단의 공식 데이터는 실제 데이터와 오차가 있을 수 있습니다.</span></div>
+      <div className="fixture-policy"><b>DATA BOUNDARY</b><span>2026 월드컵 {worldCupData.metadata.counts.matches}경기 · {worldCupData.metadata.counts.teams}개국 · 선수 {worldCupData.metadata.counts.players}명 · 선발/출전 {worldCupData.metadata.counts.lineupRows}건 · 이벤트 {worldCupData.metadata.counts.events}건을 저장했습니다. 피치 위치는 추적 데이터가 아닌 포메이션 모델입니다.</span></div>
     </section>
   );
 }
@@ -1598,7 +1679,8 @@ function TeamSelector({ fixture, nickname, accessMode, onBack, onSelect }: { fix
       <button className="back-to-fixtures" onClick={onBack}>← 경기 다시 선택</button>
       <span>STEP 02 · MANAGER TEAM</span>
       <h1 id="team-select-title">어느 팀의 감독이 되시겠어요?</h1>
-      <p>{fixture.home.name} vs {fixture.away.name}. 선택한 팀의 공식 출전 명단으로 킥오프 전 전술을 저장합니다.</p>
+      <p>{fixture.home.name} vs {fixture.away.name}. 선택한 팀의 실제 선발·교체 출전 명단으로 킥오프 전 전술을 저장합니다.</p>
+      {fixture.official && <p className="official-fixture-note">실제 경기 데이터: 선발·교체 출전·이벤트·팀 스탯 · 전술보드 위치는 공개 추적 좌표가 없어 선발 포메이션 기반 모델입니다. 연속 출전 선수는 이전 경기 실제 출전 시간을 반영한 체력으로 시작합니다.</p>}
       <div className="team-select-grid">
         {(["home", "away"] as const).map((side) => {
           const team = fixture[side];
