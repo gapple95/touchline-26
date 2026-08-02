@@ -83,6 +83,41 @@ type OpponentTacticalSnapshot = {
 };
 
 type LiveTacticalMetrics = ReturnType<typeof deriveLiveTacticalMetrics>;
+type MatchPlanDecision = {
+  minute: number;
+  opponentFormation: string;
+  opponentBlock: string;
+  opponentPhase: string;
+  tacticId: TacticId;
+  tacticName: string;
+  tacticFormation: string;
+  metrics: LiveTacticalMetrics;
+};
+
+type ScoredMatchPlanDecision = MatchPlanDecision & { effectiveness: number };
+
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function scoreTacticalMatchup(decision: MatchPlanDecision) {
+  const metrics = decision.metrics;
+  const blockValue = decision.opponentBlock === "HIGH BUILD"
+    ? metrics.pressing * .28 + metrics.transition * .22 + metrics.defence * .12
+    : decision.opponentBlock === "HIGH PRESS"
+      ? metrics.progression * .2 + metrics.defence * .18 + metrics.transition * .12
+      : decision.opponentBlock === "LOW BLOCK"
+        ? metrics.attack * .2 + metrics.progression * .16 + metrics.transition * .12
+        : metrics.centre * .2 + metrics.attack * .14 + metrics.defence * .14 + metrics.progression * .08;
+  const tacticBonus = decision.opponentBlock === "HIGH BUILD"
+    ? ({ press: 13, lock: 6, chase: 5, control: 4 }[decision.tacticId] ?? 3)
+    : decision.opponentBlock === "HIGH PRESS"
+      ? ({ lock: 12, control: 8, press: 5, chase: 3 }[decision.tacticId] ?? 4)
+      : decision.opponentBlock === "LOW BLOCK"
+        ? ({ chase: 12, control: 8, press: 6, lock: 2 }[decision.tacticId] ?? 4)
+        : ({ control: 11, press: 8, chase: 6, lock: 6 }[decision.tacticId] ?? 5);
+  return clampScore(25 + blockValue + tacticBonus - metrics.fatigue * .12);
+}
 
 type AiTacticalRecommendation = {
   provider: "gemini" | "local";
@@ -449,6 +484,7 @@ export default function Home() {
   const [aiLoading, setAiLoading] = useState(false);
   const [notice, setNotice] = useState("CONTROL 전술로 경기를 운영 중입니다.");
   const [duelResolved, setDuelResolved] = useState(false);
+  const [matchPlanDecisions, setMatchPlanDecisions] = useState<MatchPlanDecision[]>([]);
 
   function selectFixture(fixture: MatchFixture) {
     if (fixture.availability !== "READY") return;
@@ -461,6 +497,7 @@ export default function Home() {
     if (!selectedFixture || !selectedFixture.availableManagerTeams.includes(team)) return;
     const managedTeam = selectedFixture[team];
     setSelectedTeam(team);
+    setMatchPlanDecisions([]);
     setView("match");
     setNotice(`${managedTeam.name}의 킥오프 전 전술을 설계하고 저장하세요.`);
   }
@@ -565,14 +602,27 @@ export default function Home() {
     if (announce) setNotice(`${activeTactic.name} 전술의 행동 지침과 선수 관계를 저장했습니다.`);
   }
 
-  function confirmCurrentTactic() {
+  function confirmCurrentTactic(opponent?: OpponentTacticalSnapshot) {
     setConfirmedTactics((current) => ({ ...current, [activeTacticId]: cloneTacticSnapshot(currentTacticSnapshot) }));
     setTacticLayouts((current) => ({ ...current, [activeTacticId]: slots.map(({ x, y }) => ({ x, y })) }));
+    if (opponent) {
+      const decision: MatchPlanDecision = {
+        minute: opponent.minute,
+        opponentFormation: opponent.formation,
+        opponentBlock: opponent.block,
+        opponentPhase: opponent.phase,
+        tacticId: activeTactic.id,
+        tacticName: activeTactic.name,
+        tacticFormation: activeTactic.formation,
+        metrics: liveMetrics,
+      };
+      setMatchPlanDecisions((current) => [...current.filter((item) => item.minute !== opponent.minute), decision].sort((a, b) => a.minute - b.minute));
+    }
     setNotice(`${activeTactic.name} 전술의 현재 배치와 팀·개인 지침을 확정했습니다.`);
   }
 
-  function finishMatchPlan() {
-    confirmCurrentTactic();
+  function finishMatchPlan(opponent: OpponentTacticalSnapshot) {
+    confirmCurrentTactic(opponent);
     setNotice(`${activeTactic.name} 전술 설계를 확정했습니다. 경기 리뷰에서 선택의 결과를 확인하세요.`);
     setView("review");
   }
@@ -819,7 +869,7 @@ export default function Home() {
       )}
 
       {view === "review" && (
-        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} onReplay={() => setView("match")} onManagerCard={() => setView("manager")} />
+        <ReviewScreen activeTactic={activeTactic} switchCount={switchCount} decisions={matchPlanDecisions} onReplay={() => setView("match")} onManagerCard={() => setView("manager")} />
       )}
 
       {view === "manager" && (
@@ -862,8 +912,8 @@ type MatchRoomProps = {
   onReset: () => void;
   onCreateTactic: (name: string, baseTacticId: TacticId) => boolean;
   onUpdateTacticDetails: (id: TacticId, details: DetailedTacticInstructions, announce?: boolean) => void;
-  onConfirmTactic: () => void;
-  onFinishMatchPlan: () => void;
+  onConfirmTactic: (opponent?: OpponentTacticalSnapshot) => void;
+  onFinishMatchPlan: (opponent: OpponentTacticalSnapshot) => void;
   onStartDrag: (event: DragEvent<HTMLElement>, origin: DragPayload["origin"], index: number) => void;
   onDragOverPitch: (event: DragEvent<HTMLDivElement>) => void;
   onDragLeavePitch: (event: DragEvent<HTMLDivElement>) => void;
@@ -1168,10 +1218,10 @@ function MatchRoom(props: MatchRoomProps) {
       return;
     }
     if (nextOpponentMinute === null) {
-      props.onFinishMatchPlan();
+      props.onFinishMatchPlan(opponentSnapshot);
       return;
     }
-    props.onConfirmTactic();
+    props.onConfirmTactic(opponentSnapshot);
     setConfirmedOpponentIndex(opponentSnapshotIndex);
     setOpponentSnapshotMinute(nextOpponentMinute);
   }
@@ -1731,29 +1781,42 @@ function LiveMetricDock({ liveMetrics, metricDelta }: { liveMetrics: LiveTactica
   );
 }
 
-function ReviewScreen({ activeTactic, switchCount, onReplay, onManagerCard }: { activeTactic: Tactic; switchCount: number; onReplay: () => void; onManagerCard: () => void }) {
-  const managerScore = Math.min(92, 78 + switchCount * 2 + (activeTactic.id === "chase" ? 3 : 0));
+function ReviewScreen({ activeTactic, switchCount, decisions, onReplay, onManagerCard }: { activeTactic: Tactic; switchCount: number; decisions: MatchPlanDecision[]; onReplay: () => void; onManagerCard: () => void }) {
+  const fallbackDecision: MatchPlanDecision = { minute: 0, opponentFormation: "4-3-3", opponentBlock: "MID BLOCK", opponentPhase: "기본 분석", tacticId: activeTactic.id, tacticName: activeTactic.name, tacticFormation: activeTactic.formation, metrics: { ...activeTactic.metrics, pressing: 55, progression: 55, spaceBehindRisk: 45 } as LiveTacticalMetrics };
+  const scoredDecisions: ScoredMatchPlanDecision[] = (decisions.length ? decisions : [fallbackDecision]).map((decision) => ({ ...decision, effectiveness: scoreTacticalMatchup(decision) }));
+  const averageEffectiveness = Math.round(scoredDecisions.reduce((total, decision) => total + decision.effectiveness, 0) / scoredDecisions.length);
+  const bestDecision = [...scoredDecisions].sort((a, b) => b.effectiveness - a.effectiveness)[0];
+  const weakestDecision = [...scoredDecisions].sort((a, b) => a.effectiveness - b.effectiveness)[0];
+  const latestDecision = scoredDecisions.at(-1) ?? bestDecision;
+  const managerScore = clampScore(averageEffectiveness + Math.min(4, switchCount));
   return (
     <section className="screen page-screen">
-      <ScreenHeader eyebrow="POST-MATCH REVIEW" title="결과보다 중요한 것은, 왜 그 선택이 작동했는가" description="승패가 아니라 의도, 타이밍, 위험 관리와 실제 영향을 함께 평가합니다." />
+      <ScreenHeader eyebrow="POST-MATCH REVIEW" title="15분마다, 내 전술은 상대 전술에 얼마나 맞았을까" description="확정한 전술과 상대 포메이션·압박 블록의 상성을 0–100점으로 비교합니다." />
       <div className="review-grid">
         <article className="score-card dark-card">
-          <span>MANAGER SCORE</span><div><b>{managerScore}</b><em>/ 100</em></div><h2>결정 품질</h2>
-          <Metric label="전환 타이밍" value={91} tone="lime" />
-          <Metric label="역할 적합도" value={86} tone="mint" />
-          <Metric label="공간 대응" value={84} tone="yellow" />
-          <Metric label="위험 관리" value={69} tone="orange" />
-          <small>TOUCHLINE 평가 모델 v1.0 · 예시 시뮬레이션</small>
+          <span>TACTICAL EFFECTIVENESS</span><div><b>{managerScore}</b><em>/ 100</em></div><h2>전술 대응 품질</h2>
+          <Metric label="평균 상성" value={averageEffectiveness} tone="lime" />
+          <Metric label="최고 대응" value={bestDecision.effectiveness} tone="mint" />
+          <Metric label="최종 구간" value={latestDecision.effectiveness} tone="yellow" />
+          <Metric label="최대 위험" value={100 - weakestDecision.effectiveness} tone="orange" />
+          <small>상대 블록·포메이션과 내 전술 지표를 비교한 파생 점수</small>
         </article>
         <div className="decision-list">
-          <DecisionCard number="01" tone="lime" title="잘한 결정" body={`${activeTactic.name} 전환으로 오른쪽 하프스페이스와 박스 진입 빈도가 증가했습니다.`} tag="+12 DECISION IMPACT" />
-          <DecisionCard number="02" tone="orange" title="숨은 비용" body="양쪽 측면이 동시에 전진하면서 오른쪽 전환 수비의 회복 거리가 늘어났습니다." tag="-9 RISK MANAGEMENT" />
-          <DecisionCard number="03" tone="mint" title="다음 전술 보완" body="왼쪽만 오버랩하고 6번 미드필더를 HOLD 역할로 고정해보세요." tag="REPLAY SUGGESTION" />
+          <DecisionCard number="01" tone="lime" title="가장 잘 맞은 대응" body={`${bestDecision.minute}′, 상대 ${bestDecision.opponentFormation} ${bestDecision.opponentBlock}에 ${bestDecision.tacticName} ${bestDecision.tacticFormation}을 선택해 ${bestDecision.effectiveness}점을 기록했습니다.`} tag={`EFFECTIVENESS ${bestDecision.effectiveness}/100`} />
+          <DecisionCard number="02" tone="orange" title="가장 어려웠던 구간" body={`${weakestDecision.minute}′, 상대 ${weakestDecision.opponentPhase} 상황에서 ${weakestDecision.tacticName}의 압박·전환 지표가 충분히 맞물리지 않았습니다.`} tag={`EFFECTIVENESS ${weakestDecision.effectiveness}/100`} />
+          <DecisionCard number="03" tone="mint" title="다음 전술 보완" body={weakestDecision.opponentBlock === "LOW BLOCK" ? "낮은 블록에는 측면 폭과 빠른 전진 패스를 더 높여 박스 진입 경로를 만드세요." : weakestDecision.opponentBlock === "HIGH PRESS" ? "강한 전방 압박에는 수비 가담과 짧은 지원 거리를 높여 첫 패스 탈출구를 만드세요." : "상대 라인 사이 공간을 위해 중앙 연결과 압박 강도를 한 단계 더 조절해보세요."} tag={`NEXT: ${weakestDecision.opponentBlock}`} />
         </div>
       </div>
-      <div className="timeline-card">
-        <div className="timeline-head"><span>MATCH DECISION TIMELINE</span><b>KOR 2-1 POR</b></div>
-        <div className="timeline-line"><i /><button><span>00&apos;</span>CONTROL</button><button><span>62&apos;</span>PRESS</button><button className="highlight"><span>79&apos;</span>{activeTactic.name}</button><button><span>90+1&apos;</span>GOAL</button></div>
+      <div className="tactical-comparison-panel">
+        <div className="comparison-head"><span>15-MINUTE TACTICAL COMPARISON</span><b>상대 전술 × 내 전술 효과</b></div>
+        <div className="tactical-comparison-grid">
+          {scoredDecisions.map((decision) => <article key={decision.minute} className={decision.effectiveness >= 70 ? "strong" : decision.effectiveness < 50 ? "weak" : "steady"}>
+            <header><span>{decision.minute}&apos;</span><b>{decision.effectiveness}<small>/100</small></b></header>
+            <p><small>상대</small>{decision.opponentFormation} · {decision.opponentBlock}</p>
+            <p><small>우리</small>{decision.tacticName} · {decision.tacticFormation}</p>
+            <div><i style={{ width: `${decision.effectiveness}%` }} /></div>
+          </article>)}
+        </div>
       </div>
       <div className="screen-actions"><button className="secondary-button" onClick={onReplay}>전술 보드로 돌아가기</button><button className="secondary-button" onClick={() => window.print()}>리뷰 저장</button><button className="primary-button" onClick={onManagerCard}>감독 카드 만들기</button></div>
     </section>
