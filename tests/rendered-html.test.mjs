@@ -172,7 +172,7 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.match(page, /PRIVATE SESSION/);
   assert.match(page + css, /landing-screen/);
   assert.match(page + css, /object-fit: contain/);
-  assert.match(page + css, /rgb\(1, 21, 11\)/);
+  assert.match(page + css, /hsl\(150deg 90\.8333% 4\.1667%\)/);
   assert.match(page, /MY NICKNAME/);
   assert.match(page, /MY MATCH RECORD/);
   assert.match(page, /PUBLIC RANKING/);
