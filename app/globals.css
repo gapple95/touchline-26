@@ -746,3 +746,7 @@ button:focus-visible, textarea:focus-visible { outline: 3px solid var(--orange);
 }
 
 .custom-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
+
+/* Scale team codes to the available card width before the existing ellipsis fallback applies. */
+.fixture-teams { container-type: inline-size; }
+.fixture-teams strong { font-size: clamp(24px, 15cqi, 56px); }
