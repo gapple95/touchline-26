@@ -15,17 +15,22 @@ async function render() {
   );
 }
 
-test("server-renders the TOUCHLINE 26 fixture selection", async () => {
+test("server-renders the TOUCHLINE 26 entry screen", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /TOUCHLINE 26/);
-  assert.match(html, /class="fixture-screen"/);
+  assert.match(html, /class="landing-screen"/);
+  assert.match(html, /touchline-26-hero-cover\.png/);
+  assert.match(html, /\ub2c9\ub124\uc784\uc73c\ub85c \uc785\uc7a5/);
+  assert.match(html, /\ube44\uacf5\uac1c\ub85c \uc785\uc7a5/);
+  if (html.includes("fixture-screen")) {
   assert.match(html, /어떤 실제 경기를/);
   assert.match(html, /공식 경기 정보 · 선발 11명 · 교체 출전 선수/);
   assert.doesNotMatch(html, /class="header-match"/);
+  }
   assert.doesNotMatch(html, /WORLD CUP MATCH LAB/);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview/);
 });
@@ -162,6 +167,11 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.match(page, /generateRecommendation/);
   assert.match(page, /api\/ai-manager-card/);
   assert.match(page, /touchline26-nickname/);
+  assert.match(page, /function LandingScreen/);
+  assert.match(page, /accessMode/);
+  assert.match(page, /PRIVATE SESSION/);
+  assert.match(page + css, /landing-screen/);
+  assert.match(page + css, /object-fit: contain/);
   assert.match(page, /MY NICKNAME/);
   assert.match(page, /MY MATCH RECORD/);
   assert.match(page, /PUBLIC RANKING/);

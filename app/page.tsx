@@ -8,7 +8,8 @@ import { createLocalTacticalRecommendation } from "@/lib/domain/tactical-ai.js";
 import { carryTacticalReferencesThroughSubstitution } from "@/lib/domain/tactical-substitution.js";
 import type { DetailedTacticInstructions, KitPalette, PlayerRelationshipType, PlayerTacticalInstruction, TeamKit, WideFinalAction } from "@/lib/domain/football";
 
-type View = "fixture" | "team" | "match" | "review" | "manager" | "duel";
+type View = "landing" | "fixture" | "team" | "match" | "review" | "manager" | "duel";
+type AccessMode = "nickname" | "private";
 type TacticId = string;
 type Tone = "lime" | "orange" | "mint" | "yellow";
 
@@ -507,7 +508,7 @@ function createInitialConfirmedTactics(): Record<TacticId, ConfirmedTacticSnapsh
 }
 
 export default function Home() {
-  const [view, setView] = useState<View>("fixture");
+  const [view, setView] = useState<View>("landing");
   const [selectedFixture, setSelectedFixture] = useState<MatchFixture | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<"home" | "away" | null>(null);
   const [savedTactics, setSavedTactics] = useState<Tactic[]>(initialTactics);
@@ -534,15 +535,40 @@ export default function Home() {
   const [currentMatchMinutes, setCurrentMatchMinutes] = useState<Record<string, number>>({});
   const [previousMatchMinutes, setPreviousMatchMinutes] = useState<Record<string, number> | null>(null);
   const [nickname, setNickname] = useState("");
+  const [accessMode, setAccessMode] = useState<AccessMode>("private");
 
   useEffect(() => {
     setNickname(window.localStorage.getItem("touchline26-nickname") ?? "");
   }, []);
 
   function updateNickname(value: string) {
-    const next = value.slice(0, 16);
+    setNickname(value.slice(0, 16));
+  }
+
+  function enableNicknameMode(value: string) {
+    const next = value.replace(/\s+/g, " ").trim().slice(0, 16);
+    if (next.length < 2) return false;
     setNickname(next);
+    setAccessMode("nickname");
     window.localStorage.setItem("touchline26-nickname", next);
+    return true;
+  }
+
+  function enterWithNickname(value: string) {
+    if (!enableNicknameMode(value)) return false;
+    setView("fixture");
+    return true;
+  }
+
+  function enterPrivately() {
+    setNickname("");
+    setAccessMode("private");
+    window.localStorage.removeItem("touchline26-nickname");
+    setView("fixture");
+  }
+
+  function registerNicknameFromPrivateMode() {
+    return enableNicknameMode(nickname);
   }
 
   function selectFixture(fixture: MatchFixture) {
@@ -788,7 +814,8 @@ export default function Home() {
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "기록 저장에 실패했습니다.");
-      updateNickname(savedNickname);
+      setNickname(savedNickname);
+      window.localStorage.setItem("touchline26-nickname", savedNickname);
       return { ok: true, message: isPublic ? "기록을 저장하고 공개 순위에 등록했습니다." : "기록과 감독카드를 비공개로 저장했습니다." };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "기록 저장에 실패했습니다." };
@@ -1005,10 +1032,14 @@ export default function Home() {
     setNotice(`${target.name} 전술, ${result.playerPositions.length}개 선수 위치, 팀·개인 지침을 라이브 보드에 적용했습니다. 저장을 누르면 확정됩니다.`);
   }
 
+  if (view === "landing") {
+    return <LandingScreen nickname={nickname} onNicknameEnter={enterWithNickname} onPrivateEnter={enterPrivately} />;
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
-        <button className="wordmark" onClick={() => setView("fixture")} aria-label="TOUCHLINE 26 경기 선택으로 이동">
+        <button className="wordmark" onClick={() => setView("landing")} aria-label="TOUCHLINE 26 메인으로 이동">
           <span className="wordmark-box">T</span>
           <span>TOUCHLINE <b>26</b></span>
         </button>
@@ -1020,7 +1051,7 @@ export default function Home() {
         )}
       </header>
 
-      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} onNicknameChange={updateNickname} onSelect={selectFixture} />}
+      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} accessMode={accessMode} onNicknameChange={updateNickname} onSelect={selectFixture} />}
       {view === "team" && selectedFixture && <TeamSelector fixture={selectedFixture} onBack={() => setView("fixture")} onSelect={selectManagedTeam} />}
 
       {view === "match" && selectedFixture && selectedTeam && (
@@ -1067,7 +1098,7 @@ export default function Home() {
       )}
 
       {view === "manager" && (
-        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} onNicknameChange={updateNickname} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
+        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} accessMode={accessMode} onNicknameChange={updateNickname} onRegisterNickname={registerNicknameFromPrivateMode} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
       )}
 
       {view === "duel" && (
@@ -1122,7 +1153,35 @@ type MatchRoomProps = {
   onApplyRecommendation: (recommendation: AiTacticalRecommendation) => void;
 };
 
-function FixtureSelector({ fixtures, selectedFixtureId, nickname, onNicknameChange, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; onNicknameChange: (value: string) => void; onSelect: (fixture: MatchFixture) => void }) {
+function LandingScreen({ nickname, onNicknameEnter, onPrivateEnter }: { nickname: string; onNicknameEnter: (nickname: string) => boolean; onPrivateEnter: () => void }) {
+  const [entryNickname, setEntryNickname] = useState(nickname);
+  const [nicknameError, setNicknameError] = useState("");
+
+  useEffect(() => { setEntryNickname(nickname); }, [nickname]);
+
+  function enterWithNickname(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (onNicknameEnter(entryNickname)) return;
+    setNicknameError("닉네임을 2자 이상 입력해 주세요.");
+  }
+
+  return (
+    <main className="landing-screen">
+      <img className="landing-cover" src="/touchline-26-hero-cover.png" alt="TOUCHLINE 26 전술 보드" />
+      <section className="landing-entry" aria-labelledby="landing-entry-title">
+        <span>WORLD CUP TACTICS SIMULATOR</span><h1 id="landing-entry-title">감독으로 입장하기</h1><p>기록을 남기거나, 아무 기록 없이 비공개로 전술을 설계할 수 있습니다.</p>
+        <form onSubmit={enterWithNickname}>
+          <label><b>닉네임으로 시작</b><input value={entryNickname} maxLength={16} onChange={(event) => { setEntryNickname(event.target.value); setNicknameError(""); }} placeholder="닉네임 2자 이상" aria-label="닉네임" /><small>감독카드 저장과 공개 순위 등록을 사용할 수 있습니다.</small></label>
+          <button className="landing-primary" type="submit">닉네임으로 입장</button>
+        </form>
+        {nicknameError && <p className="landing-error" role="alert">{nicknameError}</p>}
+        <button className="landing-private" type="button" onClick={onPrivateEnter}><b>비공개로 입장</b><span>순위와 저장 기록 없이, 익명으로 전술을 체험합니다.</span></button>
+      </section>
+    </main>
+  );
+}
+
+function FixtureSelector({ fixtures, selectedFixtureId, nickname, accessMode, onNicknameChange, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; accessMode: AccessMode; onNicknameChange: (value: string) => void; onSelect: (fixture: MatchFixture) => void }) {
   return (
     <section className="fixture-screen" aria-labelledby="fixture-title">
       <div className="fixture-intro">
@@ -1130,7 +1189,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, nickname, onNicknameChan
         <h1 id="fixture-title">어떤 실제 경기를<br />다시 지휘할까요?</h1>
         <p>공식 출전 명단을 기준으로, 그 순간 당신이라면 어떤 전술을 선택했을지 설계합니다.</p>
       </div>
-      <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>회원가입 없이 이 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>
+      {accessMode === "nickname" && <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>회원가입 없이 이 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>}
 
       <div className="fixture-list" aria-label="월드컵 경기 선택">
         {fixtures.map((fixture) => {
@@ -2044,7 +2103,7 @@ function ReviewScreen({ activeTactic, switchCount, decisions, analysis, loading,
   );
 }
 
-function ManagerScreen({ activeTactic, analysis, loading, nickname, onNicknameChange, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; onNicknameChange: (value: string) => void; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
+function ManagerScreen({ activeTactic, analysis, loading, nickname, accessMode, onNicknameChange, onRegisterNickname, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; accessMode: AccessMode; onNicknameChange: (value: string) => void; onRegisterNickname: () => boolean; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
   const [isPublic, setIsPublic] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
   const [recordMessage, setRecordMessage] = useState("");
@@ -2060,7 +2119,7 @@ function ManagerScreen({ activeTactic, analysis, loading, nickname, onNicknameCh
     }
   }
 
-  useEffect(() => { void loadLeaderboard(); }, []);
+  useEffect(() => { if (accessMode === "nickname") void loadLeaderboard(); }, [accessMode]);
 
   async function saveRecord() {
     setSavingRecord(true);
@@ -2094,6 +2153,7 @@ function ManagerScreen({ activeTactic, analysis, loading, nickname, onNicknameCh
           </div>
         </div>
       </div>
+      {accessMode === "nickname" ? <>
       <section className="record-panel" aria-labelledby="record-panel-title">
         <div><span>MY MATCH RECORD</span><h2 id="record-panel-title">감독카드 저장 및 순위 등록</h2><p>닉네임은 회원가입 없는 식별자입니다. 공개 기록은 다른 감독에게도 보입니다.</p></div>
         <div className="record-controls">
@@ -2107,6 +2167,14 @@ function ManagerScreen({ activeTactic, analysis, loading, nickname, onNicknameCh
         <div><span>PUBLIC RANKING</span><h2 id="leaderboard-title">감독 순위</h2></div>
         {leaderboard.length ? <ol>{leaderboard.map((record, index) => <li key={record.id}><b>{index + 1}</b><div><strong>{record.nickname}</strong><span>{record.fixtureLabel} · {record.managerArchetype}</span></div><em>{record.score}</em></li>)}</ol> : <p>아직 공개된 감독 기록이 없습니다. 첫 번째 순위에 도전해 보세요.</p>}
       </section>
+      </> : <section className="record-panel private-record-panel" aria-labelledby="record-panel-title">
+        <div><span>PRIVATE SESSION</span><h2 id="record-panel-title">비공개 전술 체험 중</h2><p>이 세션의 전술과 감독카드는 공개 순위에 남지 않습니다. 결과를 공개하고 싶을 때만 닉네임을 등록하세요.</p></div>
+        <div className="record-controls">
+          <label><b>공개에 사용할 닉네임</b><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="닉네임 2자 이상" aria-label="공개에 사용할 닉네임" /></label>
+          <button className="primary-button" type="button" onClick={() => { if (onRegisterNickname()) { setIsPublic(true); setRecordMessage("닉네임을 등록했습니다. 공개 순위 등록을 선택할 수 있습니다."); } else setRecordMessage("닉네임을 2자 이상 입력해 주세요."); }}>닉네임 등록</button>
+        </div>
+        {recordMessage && <p className="record-message" role="status">{recordMessage}</p>}
+      </section>}
       <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onChooseNextMatch}>다른 경기 고르기</button></div>
     </section>
   );
