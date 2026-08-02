@@ -112,6 +112,16 @@ type MatchReviewAnalysis = {
   summary: string;
   insights: Array<{ title: string; detail: string; tone: Tone; tag: string }>;
 };
+type LeaderboardRecord = {
+  id: number;
+  nickname: string;
+  fixtureLabel: string;
+  score: number;
+  managerArchetype: string;
+  managerConfidence: number;
+  badges: string[];
+  createdAt: string;
+};
 
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -523,6 +533,17 @@ export default function Home() {
   const [managerAnalysisLoading, setManagerAnalysisLoading] = useState(false);
   const [currentMatchMinutes, setCurrentMatchMinutes] = useState<Record<string, number>>({});
   const [previousMatchMinutes, setPreviousMatchMinutes] = useState<Record<string, number> | null>(null);
+  const [nickname, setNickname] = useState("");
+
+  useEffect(() => {
+    setNickname(window.localStorage.getItem("touchline26-nickname") ?? "");
+  }, []);
+
+  function updateNickname(value: string) {
+    const next = value.slice(0, 16);
+    setNickname(next);
+    window.localStorage.setItem("touchline26-nickname", next);
+  }
 
   function selectFixture(fixture: MatchFixture) {
     if (fixture.availability !== "READY") return;
@@ -737,6 +758,40 @@ export default function Home() {
       setManagerAnalysis(null);
     } finally {
       setManagerAnalysisLoading(false);
+    }
+  }
+
+  async function saveMatchRecord(isPublic: boolean) {
+    const savedNickname = nickname.replace(/\s+/g, " ").trim();
+    if (savedNickname.length < 2) return { ok: false, message: "닉네임을 2자 이상 입력해 주세요." };
+    if (!selectedFixture || !managerAnalysis) return { ok: false, message: "저장할 경기 분석이 아직 준비되지 않았습니다." };
+    const scored = matchPlanDecisions.map((decision) => scoreTacticalMatchup(decision));
+    const averageScore = scored.length ? Math.round(scored.reduce((total, value) => total + value, 0) / scored.length) : 50;
+    const matchScore = clampScore(averageScore + Math.min(4, switchCount));
+    try {
+      const response = await fetch("/api/match-records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nickname: savedNickname,
+          fixtureId: selectedFixture.id,
+          fixtureLabel: `${selectedFixture.home.code} vs ${selectedFixture.away.code}`,
+          score: matchScore,
+          isPublic,
+          manager: {
+            archetype: managerAnalysis.archetype,
+            confidence: managerAnalysis.confidence,
+            badges: managerAnalysis.badges,
+            summary: managerAnalysis.summary,
+          },
+        }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "기록 저장에 실패했습니다.");
+      updateNickname(savedNickname);
+      return { ok: true, message: isPublic ? "기록을 저장하고 공개 순위에 등록했습니다." : "기록과 감독카드를 비공개로 저장했습니다." };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "기록 저장에 실패했습니다." };
     }
   }
 
@@ -965,7 +1020,7 @@ export default function Home() {
         )}
       </header>
 
-      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} onSelect={selectFixture} />}
+      {view === "fixture" && <FixtureSelector fixtures={matchFixtures} selectedFixtureId={selectedFixture?.id ?? null} nickname={nickname} onNicknameChange={updateNickname} onSelect={selectFixture} />}
       {view === "team" && selectedFixture && <TeamSelector fixture={selectedFixture} onBack={() => setView("fixture")} onSelect={selectManagedTeam} />}
 
       {view === "match" && selectedFixture && selectedTeam && (
@@ -1012,7 +1067,7 @@ export default function Home() {
       )}
 
       {view === "manager" && (
-        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} onChooseNextMatch={returnToFixtureSelection} />
+        <ManagerScreen activeTactic={activeTactic} analysis={managerAnalysis} loading={managerAnalysisLoading} nickname={nickname} onNicknameChange={updateNickname} onSaveRecord={saveMatchRecord} onChooseNextMatch={returnToFixtureSelection} />
       )}
 
       {view === "duel" && (
@@ -1067,7 +1122,7 @@ type MatchRoomProps = {
   onApplyRecommendation: (recommendation: AiTacticalRecommendation) => void;
 };
 
-function FixtureSelector({ fixtures, selectedFixtureId, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; onSelect: (fixture: MatchFixture) => void }) {
+function FixtureSelector({ fixtures, selectedFixtureId, nickname, onNicknameChange, onSelect }: { fixtures: MatchFixture[]; selectedFixtureId: string | null; nickname: string; onNicknameChange: (value: string) => void; onSelect: (fixture: MatchFixture) => void }) {
   return (
     <section className="fixture-screen" aria-labelledby="fixture-title">
       <div className="fixture-intro">
@@ -1075,6 +1130,7 @@ function FixtureSelector({ fixtures, selectedFixtureId, onSelect }: { fixtures: 
         <h1 id="fixture-title">어떤 실제 경기를<br />다시 지휘할까요?</h1>
         <p>공식 출전 명단을 기준으로, 그 순간 당신이라면 어떤 전술을 선택했을지 설계합니다.</p>
       </div>
+      <label className="nickname-entry"><span>MY NICKNAME</span><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="기록에 사용할 닉네임" aria-label="기록에 사용할 닉네임" /><small>회원가입 없이 이 닉네임으로 경기 기록과 감독카드를 저장합니다.</small></label>
 
       <div className="fixture-list" aria-label="월드컵 경기 선택">
         {fixtures.map((fixture) => {
@@ -1988,7 +2044,32 @@ function ReviewScreen({ activeTactic, switchCount, decisions, analysis, loading,
   );
 }
 
-function ManagerScreen({ activeTactic, analysis, loading, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; onChooseNextMatch: () => void }) {
+function ManagerScreen({ activeTactic, analysis, loading, nickname, onNicknameChange, onSaveRecord, onChooseNextMatch }: { activeTactic: Tactic; analysis: ManagerCardAnalysis | null; loading: boolean; nickname: string; onNicknameChange: (value: string) => void; onSaveRecord: (isPublic: boolean) => Promise<{ ok: boolean; message: string }>; onChooseNextMatch: () => void }) {
+  const [isPublic, setIsPublic] = useState(false);
+  const [savingRecord, setSavingRecord] = useState(false);
+  const [recordMessage, setRecordMessage] = useState("");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRecord[]>([]);
+
+  async function loadLeaderboard() {
+    try {
+      const response = await fetch("/api/match-records");
+      const payload = await response.json() as { records?: LeaderboardRecord[] };
+      if (response.ok) setLeaderboard(payload.records ?? []);
+    } catch {
+      setLeaderboard([]);
+    }
+  }
+
+  useEffect(() => { void loadLeaderboard(); }, []);
+
+  async function saveRecord() {
+    setSavingRecord(true);
+    const result = await onSaveRecord(isPublic);
+    setRecordMessage(result.message);
+    if (result.ok && isPublic) await loadLeaderboard();
+    setSavingRecord(false);
+  }
+
   if (!analysis) {
     return <section className="screen page-screen"><ScreenHeader eyebrow="MANAGER STYLE CARD" title="AI가 감독 성향을 분석 중입니다" description="확정한 전술과 상대 전술의 상성을 종합해 감독 카드를 만들고 있습니다." /><div className="manager-analysis-loading" role="status"><div className="analysis-progress" aria-hidden="true"><i /></div><b>{loading ? "AI가 분석 중입니다" : "감독 카드 분석을 준비하지 못했습니다."}</b><p>15분별 전술 선택, 상대 블록, 구간별 효과 점수를 종합합니다.</p>{!loading && <button className="primary-button" onClick={onChooseNextMatch}>다른 경기 고르기</button>}</div></section>;
   }
@@ -2013,6 +2094,19 @@ function ManagerScreen({ activeTactic, analysis, loading, onChooseNextMatch }: {
           </div>
         </div>
       </div>
+      <section className="record-panel" aria-labelledby="record-panel-title">
+        <div><span>MY MATCH RECORD</span><h2 id="record-panel-title">감독카드 저장 및 순위 등록</h2><p>닉네임은 회원가입 없는 식별자입니다. 공개 기록은 다른 감독에게도 보입니다.</p></div>
+        <div className="record-controls">
+          <label><b>닉네임</b><input value={nickname} maxLength={16} onChange={(event) => onNicknameChange(event.target.value)} placeholder="닉네임 2자 이상" aria-label="경기 기록 닉네임" /></label>
+          <label className="record-public-toggle"><input type="checkbox" checked={isPublic} onChange={(event) => setIsPublic(event.target.checked)} /> <span>공개 순위에 등록</span></label>
+          <button className="primary-button" type="button" onClick={() => void saveRecord()} disabled={savingRecord}>{savingRecord ? "저장 중..." : isPublic ? "저장하고 순위 공개" : "내 기록 저장"}</button>
+        </div>
+        {recordMessage && <p className="record-message" role="status">{recordMessage}</p>}
+      </section>
+      <section className="leaderboard-panel" aria-labelledby="leaderboard-title">
+        <div><span>PUBLIC RANKING</span><h2 id="leaderboard-title">감독 순위</h2></div>
+        {leaderboard.length ? <ol>{leaderboard.map((record, index) => <li key={record.id}><b>{index + 1}</b><div><strong>{record.nickname}</strong><span>{record.fixtureLabel} · {record.managerArchetype}</span></div><em>{record.score}</em></li>)}</ol> : <p>아직 공개된 감독 기록이 없습니다. 첫 번째 순위에 도전해 보세요.</p>}
+      </section>
       <div className="share-strip"><div><span>AI COACHING FOCUS</span><b>{analysis.coachingFocus}</b></div><button className="primary-button" onClick={onChooseNextMatch}>다른 경기 고르기</button></div>
     </section>
   );

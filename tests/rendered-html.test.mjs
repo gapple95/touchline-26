@@ -31,13 +31,15 @@ test("server-renders the TOUCHLINE 26 fixture selection", async () => {
 });
 
 test("keeps the core interaction contract in source", async () => {
-  const [page, layout, css, packageJson, managerRoute, reviewRoute] = await Promise.all([
+  const [page, layout, css, packageJson, managerRoute, reviewRoute, recordsRoute, databaseSchema] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai-manager-card/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/ai-match-review/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/match-records/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /draggable/);
@@ -159,6 +161,14 @@ assert.match(css, /player-token > span, \.player-token > b, \.player-token > sma
   assert.doesNotMatch(page + css, /goal-label/);
   assert.match(page, /generateRecommendation/);
   assert.match(page, /api\/ai-manager-card/);
+  assert.match(page, /touchline26-nickname/);
+  assert.match(page, /MY NICKNAME/);
+  assert.match(page, /MY MATCH RECORD/);
+  assert.match(page, /PUBLIC RANKING/);
+  assert.match(page, /api\/match-records/);
+  assert.match(recordsRoute, /export async function GET/);
+  assert.match(recordsRoute, /export async function POST/);
+  assert.match(databaseSchema, /matchRecords/);
   assert.match(css, /\.badge-grid span \{[^}]*align-items: center;[^}]*justify-content: center/);
   assert.match(page, /returnToFixtureSelection/);
   assert.match(page, /다른 경기 고르기/);
