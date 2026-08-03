@@ -592,6 +592,30 @@ function canonicalPosition(position: string) {
 
 type FormationAssignmentKind = "GK" | "DEFENDER" | "MIDFIELDER" | "WINGER" | "STRIKER";
 type FormationTargetKind = "GK" | "DEF" | "MID" | "ATT";
+type FormationTargetProfile = { role: string; kind: FormationAssignmentKind; lane: "LEFT" | "CENTRE" | "RIGHT" };
+
+// Base tactics use named slots so a 4-2-3-1 is genuinely a 4-2-3-1, rather
+// than eleven anonymous coordinates. Custom tactics fall back to pitch zones.
+const formationSlotRoles: Record<string, string[]> = {
+  control: ["GK", "RB", "LCB", "RCB", "LB", "LDM", "RDM", "CAM", "LW", "RW", "ST"],
+  press: ["GK", "RB", "LCB", "RCB", "LB", "DM", "LCM", "RCM", "LW", "RW", "ST"],
+  chase: ["GK", "RCB", "CB", "LCB", "LWB", "LCM", "RCM", "RWB", "LW", "RW", "ST"],
+  lock: ["GK", "RWB", "RCB", "CB", "LCB", "LWB", "LCM", "RCM", "LM", "RM", "ST"],
+};
+
+function formationTargetKind(slot: FormationSlot): FormationTargetKind {
+  if (slot.x < 17) return "GK";
+  if (slot.x < 40) return "DEF";
+  if (slot.x < 80) return "MID";
+  return "ATT";
+}
+
+function formationLane(position: string): FormationTargetProfile["lane"] {
+  const value = position.toUpperCase();
+  if (value.includes("L")) return "LEFT";
+  if (value.includes("R")) return "RIGHT";
+  return "CENTRE";
+}
 
 function playerFormationAssignmentKind(player: Pick<Player, "position" | "role">): FormationAssignmentKind {
   const position = canonicalPosition(player.position || player.role);
@@ -602,42 +626,45 @@ function playerFormationAssignmentKind(player: Pick<Player, "position" | "role">
   return "MIDFIELDER";
 }
 
-function formationTargetKind(slot: FormationSlot): FormationTargetKind {
-  if (slot.x < 17) return "GK";
-  if (slot.x < 40) return "DEF";
-  if (slot.x < 80) return "MID";
-  return "ATT";
+function formationTargetProfile(id: TacticId, index: number, slot: FormationSlot): FormationTargetProfile {
+  const role = formationSlotRoles[id]?.[index] ?? resolvePitchPosition(slot.x, slot.y).code;
+  const canonical = canonicalPosition(role);
+  const fallbackKind = formationTargetKind(slot);
+  const kind = canonical === "GK" ? "GK"
+    : canonical === "ST" || fallbackKind === "ATT" ? "STRIKER"
+      : canonical === "LW" || canonical === "RW" ? "WINGER"
+        : ["RB", "LB", "RWB", "LWB", "CB"].includes(canonical) ? "DEFENDER"
+          : "MIDFIELDER";
+  return { role, kind, lane: formationLane(role) };
 }
 
 function formationAssignmentPriority(player: Pick<Player, "position" | "role">) {
   const kind = playerFormationAssignmentKind(player);
-  return ({ GK: 0, STRIKER: 1, DEFENDER: 2, WINGER: 3, MIDFIELDER: 4 } as const)[kind];
+  const role = canonicalPosition(player.position || player.role);
+  if (kind === "MIDFIELDER" && role === "DM") return 4;
+  return ({ GK: 0, STRIKER: 1, WINGER: 2, DEFENDER: 3, MIDFIELDER: 5 } as const)[kind];
 }
 
 function formationAssignmentPenalty(
   player: Pick<Player, "position" | "role">,
-  target: FormationTargetKind,
+  target: FormationTargetProfile,
 ) {
-  const kind = playerFormationAssignmentKind(player);
-  if (kind === "GK") return target === "GK" ? 0 : 100_000;
-  if (kind === "STRIKER") return target === "ATT" ? 0 : target === "MID" ? 5_000 : 9_000;
-  if (kind === "DEFENDER") return target === "DEF" ? 0 : target === "MID" ? 1_000 : 5_000;
-  if (kind === "WINGER") return target === "ATT" ? 0 : target === "MID" ? 100 : 2_500;
-  return target === "MID" ? 0 : target === "DEF" ? 500 : 900;
-}
+  const playerKind = playerFormationAssignmentKind(player);
+  const playerRole = canonicalPosition(player.position || player.role);
+  let penalty = 0;
 
-function assignedFormationRole(
-  player: Pick<Player, "position" | "role">,
-  target: FormationTargetKind,
-  fallback: string,
-) {
-  const kind = playerFormationAssignmentKind(player);
-  if (kind === "GK") return "GK";
-  if (kind === "STRIKER" && target === "ATT") return "ST";
-  if (kind === "WINGER" && (target === "MID" || target === "ATT")) return canonicalPosition(player.position || player.role);
-  if (kind === "DEFENDER" && target === "DEF") return player.position || player.role;
-  if (kind === "MIDFIELDER" && target === "MID") return player.position || player.role;
-  return fallback;
+  if (playerKind === "GK") penalty = target.kind === "GK" ? 0 : 100_000;
+  else if (playerKind === "STRIKER") penalty = target.kind === "STRIKER" ? 0 : target.kind === "WINGER" ? 800 : 8_000;
+  else if (playerKind === "WINGER") penalty = target.kind === "WINGER" ? 0 : target.kind === "MIDFIELDER" ? 90 : target.kind === "DEFENDER" ? 760 : 2_400;
+  else if (playerKind === "DEFENDER") penalty = target.kind === "DEFENDER" ? 0 : target.kind === "MIDFIELDER" ? 750 : 5_000;
+  else penalty = target.kind === "MIDFIELDER" ? 0 : target.kind === "DEFENDER" ? 270 : target.kind === "WINGER" ? 160 : 1_000;
+
+  if (playerKind === "GK" || target.kind === "GK") return penalty;
+  if (formationLane(player.position || player.role) === target.lane) penalty -= 50;
+  else if (formationLane(player.position || player.role) !== "CENTRE" && target.lane !== "CENTRE") penalty += 140;
+  else penalty += 24;
+  if (playerRole === canonicalPosition(target.role)) penalty -= 35;
+  return penalty;
 }
 
 /**
@@ -666,9 +693,9 @@ function createRolePreservingFormationSlots(
 
     openTargetIndexes.forEach((targetIndex) => {
       const target = targets[targetIndex];
-      const targetKind = formationTargetKind(target);
+      const targetProfile = formationTargetProfile(id, targetIndex, target);
       const movement = Math.hypot(target.x - current.x, target.y - current.y);
-      const score = formationAssignmentPenalty(player, targetKind) + movement;
+      const score = formationAssignmentPenalty(player, targetProfile) + movement * 0.35;
       if (score < selectedScore || (score === selectedScore && targetIndex < selectedTargetIndex)) {
         selectedScore = score;
         selectedTargetIndex = targetIndex;
@@ -678,12 +705,10 @@ function createRolePreservingFormationSlots(
     if (selectedTargetIndex < 0) return;
     openTargetIndexes.delete(selectedTargetIndex);
     const target = targets[selectedTargetIndex];
-    const targetKind = formationTargetKind(target);
-    const fallbackRole = resolvePitchPosition(target.x, target.y).code;
     result[playerIndex] = {
       x: target.x,
       y: target.y,
-      role: assignedFormationRole(player, targetKind, fallbackRole),
+      role: formationTargetProfile(id, selectedTargetIndex, target).role,
     };
   });
 
