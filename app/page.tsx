@@ -590,6 +590,106 @@ function canonicalPosition(position: string) {
   return "CM";
 }
 
+type FormationAssignmentKind = "GK" | "DEFENDER" | "MIDFIELDER" | "WINGER" | "STRIKER";
+type FormationTargetKind = "GK" | "DEF" | "MID" | "ATT";
+
+function playerFormationAssignmentKind(player: Pick<Player, "position" | "role">): FormationAssignmentKind {
+  const position = canonicalPosition(player.position || player.role);
+  if (position === "GK") return "GK";
+  if (position === "ST") return "STRIKER";
+  if (position === "LW" || position === "RW") return "WINGER";
+  if (["RB", "LB", "RWB", "LWB", "CB"].includes(position)) return "DEFENDER";
+  return "MIDFIELDER";
+}
+
+function formationTargetKind(slot: FormationSlot): FormationTargetKind {
+  if (slot.x < 17) return "GK";
+  if (slot.x < 40) return "DEF";
+  if (slot.x < 80) return "MID";
+  return "ATT";
+}
+
+function formationAssignmentPriority(player: Pick<Player, "position" | "role">) {
+  const kind = playerFormationAssignmentKind(player);
+  return ({ GK: 0, STRIKER: 1, DEFENDER: 2, WINGER: 3, MIDFIELDER: 4 } as const)[kind];
+}
+
+function formationAssignmentPenalty(
+  player: Pick<Player, "position" | "role">,
+  target: FormationTargetKind,
+) {
+  const kind = playerFormationAssignmentKind(player);
+  if (kind === "GK") return target === "GK" ? 0 : 100_000;
+  if (kind === "STRIKER") return target === "ATT" ? 0 : target === "MID" ? 5_000 : 9_000;
+  if (kind === "DEFENDER") return target === "DEF" ? 0 : target === "MID" ? 1_000 : 5_000;
+  if (kind === "WINGER") return target === "ATT" ? 0 : target === "MID" ? 100 : 2_500;
+  return target === "MID" ? 0 : target === "DEF" ? 500 : 900;
+}
+
+function assignedFormationRole(
+  player: Pick<Player, "position" | "role">,
+  target: FormationTargetKind,
+  fallback: string,
+) {
+  const kind = playerFormationAssignmentKind(player);
+  if (kind === "GK") return "GK";
+  if (kind === "STRIKER" && target === "ATT") return "ST";
+  if (kind === "WINGER" && (target === "MID" || target === "ATT")) return canonicalPosition(player.position || player.role);
+  if (kind === "DEFENDER" && target === "DEF") return player.position || player.role;
+  if (kind === "MIDFIELDER" && target === "MID") return player.position || player.role;
+  return fallback;
+}
+
+/**
+ * Maps people to a formation by role family, not by the order of the squad array.
+ * This keeps a centre-forward in the centre-forward slot when changing shape.
+ */
+function createRolePreservingFormationSlots(
+  id: TacticId,
+  layouts: Record<TacticId, FormationSlot[]>,
+  lineup: Player[],
+  currentSlots: Slot[] = [],
+): Slot[] {
+  const targets = (layouts[id] ?? formationSlots.control).slice(0, lineup.length);
+  const openTargetIndexes = new Set(targets.map((_, index) => index));
+  const result: Slot[] = Array.from({ length: lineup.length }, () => ({ x: 50, y: 50, role: "CM" }));
+  const playerIndexes = lineup.map((_, index) => index).sort((left, right) => {
+    const priorityDifference = formationAssignmentPriority(lineup[left]) - formationAssignmentPriority(lineup[right]);
+    return priorityDifference || left - right;
+  });
+
+  playerIndexes.forEach((playerIndex) => {
+    const player = lineup[playerIndex];
+    const current = currentSlots[playerIndex] ?? { x: 50, y: 50, role: player.position };
+    let selectedTargetIndex = -1;
+    let selectedScore = Number.POSITIVE_INFINITY;
+
+    openTargetIndexes.forEach((targetIndex) => {
+      const target = targets[targetIndex];
+      const targetKind = formationTargetKind(target);
+      const movement = Math.hypot(target.x - current.x, target.y - current.y);
+      const score = formationAssignmentPenalty(player, targetKind) + movement;
+      if (score < selectedScore || (score === selectedScore && targetIndex < selectedTargetIndex)) {
+        selectedScore = score;
+        selectedTargetIndex = targetIndex;
+      }
+    });
+
+    if (selectedTargetIndex < 0) return;
+    openTargetIndexes.delete(selectedTargetIndex);
+    const target = targets[selectedTargetIndex];
+    const targetKind = formationTargetKind(target);
+    const fallbackRole = resolvePitchPosition(target.x, target.y).code;
+    result[playerIndex] = {
+      x: target.x,
+      y: target.y,
+      role: assignedFormationRole(player, targetKind, fallbackRole),
+    };
+  });
+
+  return result;
+}
+
 type FormationModelGroup = "GK" | "DEF" | "MID" | "ATT";
 const formationModelTactics = ["control", "press", "chase", "lock"] as const;
 type FormationModelTactic = typeof formationModelTactics[number];
@@ -762,11 +862,14 @@ function createConfirmedTacticsForSquad(
   layouts: Record<TacticId, FormationSlot[]>,
   lineup: Player[],
   bench: Player[],
+  initialSlots: Slot[] = createFormationSlots("control", layouts).slice(0, lineup.length),
 ): Record<TacticId, ConfirmedTacticSnapshot> {
   return Object.fromEntries(tactics.map((tactic) => [tactic.id, {
     lineup: lineup.map((player) => ({ ...player })),
     bench: bench.map((player) => ({ ...player })),
-    slots: createFormationSlots(tactic.id, layouts).slice(0, lineup.length),
+    slots: tactic.id === "control"
+      ? initialSlots.map((slot) => ({ ...slot }))
+      : createRolePreservingFormationSlots(tactic.id, layouts, lineup, initialSlots),
     details: cloneTacticDetails(tactic.details),
   }]));
 }
@@ -917,7 +1020,7 @@ export default function Home() {
     setBench(nextBench);
     setActiveTacticId("control");
     setSlots(customSlots);
-    setConfirmedTactics(createConfirmedTacticsForSquad(savedTactics, tacticLayouts, nextLineup, nextBench));
+    setConfirmedTactics(createConfirmedTacticsForSquad(savedTactics, tacticLayouts, nextLineup, nextBench, customSlots));
     setCurrentMatchMinutes({});
     setPreviousMatchMinutes(null);
     setSelectedPlayer(null);
@@ -958,7 +1061,7 @@ export default function Home() {
   function applyTactic(id: TacticId, source: "direct" | "coach" = "direct") {
     const next = savedTactics.find((tactic) => tactic.id === id) ?? savedTactics[0];
     setActiveTacticId(id);
-    setSlots(createFormationSlots(id, tacticLayouts).slice(0, lineup.length));
+    setSlots(createRolePreservingFormationSlots(id, tacticLayouts, lineup, slots));
     setHoveredZone(null);
     setSelectedPlayer(null);
     setSwitchCount((count) => count + 1);
@@ -1012,7 +1115,7 @@ export default function Home() {
         })),
       },
     };
-    const createdSlots = createFormationSlots(id, { ...tacticLayouts, [id]: layout }).slice(0, lineup.length);
+    const createdSlots = createRolePreservingFormationSlots(id, { ...tacticLayouts, [id]: layout }, lineup, slots);
 
     setSavedTactics((current) => [...current, nextTactic]);
     setTacticLayouts((current) => ({ ...current, [id]: layout.map((slot) => ({ ...slot })) }));
@@ -1381,7 +1484,7 @@ export default function Home() {
     const target = savedTactics.find((tactic) => tactic.id === result.recommendedTacticId);
     if (!target) return;
     const details = mergeAiRecommendationIntoDetails(target.details, result, lineup);
-    const baseSlots = createFormationSlots(target.id, tacticLayouts).slice(0, lineup.length);
+    const baseSlots = createRolePreservingFormationSlots(target.id, tacticLayouts, lineup, slots);
     const positions = new Map(result.playerPositions.map((position) => [position.playerId, position]));
     const nextSlots = baseSlots.map((slot, index) => {
       const position = positions.get(lineup[index]?.id);
