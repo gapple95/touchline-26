@@ -96,6 +96,10 @@ test("keeps the core interaction contract in source", async () => {
   assert.match(page, /formationSlotRoles/);
   assert.match(page, /"LDM", "RDM", "CAM", "LW", "RW", "ST"/);
   assert.match(page, /formationTargetProfile/);
+  assert.match(page, /tacticFooterOpen/);
+  assert.match(page, /if \(coachDrawerOpen\) setCoachDrawerOpen\(false\)/);
+  assert.match(css, /tactic-footer-toggle/);
+  assert.match(css, /--tactic-footer-height: 58px/);
   assert.match(page, /setConfirmedTactics\(createConfirmedTacticsForSquad\(savedTactics, tacticLayouts, nextLineup, nextBench, customSlots\)\)/);
   assert.match(page + css, /player-stamina/);
   assert.match(page + css, /player-action-stamina/);

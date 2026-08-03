@@ -2028,6 +2028,7 @@ function MatchRoom(props: MatchRoomProps) {
   const [opponentSnapshotMinute, setOpponentSnapshotMinute] = useState(0);
   const [confirmedOpponentIndex, setConfirmedOpponentIndex] = useState(-1);
   const [coachDrawerOpen, setCoachDrawerOpen] = useState(false);
+  const [tacticFooterOpen, setTacticFooterOpen] = useState(false);
   const [newTacticName, setNewTacticName] = useState("");
   const [newTacticNameError, setNewTacticNameError] = useState("");
   const [baseTacticId, setBaseTacticId] = useState<TacticId>(props.activeTactic.id);
@@ -2385,6 +2386,7 @@ function MatchRoom(props: MatchRoomProps) {
   }
 
   function handlePitchGroundClick() {
+    if (coachDrawerOpen) setCoachDrawerOpen(false);
     if (passLinking || pendingPass) cancelPassAssignment();
     if (relationshipLinking) cancelRelationshipAssignment();
     if (playerMenuOpen) setPlayerMenuOpen(false);
@@ -2392,6 +2394,7 @@ function MatchRoom(props: MatchRoomProps) {
   }
 
   function handlePitchPlayerClick(targetIndex: number) {
+    if (coachDrawerOpen) setCoachDrawerOpen(false);
     if (relationshipLinking && props.selectedPlayer !== null && selectedPlayerData) {
       if (targetIndex === props.selectedPlayer) {
         cancelRelationshipAssignment();
@@ -2502,9 +2505,15 @@ function MatchRoom(props: MatchRoomProps) {
       </section>
       </header>
 
-      <section className={`match-workspace ${coachDrawerOpen ? "coach-open" : "coach-collapsed"}`}>
-        <aside className="tactic-panel panel">
-          <SectionTitle title="저장 전술" />
+      <section className={`match-workspace ${coachDrawerOpen ? "coach-open" : "coach-collapsed"} ${tacticFooterOpen ? "tactic-footer-open" : "tactic-footer-collapsed"}`}>
+        <aside className={`tactic-panel panel ${tacticFooterOpen ? "open" : "collapsed"}`}>
+          <div className="tactic-footer-heading">
+            <SectionTitle title="저장 전술" />
+            <button type="button" className="tactic-footer-toggle" onClick={() => setTacticFooterOpen((open) => !open)} aria-expanded={tacticFooterOpen}>
+              <span>{props.savedTactics.length}개 전술</span><b>{tacticFooterOpen ? "전술 접기" : "전술 펼치기"}</b><i>{tacticFooterOpen ? "↓" : "↑"}</i>
+            </button>
+          </div>
+          <div className="tactic-footer-content">
           <div className="tactic-list">
             {props.savedTactics.map((tactic) => (
               <button key={tactic.id} className={`tactic-card ${tactic.tone} ${props.activeTactic.id === tactic.id ? "active" : ""}`} onClick={() => props.onTactic(tactic.id)} aria-pressed={props.activeTactic.id === tactic.id}>
@@ -2536,6 +2545,7 @@ function MatchRoom(props: MatchRoomProps) {
               <button className="create-tactic-button" type="submit" disabled={hasDuplicateTacticName}>전술 생성하고 적용</button>
             </form>
           )}
+          </div>
         </aside>
 
         <section className="board-panel panel">
